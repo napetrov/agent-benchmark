@@ -29,7 +29,10 @@ Awareness and work are never blended into one scalar (ADR §3.4).
 
 from __future__ import annotations
 
-import tomllib
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # Python 3.10 fallback
+    import tomli as tomllib  # type: ignore[no-redef]
 from dataclasses import dataclass, field
 from pathlib import Path
 
