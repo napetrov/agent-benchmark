@@ -54,6 +54,11 @@ See [COVERAGE.md](./COVERAGE.md) for the broader oneTBB API/concept coverage mat
 | [intel-perf-shared-counter](./intel-perf-shared-counter/) | Intel performance skills | medium | Replace a hot global atomic statistics counter with local aggregation |
 | [intel-perf-missing-restrict](./intel-perf-missing-restrict/) | Intel performance skills | medium | Add a valid C `restrict` contract to remove aliasing/vectorization barriers |
 | [intel-perf-hotspot-report](./intel-perf-hotspot-report/) | Intel performance skills | medium | Produce a structured hotspot report from provided perf artifacts |
+| [intel-perf-crc32c](./intel-perf-crc32c/) | Intel performance skills | medium | Replace a bit-at-a-time CRC32C software loop with the SSE4.2 `crc32` instruction (CPU dispatch + portable fallback), matching the exact checksum |
+| [intel-perf-cv-herd](./intel-perf-cv-herd/) | Intel performance skills | medium | Diagnose a condition-variable thundering herd (`notify_all` per job) and reduce wakeups without losing or double-processing jobs |
+| [intel-perf-mutex-rwlock](./intel-perf-mutex-rwlock/) | Intel performance skills | medium | Convert a read-mostly `std::mutex` bottleneck to a reader-writer lock (`std::shared_mutex`), preserving the write path and correctness |
+| [intel-perf-ttas-spinlock](./intel-perf-ttas-spinlock/) | Intel performance skills | medium | Convert a test-and-set spinlock to test-and-test-and-set to stop cache-line bouncing under contention, preserving mutual exclusion |
+| [intel-perf-simd-sort](./intel-perf-simd-sort/) | Intel performance skills | hard | Replace `std::sort` on floats with a faster non-comparison/vectorized sort (stability not required), matching the sorted multiset signature |
 
 > The oneTBB tasks build entirely from `ubuntu:22.04` + standard apt and are
 > verified in the `terminal-bench-verify` CI job. The oneMKL / oneDPL / IPP /
