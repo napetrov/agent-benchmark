@@ -13,6 +13,7 @@ products:
   # ── Threading & Parallelism ──────────────────────────────────────────────
 
   onetbb:
+    coverage_status: covered
     name: oneTBB
     description: >
       oneAPI Threading Building Blocks (oneTBB) is a C++ template library for
@@ -37,6 +38,7 @@ products:
   # ── Math & Numerics ──────────────────────────────────────────────────────
 
   onemkl:
+    coverage_status: covered
     name: oneMKL
     description: >
       oneAPI Math Kernel Library (oneMKL) provides highly optimized routines:
@@ -75,6 +77,7 @@ products:
       - url:https://docs.openvino.ai/2024/index.html
 
   onedal:
+    coverage_status: covered
     name: oneDAL
     description: >
       oneAPI Data Analytics Library (oneDAL) provides optimized algorithms for
@@ -87,6 +90,7 @@ products:
       - url:https://uxlfoundation.github.io/oneDAL/
 
   sklearnex:
+    coverage_status: questions-only
     name: scikit-learn Intel Extension (sklearnex)
     description: >
       Intel Extension for scikit-learn (sklearnex) is a drop-in acceleration
@@ -102,6 +106,7 @@ products:
   # ── Data Parallel Python ──────────────────────────────────────────────────
 
   onedpl:
+    coverage_status: questions-only
     name: oneDPL
     description: >
       oneAPI DPC++ Library (oneDPL) extends C++ STL algorithms for parallel and
@@ -124,6 +129,7 @@ products:
       - url:https://intelpython.github.io/dpctl/
 
   dpnp:
+    coverage_status: questions-only
     name: DPNP (Data Parallel NumPy)
     description: >
       DPNP is a NumPy-compatible array library that executes on Intel GPUs and
@@ -213,6 +219,7 @@ products:
   # ── Image & Signal Processing ────────────────────────────────────────────
 
   ipp:
+    coverage_status: questions-only
     name: Intel IPP (Integrated Performance Primitives)
     description: >
       Intel IPP provides optimized functions for signal processing, image
