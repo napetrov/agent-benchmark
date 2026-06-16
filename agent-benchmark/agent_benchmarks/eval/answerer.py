@@ -450,5 +450,5 @@ class Answerer:
     
     @staticmethod
     def _get_timestamp() -> str:
-        from datetime import datetime
-        return datetime.utcnow().isoformat() + "Z"
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"

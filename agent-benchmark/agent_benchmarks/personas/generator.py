@@ -217,8 +217,8 @@ class PersonaGenerator:
     
     def _get_timestamp(self) -> str:
         """Get ISO format timestamp."""
-        from datetime import datetime
-        return datetime.utcnow().isoformat() + "Z"
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     
     def save_personas(self, personas: Dict[str, Any], output_path: Path):
         """Save generated personas to JSON file."""

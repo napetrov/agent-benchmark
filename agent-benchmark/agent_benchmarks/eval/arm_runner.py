@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -294,7 +294,7 @@ class ArmRunner:
         """Assemble the serialisable arms-comparison artifact."""
         out: Dict[str, Any] = {
             "schema_version": "arms.v1",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             "library_name": library_name,
             "model": self.model,
             "provider": self.provider,
