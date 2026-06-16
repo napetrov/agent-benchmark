@@ -3,6 +3,40 @@
 This document tracks which Intel oneAPI APIs and concepts are covered by
 terminal-bench-style coding tasks, and the planned gaps per component.
 
+## Product coverage matrix (questions × tasks)
+
+<!-- GENERATED: `python -m agent_benchmarks.coverage` (ADR Phase A coverage
+contract). Awareness = a golden question set exists; Work = number of
+terminal-bench tasks whose `task.toml` tags name this product. Status is the
+honest effective state (`covered` needs both halves; `questions-only` and
+`planned` are visible, tracked gaps — never silent). Edit `products.yaml`
+`coverage_status` and add tasks/questions, not this table, then regenerate. -->
+
+| Product | Awareness (questions) | Work (tasks) | Status |
+| --- | --- | --- | --- |
+| `advisor` | ⬜ | ⬜ 0 | planned |
+| `dpctl` | ⬜ | ⬜ 0 | planned |
+| `dpnp` | ✅ | ⬜ 0 | questions-only |
+| `gdb_intel` | ⬜ | ⬜ 0 | planned |
+| `icx` | ⬜ | ⬜ 0 | planned |
+| `ifort` | ⬜ | ⬜ 0 | planned |
+| `inspector` | ⬜ | ⬜ 0 | planned |
+| `intelmpi` | ⬜ | ⬜ 0 | planned |
+| `ipp` | ⬜ | ✅ 1 | planned |
+| `numba_dpex` | ⬜ | ⬜ 0 | planned |
+| `oneccl` | ⬜ | ⬜ 0 | planned |
+| `onedal` | ✅ | ✅ 1 | covered |
+| `onednn` | ⬜ | ⬜ 0 | planned |
+| `onedpl` | ⬜ | ✅ 3 | planned |
+| `onemath` | ⬜ | ⬜ 0 | planned |
+| `onemkl` | ✅ | ✅ 3 | covered |
+| `onetbb` | ✅ | ✅ 9 | covered |
+| `openmp` | ⬜ | ⬜ 0 | planned |
+| `openvino` | ⬜ | ⬜ 0 | planned |
+| `optimization_guide` | ⬜ | ⬜ 0 | planned |
+| `sklearnex` | ⬜ | ✅ 1 | planned |
+| `vtune` | ⬜ | ⬜ 0 | planned |
+
 ## oneTBB
 
 This matrix tracks which oneTBB APIs and concepts are covered by terminal-bench-style coding tasks.
