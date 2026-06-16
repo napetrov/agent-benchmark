@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agent_benchmarks.llm import llm_call_with_usage
+from agent_benchmarks.eval.cells import Cell
 from agent_benchmarks.treatments.base import Treatment
 
 logger = logging.getLogger(__name__)
@@ -302,6 +303,7 @@ class ArmRunner:
             "plugin_set": self.plugin_set["plugin_set"],
             "plugin_set_id": self.plugin_set["plugin_set_id"],
             "plugins": self.plugin_set["plugins"],
+            "cell": Cell(self.model, self.harness, self.plugin_set["plugin_set"]).key,
             "arms": self.arm_names,
             "baseline_arm": baseline_arm,
             "total_questions": len(records),
