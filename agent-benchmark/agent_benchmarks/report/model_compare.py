@@ -57,6 +57,23 @@ def load_run(path: str) -> dict[str, Any]:
         raise SystemExit(f"Error: Invalid JSON in {path}: {exc}") from exc
 
 
+def normalize_difficulty(difficulty: Any) -> str:
+    """Normalize difficulty to string format.
+
+    Handles both string format ("easy"/"medium"/"hard") and numeric format (1/2/3).
+    Returns normalized string or "unknown" if unrecognized.
+    """
+    if isinstance(difficulty, str):
+        # Already string format - return as-is (lowercased for consistency)
+        return difficulty.lower()
+    elif isinstance(difficulty, int):
+        # Numeric format: 1=easy, 2=medium, 3=hard
+        mapping = {1: "easy", 2: "medium", 3: "hard"}
+        return mapping.get(difficulty, "unknown")
+    else:
+        return "unknown"
+
+
 # ---------------------------------------------------------------------------
 # Consistency validation
 # ---------------------------------------------------------------------------
@@ -190,7 +207,7 @@ def extract_scores(
                         "question_id": qid,
                         "question_text": evaluation.get("question_text", ""),
                         "category": evaluation.get("category", ""),
-                        "difficulty": evaluation.get("difficulty", "unknown"),
+                        "difficulty": normalize_difficulty(evaluation.get("difficulty", "unknown")),
                         "persona": evaluation.get("persona", ""),
                         "without_docs": baseline_score,
                         "with_docs": treatment_score,
@@ -244,7 +261,7 @@ def extract_scores(
                         "question_id": qid,
                         "question_text": answer.get("question_text", ""),
                         "category": answer.get("category", ""),
-                        "difficulty": answer.get("difficulty", "unknown"),
+                        "difficulty": normalize_difficulty(answer.get("difficulty", "unknown")),
                         "persona": answer.get("persona", ""),
                         "without_docs": baseline_score,
                         "with_docs": treatment_score,
@@ -493,13 +510,14 @@ def generate_section_report(
             difficulty_groups[s["difficulty"]][run_id].append(s)
 
     if difficulty_groups:
-        header = "| Difficulty | N |" + "".join(
-            f" {rid} context | {rid} Δ |" for rid in run_ids
-        )
+        header = "| Difficulty | N | " + " | ".join(
+            f"{rid} context | {rid} Δ" for rid in run_ids
+        ) + " |"
+        separator = "|---|---:|" + "|".join([" :---: | :---: "] * len(run_ids)) + "|"
         lines += [
             "## By Difficulty (common questions only)",
             header,
-            "|---|---:|" + "|---:|---:|" * len(run_ids),
+            separator,
         ]
         for diff in ["easy", "beginner", "intermediate", "medium", "advanced", "hard"]:
             if diff not in difficulty_groups:
