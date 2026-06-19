@@ -12,7 +12,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from agent_benchmarks.llm import llm_call_with_usage, ChatOpenAI, ChatAnthropic, LANGCHAIN_AVAILABLE
-from agent_benchmarks.metrics.usage import to_record
+from agent_benchmarks.metrics.usage import UsageRecord, to_record
 
 from .reranker import SimpleReranker, SentenceTransformerReranker, SENTENCE_TRANSFORMERS_AVAILABLE
 
@@ -322,14 +322,20 @@ class Answerer:
     ) -> Dict[str, Any]:
         """Generate context-arm answer."""
         if not docs:
+            # No LLM call is made — emit a zero-cost/zero-token metrics block so
+            # this row carries the same telemetry shape as answered rows.
+            empty = UsageRecord(model=self.model, provider=self.provider,
+                                cost_usd=0.0, n_calls=0)
+            token_usage = empty.as_token_usage_dict()
+            token_usage["context_chars"] = 0
             return {
                 "answer": "[No documentation retrieved]",
                 "retrieved_docs": [],
                 "model": self.model,
                 "doc_source": "none",
                 "retrieval_metadata": retrieval_metadata if self.debug_retrieval else None,
-                "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
-                                "context_chars": 0},
+                "token_usage": token_usage,
+                "metrics": empty.as_metrics_dict(answer_chars=0),
             }
 
         # ~4k tokens at ~4 chars/token; keeps prompt within most models' context window

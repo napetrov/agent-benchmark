@@ -142,6 +142,8 @@ def to_record(
             ttft_sec=obj.get("ttft_sec"),
             model=obj.get("model", model) or model,
             provider=obj.get("provider", provider) or provider,
-            n_calls=int(obj.get("n_calls", 1) or 1),
+            # Preserve an explicit n_calls=0; only default to 1 when absent/None.
+            n_calls=(int(obj["n_calls"])
+                     if obj.get("n_calls") is not None else 1),
         )
     raise TypeError(f"Cannot coerce {type(obj).__name__} into UsageRecord")

@@ -152,6 +152,13 @@ def test_to_record_passthrough_backfills_provenance():
     assert rec.model == "m" and rec.provider == "p" and rec.total_tokens == 9
 
 
+def test_to_record_preserves_explicit_zero_n_calls():
+    # An explicit n_calls=0 (a no-LLM-call row) must not silently become 1.
+    assert to_record({"total_tokens": 0, "n_calls": 0}).n_calls == 0
+    # Absent n_calls still defaults to 1.
+    assert to_record({"total_tokens": 5}).n_calls == 1
+
+
 # ── streaming TTFT ───────────────────────────────────────────────────────────
 class _Delta:
     def __init__(self, content):
