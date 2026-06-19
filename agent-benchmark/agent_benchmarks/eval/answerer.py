@@ -12,6 +12,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from agent_benchmarks.llm import llm_call_with_usage, ChatOpenAI, ChatAnthropic, LANGCHAIN_AVAILABLE
+from agent_benchmarks.metrics.usage import to_record
 
 from .reranker import SimpleReranker, SentenceTransformerReranker, SENTENCE_TRANSFORMERS_AVAILABLE
 
@@ -352,8 +353,10 @@ class Answerer:
             api_key=self.api_key,
         )
 
-        # Attach context size to usage for analysis
-        usage["context_chars"] = context_chars
+        rec = to_record(usage, self.model, self.provider)
+        # Attach context size to the token_usage dict for analysis.
+        token_usage = rec.as_token_usage_dict()
+        token_usage["context_chars"] = context_chars
 
         result = {
             "answer": answer_text,
@@ -367,7 +370,8 @@ class Answerer:
             ],
             "model": self.model,
             "doc_source": docs[0].get("source", "unknown") if docs else "none",
-            "token_usage": usage,
+            "token_usage": token_usage,
+            "metrics": rec.as_metrics_dict(answer_chars=len(answer_text or "")),
         }
 
         # Add metadata if debug mode enabled
@@ -387,10 +391,12 @@ class Answerer:
             api_key=self.api_key,
         )
 
+        rec = to_record(usage, self.model, self.provider)
         return {
             "answer": answer_text,
             "model": self.model,
-            "token_usage": usage,
+            "token_usage": rec.as_token_usage_dict(),
+            "metrics": rec.as_metrics_dict(answer_chars=len(answer_text or "")),
         }
     
     def _build_output(self, answers: List[Dict[str, Any]]) -> Dict[str, Any]:

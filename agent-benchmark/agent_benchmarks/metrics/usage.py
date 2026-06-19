@@ -1,0 +1,147 @@
+"""Normalized per-run telemetry record.
+
+One shape for tokens, cache, cost, and latency returned by every LLM call (see
+``docs/decisions/2026-06-19-run-telemetry-metrics.md``). The ``llm.py``
+chokepoints build a :class:`UsageRecord`; runners accumulate it across agentic
+turns with ``+`` and serialize it into the per-row ``metrics{}`` block (plus the
+legacy 3-key ``token_usage`` alias).
+
+Extraction is deliberately defensive: any field a provider does not expose
+defaults to ``0`` / ``None`` rather than raising. ``cost_usd`` is ``None`` (not
+``0.0``) when no pricing is available — a missing price is not a free call.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from typing import Any, Optional
+
+
+@dataclass(frozen=True)
+class UsageRecord:
+    """Resource usage for one or more LLM calls."""
+
+    # tokens
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    reasoning_tokens: int = 0          # o1/o-style; 0 when absent
+    # cache (provider-dependent; 0 when not exposed)
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    # cost — None means "no pricing available", distinct from 0.0
+    cost_usd: Optional[float] = None
+    # latency
+    latency_sec: float = 0.0
+    ttft_sec: Optional[float] = None   # only when streaming; else None
+    # provenance / accumulation
+    model: str = ""
+    provider: str = ""
+    n_calls: int = 1
+
+    def __add__(self, other: "UsageRecord") -> "UsageRecord":
+        """Sum two records: tokens/cost/latency/n_calls add; first ttft wins.
+
+        ``cost_usd`` stays ``None`` only if *both* operands are ``None`` (one
+        priced + one unpriced call yields the priced subtotal, not ``None``).
+        ``model``/``provider`` are taken from whichever operand has them.
+        """
+        if other == 0:  # identity element, so sum([...]) works
+            return self
+        if not isinstance(other, UsageRecord):
+            return NotImplemented
+        if self.cost_usd is None and other.cost_usd is None:
+            cost = None
+        else:
+            cost = (self.cost_usd or 0.0) + (other.cost_usd or 0.0)
+        # First non-null TTFT (first token of the first turn) wins.
+        ttft = self.ttft_sec if self.ttft_sec is not None else other.ttft_sec
+        return UsageRecord(
+            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+            completion_tokens=self.completion_tokens + other.completion_tokens,
+            total_tokens=self.total_tokens + other.total_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
+            cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+            cost_usd=cost,
+            latency_sec=round(self.latency_sec + other.latency_sec, 6),
+            ttft_sec=ttft,
+            model=self.model or other.model,
+            provider=self.provider or other.provider,
+            n_calls=self.n_calls + other.n_calls,
+        )
+
+    __radd__ = __add__  # enables sum([...]) — 0 + record is handled in __add__
+
+    def as_token_usage_dict(self) -> dict:
+        """The legacy 3-key ``token_usage`` shape kept for backward compat."""
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+        }
+
+    def as_metrics_dict(self, answer_chars: Optional[int] = None) -> dict:
+        """The per-row ``metrics{}`` block (plugin ADR §3.3 field names).
+
+        ``answer_chars`` populates ``raw_answer_chars`` / ``final_answer_chars``;
+        the two are equal until an output-shaper plugin (Phase C) shortens the
+        text after the model has produced it.
+        """
+        m: dict[str, Any] = {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
+            "cache_read_tokens": self.cache_read_tokens,
+            "cache_write_tokens": self.cache_write_tokens,
+            "cost_usd": self.cost_usd,
+            "latency_sec": round(self.latency_sec, 4),
+            "ttft_sec": round(self.ttft_sec, 4) if self.ttft_sec is not None else None,
+            "n_calls": self.n_calls,
+        }
+        if answer_chars is not None:
+            m["raw_answer_chars"] = answer_chars
+            m["final_answer_chars"] = answer_chars
+        return m
+
+    def with_latency(self, latency_sec: float, ttft_sec: Optional[float] = None) -> "UsageRecord":
+        """Return a copy with latency/TTFT filled in (extraction-time helper)."""
+        return replace(self, latency_sec=latency_sec, ttft_sec=ttft_sec)
+
+
+def to_record(
+    obj: Any,
+    model: str = "",
+    provider: str = "",
+) -> UsageRecord:
+    """Coerce a usage value into a :class:`UsageRecord`.
+
+    Accepts a :class:`UsageRecord` (returned as-is, back-filling
+    model/provider), or a legacy ``{prompt_tokens, completion_tokens,
+    total_tokens, ...}`` dict (e.g. from a test stub). ``None`` yields an empty
+    record. This keeps callers tolerant of both the new return type and older
+    dict-shaped stubs.
+    """
+    if isinstance(obj, UsageRecord):
+        if (not obj.model and model) or (not obj.provider and provider):
+            return replace(obj, model=obj.model or model, provider=obj.provider or provider)
+        return obj
+    if obj is None:
+        return UsageRecord(model=model, provider=provider, n_calls=0, total_tokens=0)
+    if isinstance(obj, dict):
+        return UsageRecord(
+            prompt_tokens=int(obj.get("prompt_tokens", 0) or 0),
+            completion_tokens=int(obj.get("completion_tokens", 0) or 0),
+            total_tokens=int(obj.get("total_tokens", 0) or 0),
+            reasoning_tokens=int(obj.get("reasoning_tokens", 0) or 0),
+            cache_read_tokens=int(obj.get("cache_read_tokens", 0) or 0),
+            cache_write_tokens=int(obj.get("cache_write_tokens", 0) or 0),
+            cost_usd=obj.get("cost_usd"),
+            latency_sec=float(obj.get("latency_sec", 0.0) or 0.0),
+            ttft_sec=obj.get("ttft_sec"),
+            model=obj.get("model", model) or model,
+            provider=obj.get("provider", provider) or provider,
+            n_calls=int(obj.get("n_calls", 1) or 1),
+        )
+    raise TypeError(f"Cannot coerce {type(obj).__name__} into UsageRecord")

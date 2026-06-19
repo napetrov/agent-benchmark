@@ -14,9 +14,11 @@ sandbox isolation.
 
 import json
 import logging
+import time
 from typing import Any, Dict, List
 
-from agent_benchmarks.llm import chat_completion
+from agent_benchmarks.llm import chat_completion, _extract_usage
+from agent_benchmarks.metrics.usage import UsageRecord
 from agent_benchmarks.treatments.base import Tool
 
 logger = logging.getLogger(__name__)
@@ -60,8 +62,10 @@ def run_agent_loop(
 ) -> Dict[str, Any]:
     """Drive a tool-calling conversation to a final answer.
 
-    Returns a dict with: ``answer``, ``transcript`` (list of tool-call records),
-    ``iterations``, ``token_usage``, and ``stopped_reason``.
+    Returns a dict with: ``answer``, ``transcript`` (list of tool-call records,
+    each with ``tool_elapsed_sec``), ``iterations``, ``stopped_reason``,
+    ``usage`` (a :class:`UsageRecord` accumulated across turns), ``token_usage``
+    (the legacy 3-key alias), and ``per_turn`` (per-turn latency/token detail).
     """
     by_name = {t.name: t for t in tools}
     schemas = [t.schema() for t in tools]
@@ -72,21 +76,27 @@ def run_agent_loop(
     messages.append({"role": "user", "content": question})
 
     transcript: List[Dict[str, Any]] = []
-    usage_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    usage_total = UsageRecord(model=model, provider=provider, n_calls=0)
+    per_turn: List[Dict[str, Any]] = []
     stopped_reason = "answered"
     answer = ""
 
     iteration = 0
     while iteration < max_iterations:
         iteration += 1
+        t_turn = time.time()
         resp = chat_completion(
             messages=messages, model=model, provider=provider,
             tools=schemas, api_key=api_key,
         )
-        usage = getattr(resp, "usage", None)
-        if usage:
-            for k in usage_total:
-                usage_total[k] += getattr(usage, k, 0) or 0
+        turn_usage = _extract_usage(resp, model, provider, latency_sec=time.time() - t_turn)
+        usage_total = usage_total + turn_usage
+        per_turn.append({
+            "latency_sec": round(turn_usage.latency_sec, 4),
+            "prompt_tokens": turn_usage.prompt_tokens,
+            "completion_tokens": turn_usage.completion_tokens,
+            "cache_read_tokens": turn_usage.cache_read_tokens,
+        })
 
         message = resp.choices[0].message
         tool_calls = _extract_tool_calls(message)
@@ -119,6 +129,7 @@ def run_agent_loop(
             except json.JSONDecodeError:
                 args = {}
             tool = by_name.get(name)
+            t_tool = time.time()
             if tool is None:
                 result = f"(unknown tool: {name})"
             else:
@@ -128,7 +139,8 @@ def run_agent_loop(
                     logger.exception("Tool %s raised", name)
                     result = f"(tool error: {exc})"
             transcript.append({"tool": name, "arguments": args,
-                               "result_preview": result[:200]})
+                               "result_preview": result[:200],
+                               "tool_elapsed_sec": round(time.time() - t_tool, 4)})
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc_id,
@@ -141,11 +153,16 @@ def run_agent_loop(
             "role": "user",
             "content": "Provide your final answer now without calling tools.",
         })
+        t_turn = time.time()
         resp = chat_completion(messages=messages, model=model, provider=provider, api_key=api_key)
-        usage = getattr(resp, "usage", None)
-        if usage:
-            for k in usage_total:
-                usage_total[k] += getattr(usage, k, 0) or 0
+        turn_usage = _extract_usage(resp, model, provider, latency_sec=time.time() - t_turn)
+        usage_total = usage_total + turn_usage
+        per_turn.append({
+            "latency_sec": round(turn_usage.latency_sec, 4),
+            "prompt_tokens": turn_usage.prompt_tokens,
+            "completion_tokens": turn_usage.completion_tokens,
+            "cache_read_tokens": turn_usage.cache_read_tokens,
+        })
         answer = _message_text(resp.choices[0].message)
 
     return {
@@ -154,5 +171,7 @@ def run_agent_loop(
         "iterations": iteration,
         "tool_call_count": len(transcript),
         "stopped_reason": stopped_reason,
-        "token_usage": usage_total,
+        "usage": usage_total,
+        "token_usage": usage_total.as_token_usage_dict(),
+        "per_turn": per_turn,
     }

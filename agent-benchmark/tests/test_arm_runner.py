@@ -86,6 +86,33 @@ def test_build_output_without_evaluations(monkeypatch):
     assert output["arms"] == ["baseline"]
 
 
+def test_arm_runner_emits_metrics_block_and_alias(monkeypatch):
+    captured = []
+    _patch_llm(monkeypatch, captured)
+    runner = ArmRunner([BaselineTreatment()])
+    records = runner.run("oneTBB", QUESTIONS[:1], concurrency=1)
+    arm = records[0]["arms"]["baseline"]
+
+    # Legacy alias preserved.
+    assert arm["token_usage"] == {"prompt_tokens": 10, "completion_tokens": 5,
+                                  "total_tokens": 15}
+    # New metrics block present with required + optional fields.
+    m = arm["metrics"]
+    assert m["prompt_tokens"] == 10 and m["completion_tokens"] == 5
+    assert m["total_tokens"] == 15
+    assert m["cost_usd"] is None          # dict stub carries no pricing
+    assert "latency_sec" in m and "ttft_sec" in m
+    assert m["raw_answer_chars"] == m["final_answer_chars"]
+
+    output = runner.build_output("oneTBB", records)
+    cs = output["cost_summary"]["baseline"]
+    assert cs["n"] == 1
+    assert cs["total_tokens"] == 15
+    assert cs["total_cost_usd"] is None
+    assert cs["cost_known_n"] == 0   # dict stub has no pricing
+    assert cs["mean_ttft_sec"] is None
+
+
 def test_arm_runner_stamps_plugin_set_and_harness(monkeypatch):
     captured = []
     _patch_llm(monkeypatch, captured)

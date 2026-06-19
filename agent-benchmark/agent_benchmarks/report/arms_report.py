@@ -48,6 +48,41 @@ def render_arms_report(data: Dict[str, Any]) -> str:
         lines.append("_No evaluations available (answers were not judged)._")
         lines.append("")
 
+    # Cost & latency: per-arm token/cost/latency rollup from the metrics blocks.
+    cost_summary = data.get("cost_summary")
+    if cost_summary:
+        lines.append("## Cost & latency")
+        lines.append("")
+        lines.append("| Arm | Cost (USD) | Prompt tok | Completion tok | "
+                     "Mean latency (s) | Mean TTFT (s) | Cache hit | n |")
+        lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+        for arm in arms:
+            cs = cost_summary.get(arm)
+            if not cs:
+                continue
+            cost = cs.get("total_cost_usd")
+            if cost is None:
+                cost_s = "—"
+            else:
+                cost_s = f"${cost:.4f}"
+                # Flag a partial total when some rows lacked litellm pricing.
+                known = cs.get("cost_known_n")
+                n = cs.get("n")
+                if known is not None and n is not None and known < n:
+                    cost_s += f" ({known}/{n})"
+            ttft = cs.get("mean_ttft_sec")
+            ttft_s = "—" if ttft is None else f"{ttft:.3f}"
+            chr_ = cs.get("cache_hit_ratio")
+            chr_s = "—" if chr_ is None else f"{chr_:.1%}"
+            lat = cs.get("mean_latency_sec")
+            lat_s = "—" if lat is None else f"{lat:.3f}"
+            lines.append(
+                f"| `{arm}` | {cost_s} | {cs.get('prompt_tokens', 0)} | "
+                f"{cs.get('completion_tokens', 0)} | {lat_s} | {ttft_s} | "
+                f"{chr_s} | {cs.get('n', 0)} |"
+            )
+        lines.append("")
+
     # Agentic-usage summary: how often each agentic arm actually used its tools.
     answers = data.get("answers", [])
     agentic_stats: Dict[str, Dict[str, Any]] = {}

@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from agent_benchmarks.llm import llm_call_with_usage
 from agent_benchmarks.eval.cells import Cell
+from agent_benchmarks.metrics.usage import to_record
 from agent_benchmarks.treatments.base import Treatment
 
 logger = logging.getLogger(__name__)
@@ -165,6 +166,7 @@ class ArmRunner:
             return {"error": f"generation_failed: {exc}", "answer": None,
                     "metadata": cfg.metadata}
 
+        rec = to_record(usage, self.model, self.provider)
         return {
             "answer": answer_text,
             "model": self.model,
@@ -180,7 +182,8 @@ class ArmRunner:
                 }
                 for c in cfg.injected_context
             ],
-            "token_usage": usage,
+            "token_usage": rec.as_token_usage_dict(),
+            "metrics": rec.as_metrics_dict(answer_chars=len(answer_text or "")),
             "metadata": cfg.metadata,
             "elapsed_sec": round(time.time() - t0, 2),
         }
@@ -206,6 +209,11 @@ class ArmRunner:
             return {"error": f"agent_failed: {exc}", "answer": None,
                     "metadata": cfg.metadata}
 
+        rec = to_record(result.get("usage") or result["token_usage"], self.model, self.provider)
+        metrics = rec.as_metrics_dict(answer_chars=len(result["answer"] or ""))
+        per_turn = result.get("per_turn")
+        if per_turn is not None:
+            metrics["per_turn"] = per_turn
         return {
             "answer": result["answer"],
             "model": self.model,
@@ -219,7 +227,8 @@ class ArmRunner:
             "tool_call_count": result["tool_call_count"],
             "iterations": result["iterations"],
             "stopped_reason": result["stopped_reason"],
-            "token_usage": result["token_usage"],
+            "token_usage": rec.as_token_usage_dict(),
+            "metrics": metrics,
             "metadata": cfg.metadata,
             "elapsed_sec": round(time.time() - t0, 2),
         }
@@ -308,10 +317,67 @@ class ArmRunner:
             "baseline_arm": baseline_arm,
             "total_questions": len(records),
             "answers": records,
+            "cost_summary": self._cost_summary(records),
         }
         if evaluations is not None:
             out["evaluations"] = evaluations
             out["summary"] = self._summarize(evaluations, baseline_arm)
+        return out
+
+    def _cost_summary(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Per-arm rollup of cost, tokens, latency, TTFT, and cache-hit ratio.
+
+        Aggregates the per-row ``metrics{}`` blocks. ``cost_usd`` is summed only
+        over priced rows (``None`` rows are skipped); the cache-hit ratio guards
+        against a zero prompt-token denominator. The exact ratio is provider-
+        dependent (see ADR O2) — here it is read cache tokens / prompt tokens.
+        """
+        per_arm: Dict[str, Dict[str, Any]] = {}
+        for rec in records:
+            for arm_name, arm in rec.get("arms", {}).items():
+                if not isinstance(arm, dict):
+                    continue
+                m = arm.get("metrics")
+                if not isinstance(m, dict):
+                    continue
+                acc = per_arm.setdefault(arm_name, {
+                    "n": 0, "cost_usd": 0.0, "cost_known_n": 0,
+                    "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                    "cache_read_tokens": 0, "latency_sec": 0.0,
+                    "ttft_sec_sum": 0.0, "ttft_n": 0,
+                })
+                acc["n"] += 1
+                if m.get("cost_usd") is not None:
+                    acc["cost_usd"] += m["cost_usd"]
+                    acc["cost_known_n"] += 1
+                for k in ("prompt_tokens", "completion_tokens", "total_tokens",
+                          "cache_read_tokens"):
+                    acc[k] += m.get(k, 0) or 0
+                acc["latency_sec"] += m.get("latency_sec", 0.0) or 0.0
+                if m.get("ttft_sec") is not None:
+                    acc["ttft_sec_sum"] += m["ttft_sec"]
+                    acc["ttft_n"] += 1
+
+        out: Dict[str, Any] = {}
+        for arm_name, acc in per_arm.items():
+            n = acc["n"] or 1
+            prompt = acc["prompt_tokens"]
+            out[arm_name] = {
+                "n": acc["n"],
+                "total_cost_usd": (round(acc["cost_usd"], 6)
+                                   if acc["cost_known_n"] else None),
+                # How many rows the cost total covers — when < n, the dollar
+                # figure is a partial sum (some rows had no litellm pricing).
+                "cost_known_n": acc["cost_known_n"],
+                "prompt_tokens": acc["prompt_tokens"],
+                "completion_tokens": acc["completion_tokens"],
+                "total_tokens": acc["total_tokens"],
+                "mean_latency_sec": round(acc["latency_sec"] / n, 4),
+                "mean_ttft_sec": (round(acc["ttft_sec_sum"] / acc["ttft_n"], 4)
+                                  if acc["ttft_n"] else None),
+                "cache_hit_ratio": (round(acc["cache_read_tokens"] / prompt, 4)
+                                    if prompt else None),
+            }
         return out
 
     def _summarize(
