@@ -13,6 +13,12 @@ software-packaging track's `AgentConfig` package shape.
 **Phase:** C in the umbrella rollout. Land after the model x harness matrix
 exists, or as an explicit extension while implementing it.
 
+**Prerequisite:** the `metrics{}` block in §3.3, the Caveman token/length
+trade-off report in §3.4, and open question O5 are carved out and resolved in
+[2026-06-19-run-telemetry-metrics.md](2026-06-19-run-telemetry-metrics.md)
+(Phase C.0), which lands the telemetry record (tokens, cost, cache, latency)
+independently so this phase consumes it ready-made.
+
 ---
 
 ## 1. Context
@@ -330,4 +336,9 @@ coerced into a different behavior.
   plugin is bundled/trusted?
 - **O5 -- Default plugin metrics.** Which cost metrics are required in every
   row: prompt tokens, completion tokens, total tokens, wall time, tool calls,
-  retries?
+  retries? **Resolved** in
+  [2026-06-19-run-telemetry-metrics.md](2026-06-19-run-telemetry-metrics.md) §2:
+  required are `prompt_tokens`, `completion_tokens`, `total_tokens`, `cost_usd`
+  (nullable), `latency_sec`, and (agentic) `tool_call_count`; cache tokens,
+  `reasoning_tokens`, `ttft_sec`, and raw-vs-final sizes are recorded when
+  available but not required.
