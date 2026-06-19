@@ -88,8 +88,9 @@ Rules:
 This ADR answers plugin ADR **O5**: the **required** per-row metrics are
 `prompt_tokens`, `completion_tokens`, `total_tokens`, `cost_usd` (nullable),
 `latency_sec`, and (agentic) `tool_call_count`. Cache tokens, `reasoning_tokens`,
-`ttft_sec`, and raw-vs-final sizes are **recorded when available** but not
-required, because not every provider/harness exposes them.
+`ttft_sec`, `n_calls`, and raw-vs-final sizes are **recorded when available** but
+not required, because not every provider/harness exposes them (`n_calls` is
+always emitted by `UsageRecord` but is bookkeeping, not a required cost metric).
 
 ## 3. Detailed design
 
@@ -211,12 +212,17 @@ latency-sensitive sweeps and validated separately.
 ### 3.6 Aggregation and schema
 
 - `arm_runner._summarize` (`:317`) gains per-arm rollups: total `cost_usd`, mean
-  `latency_sec`, mean `ttft_sec` (when present), summed tokens, and a
-  cache-hit ratio (`cache_read_tokens / prompt_tokens`).
-- Bump the artifact schema to **`arms.v2`** — purely additive (`metrics` block +
-  per-arm cost/latency rollups). `arms.v1` files still load; the version bump
-  signals the new fields to readers. The manifest records the cache policy and
-  the `stream` flag so runs are comparable.
+  `latency_sec`, mean `ttft_sec` (when present), summed tokens, and a cache-hit
+  ratio. The ratio's denominator is provider-dependent — on OpenAI cached
+  tokens are a subset of `prompt_tokens`, on Anthropic `cache_read_input_tokens`
+  is reported alongside (not inside) input tokens — so the exact formula is
+  deferred to **O2**, and the rollup guards against a zero denominator (no ratio
+  when `prompt_tokens == 0`).
+- Schema: the proposal is to bump the artifact schema to **`arms.v2`** — purely
+  additive (`metrics` block + per-arm cost/latency rollups), so `arms.v1` files
+  still load and the version bump only signals the new fields to readers. Whether
+  to bump now or defer to Phase C's `scorecard.v1` is **O4**. The manifest
+  records the cache policy and the `stream` flag so runs are comparable.
 
 ### 3.7 Reporting and dashboard
 
