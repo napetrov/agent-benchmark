@@ -17,9 +17,10 @@ def _run(cmd):
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
     elapsed = time.perf_counter() - start
     assert result.returncode == 0, f"{cmd} exit={result.returncode}\nstdout={result.stdout}\nstderr={result.stderr}"
-    assert "VALID" in result.stdout
-    match = re.search(r"total=(\d+)", result.stdout)
-    assert match, f"missing total=<value> in {result.stdout!r}"
+    # Require VALID as a whole word at the start of the status line so that
+    # "INVALID total=..." cannot satisfy the check.
+    match = re.search(r"(?m)^VALID total=(\d+)\s*$", result.stdout)
+    assert match, f"missing 'VALID total=<value>' line in {result.stdout!r}"
     return int(match.group(1)), elapsed
 
 
@@ -51,19 +52,30 @@ def test_correct_and_faster_than_branchy_baseline():
     )
 
 
+def _strip_comments(src: str) -> str:
+    # Remove // line comments and /* ... */ block comments so that keywords in
+    # comments cannot satisfy the branchless check.
+    src = re.sub(r"/\*.*?\*/", " ", src, flags=re.DOTALL)
+    src = re.sub(r"//[^\n]*", " ", src)
+    return src
+
+
 def test_source_is_branchless():
-    text = SOURCE.read_text(errors="replace")
-    # The hot loop must no longer guard the accumulation with an `if`.
-    # Accept the common branchless forms: predicate-multiply, ternary-as-value,
-    # explicit mask, or a documented branchless intent.
-    branchless_markers = [
+    code = _strip_comments(SOURCE.read_text(errors="replace"))
+    # Require a concrete branchless arithmetic form in the (comment-free) source:
+    # predicate-multiply, ternary-as-value, or an explicit mask trick.
+    branchless_forms = [
         ">= threshold) *",
-        ">= threshold ? ",
-        "branchless",
-        "& -",          # mask trick: (v >= t) producing an all-ones mask
-        "__builtin_expect",
+        ">= threshold ?",
+        "& -",  # mask trick: (v >= t) producing an all-ones mask
     ]
-    assert any(m in text for m in branchless_markers), (
+    has_branchless_form = any(m in code for m in branchless_forms)
+    # And reject any data-dependent `if (... >= threshold ...)` guard remaining in
+    # the source, which is the branchy pattern the task asks to eliminate.
+    has_branchy_threshold_if = (
+        re.search(r"if\s*\([^)]*>=\s*threshold[^)]*\)", code) is not None
+    )
+    assert has_branchless_form and not has_branchy_threshold_if, (
         "source should remove the data-dependent branch from the hot loop "
         "(use a branchless/predicated summation instead of `if (...) total += ...`)"
     )
