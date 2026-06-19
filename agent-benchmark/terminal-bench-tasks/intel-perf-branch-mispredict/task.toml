@@ -1,0 +1,25 @@
+version = "1.0"
+
+[metadata]
+author_name = "Nikolay Petrov"
+author_email = "nikolay.a.petrov@intel.com"
+difficulty = "medium"
+difficulty_explanation = "Requires recognizing branch misprediction from perf stat and converting a data-dependent branch into branchless arithmetic without changing the result"
+level = "diagnosis"
+category = "programming"
+tags = ["c++", "performance", "branch-misprediction", "branchless", "perf-stat"]
+
+[verifier]
+timeout_sec = 90.0
+
+[agent]
+timeout_sec = 300.0
+
+[environment]
+build_timeout_sec = 300.0
+docker_image = "intel-hpc-bench/intel-perf-branch-mispredict:latest"
+cpus = 4
+memory_mb = 2048
+storage_mb = 5120
+gpus = 0
+allow_internet = false

@@ -1,0 +1,24 @@
+perf stat -e branches,branch-misses,instructions,cycles ./branch_mispredict_bad 20000000 10
+
+ Performance counter stats for './branch_mispredict_bad 20000000 10':
+
+       402,118,556      branches
+        99,204,881      branch-misses             #   24.67% of all branches
+     1,140,556,012      instructions              #    0.42  insn per cycle
+     2,712,884,901      cycles
+
+       1.071204884 seconds time elapsed
+
+Hot branch (perf annotate, conditional_sum):
+
+  Percent |  Source / disassembly
+  ------- |  ----------------------------------------------
+   61.7%  |    cmp    %eax,%edx          ; data[i] >= threshold
+          |    jl     .skip_add          ; <-- mispredicted ~25% of branches
+    8.4%  |    add    %eax,%rsi          ; total += data[i]
+          |  .skip_add:
+
+A ~25% branch-miss rate on a per-element data-dependent branch is the classic
+branch-misprediction signature: the predictor cannot learn the random pattern,
+so the pipeline flushes on roughly every other element and IPC collapses.
+Eliminating the branch (branchless / predicated summation) removes the stall.
