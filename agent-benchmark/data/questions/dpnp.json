@@ -9,7 +9,12 @@
       "persona": "Data scientist exploring Intel Python",
       "category": "getting_started",
       "difficulty": 1,
-      "expected_topics": ["conda install (Intel channel)", "pip install (Intel pip index)", "version check", "import test"]
+      "expected_topics": [
+        "conda install (Intel channel)",
+        "pip install (Intel pip index)",
+        "version check",
+        "import test"
+      ]
     },
     {
       "id": "dpnp-gs-02",
@@ -17,7 +22,11 @@
       "persona": "Python developer trying dpnp for the first time",
       "category": "getting_started",
       "difficulty": 1,
-      "expected_topics": ["import dpnp as np", "drop-in replacement", "basic array operations"]
+      "expected_topics": [
+        "import dpnp as np",
+        "drop-in replacement",
+        "basic array operations"
+      ]
     },
     {
       "id": "dpnp-gs-03",
@@ -25,7 +34,11 @@
       "persona": "Performance-conscious data scientist",
       "category": "getting_started",
       "difficulty": 2,
-      "expected_topics": ["array size thresholds", "operation types", "overhead considerations"]
+      "expected_topics": [
+        "array size thresholds",
+        "operation types",
+        "overhead considerations"
+      ]
     },
     {
       "id": "dpnp-compat-01",
@@ -33,7 +46,11 @@
       "persona": "ML engineer migrating NumPy codebase",
       "category": "compatibility",
       "difficulty": 2,
-      "expected_topics": ["API coverage", "compatibility checking", "unsupported features"]
+      "expected_topics": [
+        "API coverage",
+        "compatibility checking",
+        "unsupported features"
+      ]
     },
     {
       "id": "dpnp-compat-02",
@@ -41,7 +58,12 @@
       "persona": "Data engineer integrating dpnp into existing pipeline",
       "category": "compatibility",
       "difficulty": 2,
-      "expected_topics": ["asnumpy()", "array conversion", "interoperability", "performance impact"]
+      "expected_topics": [
+        "asnumpy()",
+        "array conversion",
+        "interoperability",
+        "performance impact"
+      ]
     },
     {
       "id": "dpnp-compat-03",
@@ -49,7 +71,11 @@
       "persona": "Data scientist using standard ML stack",
       "category": "compatibility",
       "difficulty": 3,
-      "expected_topics": ["library compatibility", "integration patterns", "workarounds"]
+      "expected_topics": [
+        "library compatibility",
+        "integration patterns",
+        "workarounds"
+      ]
     },
     {
       "id": "dpnp-perf-01",
@@ -57,7 +83,12 @@
       "persona": "Developer debugging slow dpnp code",
       "category": "performance",
       "difficulty": 2,
-      "expected_topics": ["JIT compilation warmup", "data transfer overhead", "small array overhead", "profiling"]
+      "expected_topics": [
+        "JIT compilation warmup",
+        "data transfer overhead",
+        "small array overhead",
+        "profiling"
+      ]
     },
     {
       "id": "dpnp-perf-02",
@@ -65,7 +96,11 @@
       "persona": "Performance engineer optimizing dpnp application",
       "category": "performance",
       "difficulty": 3,
-      "expected_topics": ["profiling tools", "timing methods", "bottleneck identification"]
+      "expected_topics": [
+        "profiling tools",
+        "timing methods",
+        "bottleneck identification"
+      ]
     },
     {
       "id": "dpnp-perf-03",
@@ -73,7 +108,11 @@
       "persona": "HPC engineer evaluating hardware options",
       "category": "performance",
       "difficulty": 3,
-      "expected_topics": ["CPU vs GPU trade-offs", "device selection", "workload characteristics"]
+      "expected_topics": [
+        "CPU vs GPU trade-offs",
+        "device selection",
+        "workload characteristics"
+      ]
     },
     {
       "id": "dpnp-trouble-01",
@@ -81,7 +120,12 @@
       "persona": "Developer encountering setup problems",
       "category": "troubleshooting",
       "difficulty": 1,
-      "expected_topics": ["import errors", "dependency issues", "environment setup", "common fixes"]
+      "expected_topics": [
+        "import errors",
+        "dependency issues",
+        "environment setup",
+        "common fixes"
+      ]
     },
     {
       "id": "dpnp-trouble-02",
@@ -89,7 +133,12 @@
       "persona": "Developer hitting API limitations",
       "category": "troubleshooting",
       "difficulty": 2,
-      "expected_topics": ["unsupported APIs", "fallback strategies", "workarounds", "alternative approaches"]
+      "expected_topics": [
+        "unsupported APIs",
+        "fallback strategies",
+        "workarounds",
+        "alternative approaches"
+      ]
     },
     {
       "id": "dpnp-adv-01",
@@ -97,7 +146,376 @@
       "persona": "Advanced user optimizing resource usage",
       "category": "advanced",
       "difficulty": 3,
-      "expected_topics": ["device selection", "device management", "SYCL context", "dpctl integration"]
+      "expected_topics": [
+        "device selection",
+        "device management",
+        "SYCL context",
+        "dpctl integration"
+      ]
+    },
+    {
+      "id": "dpnp-linalg-01",
+      "text": "What linear algebra operations does dpnp.linalg support, and which NumPy linalg functions are not yet implemented?",
+      "persona": "Scientific computing researcher evaluating dpnp",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "supported operations list",
+        "matmul/dot/solve/inv coverage",
+        "unsupported functions",
+        "checking API reference"
+      ]
+    },
+    {
+      "id": "dpnp-linalg-02",
+      "text": "How do I perform matrix multiplication with dpnp? What's the performance difference between dpnp.matmul(), dpnp.dot(), and @ operator?",
+      "persona": "ML engineer optimizing matrix operations",
+      "category": "performance",
+      "difficulty": 2,
+      "expected_topics": [
+        "matmul vs dot semantics",
+        "@ operator support",
+        "performance comparison",
+        "oneMKL backend"
+      ]
+    },
+    {
+      "id": "dpnp-fft-01",
+      "text": "Which FFT functions from numpy.fft does dpnp.fft support? Can I use 1D, 2D, and nD transforms?",
+      "persona": "Signal processing engineer migrating from NumPy",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "fft/ifft/rfft support",
+        "multi-dimensional transforms",
+        "API coverage",
+        "oneMKL FFT backend"
+      ]
+    },
+    {
+      "id": "dpnp-fft-02",
+      "text": "For what signal sizes does dpnp FFT become faster than NumPy FFT? What factors affect FFT performance?",
+      "persona": "Performance engineer benchmarking FFT",
+      "category": "performance",
+      "difficulty": 3,
+      "expected_topics": [
+        "size thresholds",
+        "power-of-2 optimization",
+        "plan creation overhead",
+        "device transfer cost"
+      ]
+    },
+    {
+      "id": "dpnp-rng-01",
+      "text": "How do I generate random numbers with dpnp? Does it use the same API as numpy.random?",
+      "persona": "Data scientist needing random data",
+      "category": "getting_started",
+      "difficulty": 1,
+      "expected_topics": [
+        "dpnp.random module",
+        "seed setting",
+        "common distributions",
+        "API similarities"
+      ]
+    },
+    {
+      "id": "dpnp-rng-02",
+      "text": "Can dpnp.random produce the same random sequences as numpy.random with the same seed?",
+      "persona": "Researcher requiring reproducibility",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "different RNG backend",
+        "non-identical sequences",
+        "reproducibility within dpnp",
+        "cross-device consistency"
+      ]
+    },
+    {
+      "id": "dpnp-rng-03",
+      "text": "What random distributions does dpnp.random support? Are all NumPy distributions available?",
+      "persona": "Statistical analyst using various distributions",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "supported distributions list",
+        "uniform/normal/binomial",
+        "unsupported distributions",
+        "fallback to numpy"
+      ]
+    },
+    {
+      "id": "dpnp-mem-01",
+      "text": "How does dpnp manage memory? Where are dpnp arrays stored (CPU or GPU)?",
+      "persona": "Developer new to device computing",
+      "category": "getting_started",
+      "difficulty": 2,
+      "expected_topics": [
+        "SYCL device memory",
+        "default device selection",
+        "host vs device memory",
+        "dpctl integration"
+      ]
+    },
+    {
+      "id": "dpnp-mem-02",
+      "text": "How can I check which device (CPU/GPU) a dpnp array is on, and how much memory it's using?",
+      "persona": "Performance engineer monitoring resources",
+      "category": "advanced",
+      "difficulty": 3,
+      "expected_topics": [
+        "array.sycl_device property",
+        "dpctl.get_current_device",
+        "memory queries",
+        "profiling tools"
+      ]
+    },
+    {
+      "id": "dpnp-mem-03",
+      "text": "Can I control memory allocation for dpnp arrays? How do I pre-allocate arrays to avoid allocation overhead?",
+      "persona": "HPC engineer optimizing memory usage",
+      "category": "advanced",
+      "difficulty": 3,
+      "expected_topics": [
+        "empty/zeros/ones allocation",
+        "memory pools",
+        "pre-allocation strategies",
+        "avoiding repeated allocation"
+      ]
+    },
+    {
+      "id": "dpnp-interop-01",
+      "text": "Can I pass dpnp arrays to libraries that expect NumPy arrays (like matplotlib, pandas, scikit-learn)?",
+      "persona": "Data scientist using standard Python stack",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "NumPy protocol support",
+        "asnumpy() conversion",
+        "compatibility limitations",
+        "supported libraries"
+      ]
+    },
+    {
+      "id": "dpnp-interop-02",
+      "text": "How do I convert between dpnp arrays and PyTorch tensors? Is zero-copy conversion possible?",
+      "persona": "ML engineer integrating dpnp with PyTorch",
+      "category": "integration",
+      "difficulty": 3,
+      "expected_topics": [
+        "dpnp to numpy to torch",
+        "no zero-copy",
+        "DLPack support",
+        "transfer overhead"
+      ]
+    },
+    {
+      "id": "dpnp-interop-03",
+      "text": "Can I use dpnp arrays with TensorFlow? What's the recommended integration pattern?",
+      "persona": "ML engineer using TensorFlow",
+      "category": "integration",
+      "difficulty": 3,
+      "expected_topics": [
+        "tf.convert_to_tensor compatibility",
+        "numpy conversion path",
+        "limitations",
+        "alternative approaches"
+      ]
+    },
+    {
+      "id": "dpnp-idx-01",
+      "text": "Does dpnp support NumPy's advanced indexing (fancy indexing, boolean masks, integer arrays)?",
+      "persona": "Data engineer doing complex data selection",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "boolean indexing support",
+        "integer array indexing",
+        "fancy indexing",
+        "view vs copy behavior"
+      ]
+    },
+    {
+      "id": "dpnp-idx-02",
+      "text": "What's the performance of boolean indexing in dpnp compared to NumPy? When should I use it?",
+      "persona": "Performance-conscious data scientist",
+      "category": "performance",
+      "difficulty": 3,
+      "expected_topics": [
+        "kernel dispatch overhead",
+        "large vs small masks",
+        "GPU efficiency",
+        "benchmarking guidance"
+      ]
+    },
+    {
+      "id": "dpnp-reshape-01",
+      "text": "Does dpnp.reshape() work the same as numpy.reshape()? Does it return views or copies?",
+      "persona": "Developer migrating performance-critical code",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "view semantics",
+        "memory layout requirements",
+        "C vs Fortran order",
+        "base attribute"
+      ]
+    },
+    {
+      "id": "dpnp-broadcast-01",
+      "text": "Does dpnp follow the same broadcasting rules as NumPy? Are there any differences?",
+      "persona": "ML engineer using array broadcasting",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "broadcasting rules compatibility",
+        "shape inference",
+        "identical behavior",
+        "edge cases"
+      ]
+    },
+    {
+      "id": "dpnp-io-01",
+      "text": "How do I load data from NumPy .npy or .npz files into dpnp arrays?",
+      "persona": "Data scientist with NumPy file datasets",
+      "category": "getting_started",
+      "difficulty": 2,
+      "expected_topics": [
+        "numpy.load then convert",
+        "no direct loader",
+        "dpnp.array(numpy_array)",
+        "transfer overhead"
+      ]
+    },
+    {
+      "id": "dpnp-io-02",
+      "text": "Can I save dpnp arrays directly to files? What format should I use?",
+      "persona": "Developer implementing data persistence",
+      "category": "integration",
+      "difficulty": 2,
+      "expected_topics": [
+        "convert to numpy with asnumpy()",
+        "numpy.save/savez",
+        "serialization pattern",
+        "no native saver"
+      ]
+    },
+    {
+      "id": "dpnp-io-03",
+      "text": "How do I integrate dpnp with HDF5 or Zarr for large dataset storage?",
+      "persona": "Data engineer working with large-scale data",
+      "category": "integration",
+      "difficulty": 3,
+      "expected_topics": [
+        "h5py integration",
+        "numpy conversion required",
+        "chunked loading",
+        "zarr compatibility"
+      ]
+    },
+    {
+      "id": "dpnp-dtype-01",
+      "text": "What NumPy data types (dtypes) does dpnp support? Are there any unsupported types?",
+      "persona": "Developer handling mixed-type data",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "numeric types support",
+        "unsupported structured dtypes",
+        "string limitations",
+        "object dtype"
+      ]
+    },
+    {
+      "id": "dpnp-dtype-02",
+      "text": "Does dpnp handle type promotion (e.g., int + float \u2192 float) the same as NumPy?",
+      "persona": "Scientific programmer ensuring correctness",
+      "category": "compatibility",
+      "difficulty": 2,
+      "expected_topics": [
+        "type promotion rules",
+        "identical to numpy",
+        "mixed operations",
+        "result dtype"
+      ]
+    },
+    {
+      "id": "dpnp-reduce-01",
+      "text": "Which reduction operations does dpnp support (sum, mean, std, min, max)?",
+      "persona": "Data analyst doing statistical analysis",
+      "category": "compatibility",
+      "difficulty": 1,
+      "expected_topics": [
+        "supported reductions list",
+        "axis parameter support",
+        "keepdims option",
+        "API coverage"
+      ]
+    },
+    {
+      "id": "dpnp-reduce-02",
+      "text": "When do axis-based reductions (e.g., sum(axis=0)) perform well in dpnp? Are there performance pitfalls?",
+      "persona": "Performance engineer optimizing reductions",
+      "category": "performance",
+      "difficulty": 3,
+      "expected_topics": [
+        "full vs partial reductions",
+        "memory access patterns",
+        "axis order effects",
+        "batch reductions"
+      ]
+    },
+    {
+      "id": "dpnp-cupy-01",
+      "text": "I'm migrating from CuPy. How does dpnp's device management differ from CuPy's CUDA device model?",
+      "persona": "GPU developer transitioning from NVIDIA to Intel",
+      "category": "migration",
+      "difficulty": 3,
+      "expected_topics": [
+        "SYCL vs CUDA model",
+        "dpctl vs cupy.cuda",
+        "device selection API",
+        "context management"
+      ]
+    },
+    {
+      "id": "dpnp-cupy-02",
+      "text": "Does dpnp support custom kernels like CuPy's RawKernel and ElementwiseKernel?",
+      "persona": "Advanced GPU programmer needing custom ops",
+      "category": "advanced",
+      "difficulty": 3,
+      "expected_topics": [
+        "SYCL kernel support",
+        "different from CUDA",
+        "dpctl kernel launch",
+        "limitations vs CuPy"
+      ]
+    },
+    {
+      "id": "dpnp-elem-01",
+      "text": "What element-wise operations (sin, cos, exp, log, etc.) does dpnp support?",
+      "persona": "Scientific computing user",
+      "category": "compatibility",
+      "difficulty": 1,
+      "expected_topics": [
+        "universal functions",
+        "math operations coverage",
+        "trigonometric functions",
+        "API compatibility"
+      ]
+    },
+    {
+      "id": "dpnp-elem-02",
+      "text": "At what array size do dpnp element-wise operations become faster than NumPy?",
+      "persona": "Performance engineer setting optimization thresholds",
+      "category": "performance",
+      "difficulty": 2,
+      "expected_topics": [
+        "size thresholds",
+        "overhead considerations",
+        "operation complexity",
+        "device transfer impact"
+      ]
     }
   ]
 }

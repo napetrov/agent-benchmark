@@ -165,6 +165,300 @@
         "original_id": "Q007",
         "github_issue": "#489"
       }
+    },
+    {
+      "id": "dpnp-Q008",
+      "text": "Scenario: You've migrated a large matrix multiplication workload from NumPy (which uses OpenBLAS) to dpnp expecting GPU speedup. For 5000\u00d75000 matrices, NumPy takes 0.5s but dpnp takes 2.0s (slower!). According to dpnp documentation, what factors affect matrix multiplication performance, and what's the recommended approach to diagnose and fix slow linear algebra operations?",
+      "persona": "performance_engineer",
+      "category": "performance_linalg",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp uses oneMKL as BLAS backend (CPU) or oneMKL for GPU",
+        "Small matrices may have kernel launch overhead on GPU",
+        "Data transfer overhead (host\u2194device) if not accounted for",
+        "Array must be on device before operation; check with array.sycl_device",
+        "Profiling recommendations: time data transfer separately, warmup runs for JIT compilation",
+        "Size threshold where GPU becomes faster (typically >1000\u00d71000 for matmul)",
+        "Recommend: benchmark with data already on device, compare device-to-device computation only"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/linalg.html"
+        ],
+        "why_it_matters": "Matrix ops are core ML workload; unexpectedly slow performance blocks adoption",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q009",
+      "text": "Scenario: Your NumPy code uses numpy.linalg.solve() for linear systems and numpy.linalg.eig() for eigenvalues. When you replace with dpnp, solve() works but eig() raises NotImplementedError. According to dpnp documentation, how do you (a) check which linalg functions are supported before migration, (b) handle unsupported functions gracefully, and (c) mix dpnp and scipy.linalg when needed?",
+      "persona": "scientific_computing_researcher",
+      "category": "compatibility_linalg",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp.linalg implements subset of numpy.linalg - not all functions available",
+        "Check API reference documentation for supported functions list",
+        "Recommended pattern: try dpnp operation, catch NotImplementedError, fallback to numpy/scipy",
+        "For scipy.linalg: must convert dpnp array to numpy with asnumpy(), incurs transfer cost",
+        "Alternative: use scipy.linalg directly with numpy arrays for unsupported operations",
+        "Future: API coverage expands over releases, check release notes"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/linalg.html"
+        ],
+        "why_it_matters": "Scientific computing relies heavily on linalg; API gaps break workflows",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q010",
+      "text": "Scenario: You're migrating signal processing code using numpy.fft.fft() on 1M-point signals. NumPy (using pocketfft) takes 50ms. With dpnp, the same operation takes 300ms (6x slower). According to dpnp documentation, what FFT backend does dpnp use, what factors affect FFT performance, and when should you expect speedup over NumPy?",
+      "persona": "signal_processing_engineer",
+      "category": "performance_fft",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp uses oneMKL FFT backend for both CPU and GPU",
+        "First FFT call may include plan creation overhead (warmup effect)",
+        "Data transfer overhead if array not already on device",
+        "FFT performance depends on signal size (power-of-2 is optimal)",
+        "CPU FFT may be slower than optimized NumPy/SciPy backends for small signals",
+        "GPU FFT becomes faster for very large transforms (>1M points) or batch operations",
+        "Recommend: benchmark with pre-allocated device arrays, multiple runs for accurate timing"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/fft.html"
+        ],
+        "why_it_matters": "Signal processing and ML (spectrogram features) depend on fast FFT",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q011",
+      "text": "Scenario: You set numpy.random.seed(42) in your training code for reproducibility. After migrating to dpnp, you set dpnp.random.seed(42) but get different random numbers than NumPy, breaking reproducibility. According to dpnp documentation, how does dpnp RNG work, can you get NumPy-equivalent random sequences, and how do you ensure reproducibility across CPU/GPU devices?",
+      "persona": "ml_researcher",
+      "category": "compatibility_rng",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp uses oneMKL RNG backend, different algorithm than NumPy",
+        "Same seed produces different sequences than NumPy (not a drop-in replacement for RNG)",
+        "Cannot replicate exact NumPy random sequences with dpnp",
+        "Reproducibility within dpnp: same seed + same device \u2192 same sequence",
+        "Reproducibility across devices (CPU/GPU): NOT guaranteed with same seed",
+        "Recommended: if exact NumPy sequences required, use numpy.random and convert arrays",
+        "For dpnp reproducibility: fix seed, document device used, version-pin dpnp/oneMKL"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/random.html"
+        ],
+        "why_it_matters": "ML training reproducibility is critical; unexpected RNG differences break experiments",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q012",
+      "text": "Scenario: Your dpnp code works on workstation with 16GB GPU but crashes with 'out of memory' on server with 8GB GPU. NumPy equivalent works fine (using CPU RAM). According to dpnp documentation, how do you (a) check GPU memory availability, (b) handle OOM errors gracefully, (c) control device memory usage, and (d) fall back to CPU when GPU memory insufficient?",
+      "persona": "devops_engineer",
+      "category": "device_memory_mgmt",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp allocates on default SYCL device (GPU if available), which has limited memory",
+        "No built-in memory limit or automatic CPU fallback on OOM",
+        "Check device memory: use dpctl to query device memory capacity",
+        "Handling OOM: catch runtime errors, fall back to NumPy or explicit CPU device",
+        "Control memory: explicitly use CPU device with dpctl.device_context('cpu')",
+        "Batch processing strategy: process data in chunks that fit in GPU memory",
+        "Alternative: keep large data in NumPy, selectively move chunks to dpnp for computation"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/overview.html"
+        ],
+        "why_it_matters": "GPU memory constraints are common blocker; silent OOM crashes hurt production",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q013",
+      "text": "Scenario: You have ML pipeline using PyTorch for neural network and NumPy for preprocessing. You want to accelerate preprocessing with dpnp but need to pass results to PyTorch tensors efficiently. According to dpnp documentation, can you convert dpnp arrays to PyTorch tensors zero-copy, or must you transfer through NumPy (slow)?",
+      "persona": "ml_engineer",
+      "category": "interoperability_pytorch",
+      "difficulty": "hard",
+      "expected_topics": [
+        "dpnp arrays are not directly compatible with PyTorch (no zero-copy conversion)",
+        "Must convert: dpnp array \u2192 numpy (with asnumpy()) \u2192 pytorch tensor",
+        "This involves device-to-host copy (GPU to CPU) then potentially CPU to GPU for PyTorch",
+        "Double transfer overhead makes this inefficient for GPU-to-GPU workflow",
+        "Alternative: if dpnp uses Intel GPU and PyTorch uses NVIDIA GPU, must transfer anyway",
+        "Workaround: use DLPack protocol if supported (check dpnp/PyTorch versions)",
+        "Recommendation: evaluate if dpnp preprocessing overhead offset by transfer cost"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/ndarray.html"
+        ],
+        "why_it_matters": "ML pipelines mix frameworks; transfer overhead can negate acceleration benefits",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q014",
+      "text": "Scenario: You pass dpnp arrays to scikit-learn's fit() method expecting it to work (since it accepts 'array-like'). Instead you get 'expected numpy array' errors or crashes. According to dpnp documentation, does dpnp implement the NumPy array protocol for scikit-learn compatibility, and what's the recommended pattern for using dpnp with scikit-learn?",
+      "persona": "data_scientist",
+      "category": "interoperability_sklearn",
+      "difficulty": "medium",
+      "expected_topics": [
+        "scikit-learn expects NumPy arrays or objects implementing NumPy array protocol",
+        "dpnp arrays may not fully implement protocol (check __array__ method support)",
+        "Most reliable pattern: convert dpnp to numpy before passing to scikit-learn",
+        "Use asnumpy() to convert: clf.fit(X_dpnp.asnumpy(), y_dpnp.asnumpy())",
+        "This incurs device-to-host transfer cost, limiting acceleration benefits",
+        "Alternative: use Intel Extension for Scikit-learn (sklearnex) which may have dpnp support",
+        "Recommendation: accelerate data preprocessing with dpnp, convert before ML model"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/ndarray.html"
+        ],
+        "why_it_matters": "Scikit-learn is ubiquitous in ML; incompatibility blocks adoption",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q015",
+      "text": "Scenario: Your NumPy code uses boolean indexing: arr[arr > 0]. After migrating to dpnp, the operation is very slow compared to NumPy for large arrays. According to dpnp documentation, how does dpnp implement advanced indexing (fancy indexing, boolean masks), and what performance characteristics should you expect?",
+      "persona": "data_engineer",
+      "category": "indexing_performance",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp supports boolean and integer array indexing (fancy indexing)",
+        "Performance may differ from NumPy due to device kernel dispatch overhead",
+        "Boolean indexing creates a copy, not a view (same as NumPy)",
+        "Large boolean masks on GPU may have overhead for small result arrays",
+        "Recommend: if indexing result is small, consider numpy for that operation",
+        "Batch boolean indexing operations when possible to amortize kernel launch"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/indexing.html"
+        ],
+        "why_it_matters": "Data filtering with boolean masks is extremely common in data science",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q016",
+      "text": "Scenario: Your NumPy code relies on reshape() returning a view (zero-copy) for performance. After migrating to dpnp, you're unsure if dpnp.reshape() creates views or copies. According to dpnp documentation, which array operations return views vs copies, and how does this compare to NumPy?",
+      "persona": "performance_engineer",
+      "category": "memory_layout",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp follows NumPy semantics: reshape() returns view when possible, copy otherwise",
+        "View vs copy depends on memory layout (C-contiguous vs Fortran-contiguous)",
+        "Transpose always returns view (same as NumPy)",
+        "Check if operation returned view: compare array.base attribute",
+        "Performance implication: copies involve memory allocation and data transfer on device",
+        "Recommend: test view behavior for critical paths, avoid unnecessary copies"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/ndarray.html"
+        ],
+        "why_it_matters": "View semantics critical for performance; copies can negate acceleration",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q017",
+      "text": "Scenario: You have large datasets stored as NumPy .npz files. You want to load them directly into dpnp arrays to avoid CPU\u2192GPU transfer. According to dpnp documentation, can you load .npy/.npz files directly into dpnp device memory, or must you load with numpy.load() then convert?",
+      "persona": "data_scientist",
+      "category": "io_files",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp does not have native .npy/.npz loader (as of current version)",
+        "Must use numpy.load() to load files, then convert to dpnp with dpnp.array()",
+        "Conversion involves host-to-device transfer (CPU to GPU)",
+        "For large files, this adds I/O overhead + transfer overhead",
+        "Workaround: load in chunks if memory limited",
+        "Alternative: use memory-mapped arrays (numpy.memmap) for partial loading",
+        "Future: watch for direct device I/O support in future dpnp versions"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/"
+        ],
+        "why_it_matters": "Data loading is entry point; slow loading hurts adoption",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q018",
+      "text": "Scenario: Your NumPy code uses structured arrays (dtype with named fields) for heterogeneous data: np.dtype([('x', 'f8'), ('y', 'i4')]). After migrating to dpnp, you get NotImplementedError. According to dpnp documentation, does dpnp support structured dtypes, and what's the workaround?",
+      "persona": "scientific_programmer",
+      "category": "dtype_limitations",
+      "difficulty": "medium",
+      "expected_topics": [
+        "dpnp does not support structured dtypes (as of current version)",
+        "Limitation inherited from GPU computing constraints (non-contiguous layouts)",
+        "Workaround: split structured array into separate arrays per field",
+        "Alternative: keep structured data in NumPy, convert individual fields to dpnp as needed",
+        "Performance trade-off: separate arrays may be more efficient on GPU anyway",
+        "Recommendation: restructure data as dict of arrays rather than structured array"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/arrays.html"
+        ],
+        "why_it_matters": "Scientific data often uses structured arrays; incompatibility breaks pipelines",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q019",
+      "text": "Scenario: Your NumPy code computes column-wise sums: arr.sum(axis=0). After migrating to dpnp, the result shape is correct but performance is slower than expected for large arrays. According to dpnp documentation, how are axis-based reductions implemented, and when should you expect performance improvement over NumPy?",
+      "persona": "performance_engineer",
+      "category": "reduction_performance",
+      "difficulty": "hard",
+      "expected_topics": [
+        "dpnp implements axis-based reductions (sum, mean, std, min, max) similar to NumPy",
+        "GPU reductions are efficient for large arrays and specific patterns (full reduction best)",
+        "Partial reductions (along axis) may have overhead due to memory access patterns",
+        "Small arrays or unusual axis orders may be slower than NumPy CPU implementation",
+        "Recommend: benchmark full reductions first (axis=None) vs partial reductions",
+        "Batch multiple reductions when possible to amortize kernel launch overhead"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/reference/"
+        ],
+        "why_it_matters": "Statistical operations are extremely common; poor performance hurts adoption",
+        "is_static_golden": false
+      }
+    },
+    {
+      "id": "dpnp-Q020",
+      "text": "Scenario: You have existing CuPy code running on NVIDIA GPUs. Your team is evaluating Intel GPUs and dpnp as alternative. According to dpnp documentation, what are the main API and behavior differences between CuPy and dpnp that will require code changes during migration?",
+      "persona": "gpu_developer",
+      "category": "cupy_migration",
+      "difficulty": "hard",
+      "expected_topics": [
+        "Device management: CuPy uses CUDA device model, dpnp uses SYCL/dpctl",
+        "Device selection: cupy.cuda.Device(0) vs dpctl.device_context('gpu:0')",
+        "Memory management: cupy.get_default_memory_pool() vs dpctl memory (different APIs)",
+        "Kernel customization: CuPy supports custom CUDA kernels, dpnp uses SYCL (different)",
+        "API coverage: some CuPy functions may not exist in dpnp (check documentation)",
+        "Synchronization: cupy.cuda.Stream vs dpctl queue semantics",
+        "Performance tuning: different architecture (NVIDIA vs Intel GPU) needs different tuning"
+      ],
+      "metadata": {
+        "must_cite": [
+          "https://intelpython.github.io/dpnp/overview.html"
+        ],
+        "why_it_matters": "CuPy users are natural migration candidates; need clear migration path",
+        "is_static_golden": false
+      }
     }
   ]
 }
