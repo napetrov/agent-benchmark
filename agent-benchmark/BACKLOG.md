@@ -37,6 +37,13 @@ working):
   `terminal-bench:<agent>`); `matrix:` config block + `(model, harness)` key
   through `arm_runner`, report, dashboard; a `terminal-bench` harness adapter so
   task pass-rate is an arm outcome. Cost-gated, single-cell default.
+- **Phase C.0 — Run telemetry (tokens, cost, cache, latency)**
+  ([ADR](docs/decisions/2026-06-19-run-telemetry-metrics.md)). Normalized
+  `UsageRecord` from the `llm.py` chokepoint; per-row `metrics{}` block (tokens,
+  cache read/write, `litellm` cost, latency; TTFT behind a streaming flag);
+  per-turn + per-tool detail in the agent loop; `arms.v2` additive schema and
+  cost/latency report columns. Prerequisite for Phase C — answers its O5 and
+  pre-builds its §3.3 metrics block.
 - **Phase C — Plugin-aware cells**
   ([ADR](docs/decisions/2026-06-11-plugin-and-harness-aware-benchmarks.md)).
   Extend `matrix:` to explicit cells where each harness can declare supported

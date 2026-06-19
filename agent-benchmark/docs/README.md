@@ -159,6 +159,10 @@ current status.
     — add plugins such as Caveman as explicit runtime behavior modifiers and
     report token/cost gains separately from quality or task-success loss.
     *(Phase C.)*
+  - [decisions/2026-06-19-run-telemetry-metrics.md](decisions/2026-06-19-run-telemetry-metrics.md)
+    — capture per-run tokens, cost, cache, and latency as a normalized
+    `metrics{}` block on every result row; answers the plugin ADR's O5.
+    *(Phase C.0 — prerequisite for Phase C.)*
   - [decisions/2026-06-10-artifacts-as-evaluation-subjects.md](decisions/2026-06-10-artifacts-as-evaluation-subjects.md)
     — promote skills/profiles/bundles from arms to first-class evaluation
     *subjects* emitting a per-subject scorecard. *(Phase D.)*

@@ -41,6 +41,7 @@ proposal.
 | [Base model × harness dimension](2026-06-10-model-harness-dimension.md) | Make the **answer model** and the **agent harness** explicit, swept, reported axes; deltas are only comparable within one `(model, harness)` cell. | "How big is the model/harness effect vs the doc/skill effect, especially for coding?" |
 | [Questions-and-tasks coverage contract](2026-06-10-questions-and-tasks-coverage-contract.md) | Require every project to carry both a **question set (awareness)** and a **task set (work)**, with the gap surfaced as a checked matrix. | "Can the model *do the work*, not just *describe the API*?" |
 | [Plugin and harness-aware benchmark dimensions](2026-06-11-plugin-and-harness-aware-benchmarks.md) | Add **plugins** as explicit runtime behavior modifiers and allow explicit matrix cells where each harness can declare its supported model/plugin combinations. | "What does a plugin like Caveman trade off: fewer tokens and shorter output for how much quality or task-success loss?" |
+| [Run telemetry — tokens, cost, cache, latency](2026-06-19-run-telemetry-metrics.md) | Capture a normalized per-run `metrics{}` block (tokens, `litellm` cost, cache read/write, latency; TTFT behind a streaming flag) at the `llm.py` chokepoint. *(Phase C.0 — prerequisite for plugin-aware cells.)* | "What did this answer **cost** — tokens, dollars, cache state, latency — not just how good was it?" |
 
 ## 3. How they compose
 
@@ -91,10 +92,13 @@ modifiers explicit, and subjects assemble those into the shippable credential.
 2. **[Model × harness](2026-06-10-model-harness-dimension.md)** next — makes
    every existing and future delta comparable and adds the `terminal-bench`
    harness adapter that turns task pass-rate into an arm outcome.
-3. **[Plugin-aware cells](2026-06-11-plugin-and-harness-aware-benchmarks.md)**
+3. **[Run telemetry](2026-06-19-run-telemetry-metrics.md)** (Phase C.0) before
+   plugins — captures the per-run cost/token/cache/latency `metrics{}` block at
+   the `llm.py` chokepoint that the plugin trade-off reports depend on.
+4. **[Plugin-aware cells](2026-06-11-plugin-and-harness-aware-benchmarks.md)**
    next — extends the matrix from a simple Cartesian product to explicit cells
    with harness-specific model support and plugin sets (`none`, `caveman`, ...).
-4. **[Subjects](2026-06-10-artifacts-as-evaluation-subjects.md)** last — assembles
+5. **[Subjects](2026-06-10-artifacts-as-evaluation-subjects.md)** last — assembles
    the layers beneath it into the per-subject scorecard the packaging track
    (#58d/#58i) serializes and signs.
 
