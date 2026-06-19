@@ -59,6 +59,7 @@ See [COVERAGE.md](./COVERAGE.md) for the broader oneTBB API/concept coverage mat
 | [intel-perf-mutex-rwlock](./intel-perf-mutex-rwlock/) | Intel performance skills | medium | Convert a read-mostly `std::mutex` bottleneck to a reader-writer lock (`std::shared_mutex`), preserving the write path and correctness |
 | [intel-perf-ttas-spinlock](./intel-perf-ttas-spinlock/) | Intel performance skills | medium | Convert a test-and-set spinlock to test-and-test-and-set to stop cache-line bouncing under contention, preserving mutual exclusion |
 | [intel-perf-simd-sort](./intel-perf-simd-sort/) | Intel performance skills | hard | Replace `std::sort` on floats with a faster non-comparison/vectorized sort (stability not required), matching the sorted multiset signature |
+| [intel-perf-branch-mispredict](./intel-perf-branch-mispredict/) | Intel performance skills | medium | Diagnose a ~25% branch-miss hot loop (data-dependent `if`) from perf stat and convert it to branchless/predicated summation, preserving the exact total |
 
 > The oneTBB tasks build entirely from `ubuntu:22.04` + standard apt and are
 > verified in the `terminal-bench-verify` CI job. The oneMKL / oneDPL / IPP /
@@ -147,3 +148,4 @@ Intel performance skills tasks:
 - [x] `intel-perf-shared-counter` — true-sharing statistics counter replaced by local aggregation
 - [x] `intel-perf-missing-restrict` — C aliasing contract and vectorization evidence
 - [x] `intel-perf-hotspot-report` — report-only interpretation of static perf artifacts
+- [x] `intel-perf-branch-mispredict` — data-dependent branch in a hot loop, branchless rewrite with deterministic speedup verifier
