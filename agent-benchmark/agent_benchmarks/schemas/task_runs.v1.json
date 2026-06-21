@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/napetrov/agent-benchmark/schemas/task_runs.v1.json",
+  "title": "Executable task-run artifact v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "harnesses",
+    "tasks",
+    "results",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "task_runs.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "baseline_harness": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "harnesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasks": {
+      "type": "array"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task",
+          "harness",
+          "passed",
+          "metrics",
+          "operations"
+        ],
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "harness": {
+            "type": "string"
+          },
+          "command": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "returncode": {
+            "type": "integer"
+          },
+          "elapsed_sec": {
+            "type": "number"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "reward": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "stdout_tail": {
+            "type": "string"
+          },
+          "stderr_tail": {
+            "type": "string"
+          },
+          "output_dir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metrics": {
+            "type": "object"
+          },
+          "operations": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "per_harness",
+        "comparisons"
+      ]
+    }
+  }
+}

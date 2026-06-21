@@ -81,7 +81,10 @@ Two more tracks back this up:
   freshness, readability, do the code examples run.
 - **Executable task track** — [`terminal-bench-tasks/`](../terminal-bench-tasks/):
   the agent must edit code, compile, and pass tests in Docker. A judge can be
-  fooled by prose; a pytest verifier cannot.
+  fooled by prose; a pytest verifier cannot. The
+  [coding harnesses guide](coding-harnesses.md) explains how to run Codex,
+  Claude Code, or any Harbor agent against these tasks and compare pass rate
+  against a baseline harness.
 
 ## Why this matters
 
@@ -122,6 +125,9 @@ CLI surface. The files in this directory go deeper:
 - [evaluating-treatments.md](evaluating-treatments.md) — compare
   context-augmentation arms (docs, MCP, skills, agent persona prompts) with
   `cli.py arms run`.
+- [coding-harnesses.md](coding-harnesses.md) — run executable coding tasks
+  through Codex, Claude Code, or terminal-bench/Harbor harnesses and compare
+  verifier pass rate against a baseline.
 
 ## Extending agent-benchmark
 

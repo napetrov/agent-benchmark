@@ -20,6 +20,7 @@ from agent_benchmarks.commands import (
     questions,
     report,
     run,
+    tasks,
 )
 
 
@@ -53,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     benchmark.register(sub, positive_int)       # benchmark
     dashboard.register(sub, positive_int)       # dashboard
     arms.register(sub, positive_int)            # arms
+    tasks.register(sub, positive_int)           # tasks
     dataset.register(sub, positive_int)         # dataset
     ingest.register(sub, positive_int)          # ingest
 

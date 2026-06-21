@@ -33,6 +33,7 @@ dependencies = [
   "openai~=1.51",
   "anthropic~=0.34",
   "python-pptx~=1.0",
+  "tomli>=1.2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
