@@ -1,5 +1,7 @@
 """Tests for the agentic tool-calling loop and agentic treatment arms."""
 
+import json
+
 import agent_benchmarks.eval.agent_runner as ar_mod
 from agent_benchmarks.eval.agent_runner import run_agent_loop
 from agent_benchmarks.treatments import (
@@ -99,6 +101,13 @@ def test_agent_loop_calls_tool_then_answers(monkeypatch):
     assert result["transcript"][0]["tool"] == "search_documentation"
     assert result["transcript"][0]["arguments"] == {"query": "reduce"}
     assert result["token_usage"]["total_tokens"] == 16  # two rounds × 8
+    # Telemetry: usage record, per-turn detail, per-tool timing.
+    assert result["usage"]["total_tokens"] == 16
+    assert result["usage"]["n_calls"] == 2
+    assert len(result["per_turn"]) == 2
+    assert "latency_sec" in result["per_turn"][0]
+    assert "tool_elapsed_sec" in result["transcript"][0]
+    json.dumps(result)
 
 
 def test_agent_loop_answers_without_tools(monkeypatch):

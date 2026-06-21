@@ -12,6 +12,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from agent_benchmarks.llm import llm_call_with_usage, ChatOpenAI, ChatAnthropic, LANGCHAIN_AVAILABLE
+from agent_benchmarks.metrics.usage import UsageRecord, to_record
 
 from .reranker import SimpleReranker, SentenceTransformerReranker, SENTENCE_TRANSFORMERS_AVAILABLE
 
@@ -226,12 +227,18 @@ class Answerer:
                     f"No relevant docs for {qid}, "
                     f"metadata: {retrieval_metadata}"
                 )
+                empty = UsageRecord(model=self.model, provider=self.provider,
+                                    cost_usd=0.0, n_calls=0)
+                token_usage = empty.as_token_usage_dict()
+                token_usage["context_chars"] = 0
                 with_docs_answer = {
                     "answer": "[FALLBACK: No relevant documentation found]",
                     "retrieved_docs": [],
                     "model": self.model,
                     "doc_source": "fallback_none",
-                    "retrieval_metadata": retrieval_metadata if self.debug_retrieval else None
+                    "retrieval_metadata": retrieval_metadata if self.debug_retrieval else None,
+                    "token_usage": token_usage,
+                    "metrics": empty.as_metrics_dict(answer_chars=0),
                 }
         else:
             logger.warning(f"No MCP client - skipping context arm for {qid}")
@@ -321,14 +328,20 @@ class Answerer:
     ) -> Dict[str, Any]:
         """Generate context-arm answer."""
         if not docs:
+            # No LLM call is made — emit a zero-cost/zero-token metrics block so
+            # this row carries the same telemetry shape as answered rows.
+            empty = UsageRecord(model=self.model, provider=self.provider,
+                                cost_usd=0.0, n_calls=0)
+            token_usage = empty.as_token_usage_dict()
+            token_usage["context_chars"] = 0
             return {
                 "answer": "[No documentation retrieved]",
                 "retrieved_docs": [],
                 "model": self.model,
                 "doc_source": "none",
                 "retrieval_metadata": retrieval_metadata if self.debug_retrieval else None,
-                "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
-                                "context_chars": 0},
+                "token_usage": token_usage,
+                "metrics": empty.as_metrics_dict(answer_chars=0),
             }
 
         # ~4k tokens at ~4 chars/token; keeps prompt within most models' context window
@@ -352,8 +365,10 @@ class Answerer:
             api_key=self.api_key,
         )
 
-        # Attach context size to usage for analysis
-        usage["context_chars"] = context_chars
+        rec = to_record(usage, self.model, self.provider)
+        # Attach context size to the token_usage dict for analysis.
+        token_usage = rec.as_token_usage_dict()
+        token_usage["context_chars"] = context_chars
 
         result = {
             "answer": answer_text,
@@ -367,7 +382,8 @@ class Answerer:
             ],
             "model": self.model,
             "doc_source": docs[0].get("source", "unknown") if docs else "none",
-            "token_usage": usage,
+            "token_usage": token_usage,
+            "metrics": rec.as_metrics_dict(answer_chars=len(answer_text or "")),
         }
 
         # Add metadata if debug mode enabled
@@ -387,10 +403,12 @@ class Answerer:
             api_key=self.api_key,
         )
 
+        rec = to_record(usage, self.model, self.provider)
         return {
             "answer": answer_text,
             "model": self.model,
-            "token_usage": usage,
+            "token_usage": rec.as_token_usage_dict(),
+            "metrics": rec.as_metrics_dict(answer_chars=len(answer_text or "")),
         }
     
     def _build_output(self, answers: List[Dict[str, Any]]) -> Dict[str, Any]:
