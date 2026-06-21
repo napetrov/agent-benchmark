@@ -160,6 +160,7 @@ def _extract_usage(
                                 or (ctd.get("reasoning_tokens") if isinstance(ctd, dict) else 0)
                                 or 0)
 
+    cost_usd = _safe_completion_cost(resp, model)
     return UsageRecord(
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
@@ -167,12 +168,13 @@ def _extract_usage(
         reasoning_tokens=reasoning_tokens,
         cache_read_tokens=cache_read,
         cache_write_tokens=cache_write,
-        cost_usd=_safe_completion_cost(resp, model),
+        cost_usd=cost_usd,
         latency_sec=latency_sec,
         ttft_sec=ttft_sec,
         model=model,
         provider=provider,
         n_calls=1,
+        cost_known_calls=1 if cost_usd is not None else 0,
     )
 
 

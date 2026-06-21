@@ -227,12 +227,18 @@ class Answerer:
                     f"No relevant docs for {qid}, "
                     f"metadata: {retrieval_metadata}"
                 )
+                empty = UsageRecord(model=self.model, provider=self.provider,
+                                    cost_usd=0.0, n_calls=0)
+                token_usage = empty.as_token_usage_dict()
+                token_usage["context_chars"] = 0
                 with_docs_answer = {
                     "answer": "[FALLBACK: No relevant documentation found]",
                     "retrieved_docs": [],
                     "model": self.model,
                     "doc_source": "fallback_none",
-                    "retrieval_metadata": retrieval_metadata if self.debug_retrieval else None
+                    "retrieval_metadata": retrieval_metadata if self.debug_retrieval else None,
+                    "token_usage": token_usage,
+                    "metrics": empty.as_metrics_dict(answer_chars=0),
                 }
         else:
             logger.warning(f"No MCP client - skipping context arm for {qid}")

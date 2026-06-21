@@ -341,15 +341,18 @@ class ArmRunner:
                 if not isinstance(m, dict):
                     continue
                 acc = per_arm.setdefault(arm_name, {
-                    "n": 0, "cost_usd": 0.0, "cost_known_n": 0,
+                    "n": 0, "total_llm_calls": 0,
+                    "cost_usd": 0.0, "cost_known_n": 0,
                     "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
                     "cache_read_tokens": 0, "latency_sec": 0.0,
                     "ttft_sec_sum": 0.0, "ttft_n": 0,
                 })
                 acc["n"] += 1
+                n_calls = m.get("n_calls", 1)
+                acc["total_llm_calls"] += n_calls
                 if m.get("cost_usd") is not None:
                     acc["cost_usd"] += m["cost_usd"]
-                    acc["cost_known_n"] += 1
+                    acc["cost_known_n"] += m.get("cost_known_calls", n_calls) or 0
                 for k in ("prompt_tokens", "completion_tokens", "total_tokens",
                           "cache_read_tokens"):
                     acc[k] += m.get(k, 0) or 0
@@ -367,8 +370,9 @@ class ArmRunner:
                 "total_cost_usd": (round(acc["cost_usd"], 6)
                                    if acc["cost_known_n"] else None),
                 # How many rows the cost total covers — when < n, the dollar
-                # figure is a partial sum (some rows had no litellm pricing).
+                # figure is a partial sum (some LLM calls had no litellm pricing).
                 "cost_known_n": acc["cost_known_n"],
+                "total_llm_calls": acc["total_llm_calls"],
                 "prompt_tokens": acc["prompt_tokens"],
                 "completion_tokens": acc["completion_tokens"],
                 "total_tokens": acc["total_tokens"],

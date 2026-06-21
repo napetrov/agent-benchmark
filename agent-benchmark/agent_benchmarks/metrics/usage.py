@@ -38,6 +38,7 @@ class UsageRecord:
     model: str = ""
     provider: str = ""
     n_calls: int = 1
+    cost_known_calls: int = 0
 
     def __add__(self, other: "UsageRecord") -> "UsageRecord":
         """Sum two records: tokens/cost/latency/n_calls add; first ttft wins.
@@ -69,9 +70,18 @@ class UsageRecord:
             model=self.model or other.model,
             provider=self.provider or other.provider,
             n_calls=self.n_calls + other.n_calls,
+            cost_known_calls=_known_cost_calls(self) + _known_cost_calls(other),
         )
 
     __radd__ = __add__  # enables sum([...]) — 0 + record is handled in __add__
+
+    def __getitem__(self, key: str) -> Any:
+        """Legacy dict-style access for callers of ``llm_call_with_usage``."""
+        return self.as_metrics_dict()[key]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Legacy dict-style ``get`` for callers of ``llm_call_with_usage``."""
+        return self.as_metrics_dict().get(key, default)
 
     def as_token_usage_dict(self) -> dict:
         """The legacy 3-key ``token_usage`` shape kept for backward compat."""
@@ -99,6 +109,7 @@ class UsageRecord:
             "latency_sec": round(self.latency_sec, 4),
             "ttft_sec": round(self.ttft_sec, 4) if self.ttft_sec is not None else None,
             "n_calls": self.n_calls,
+            "cost_known_calls": _known_cost_calls(self),
         }
         if answer_chars is not None:
             m["raw_answer_chars"] = answer_chars
@@ -145,5 +156,15 @@ def to_record(
             # Preserve an explicit n_calls=0; only default to 1 when absent/None.
             n_calls=(int(obj["n_calls"])
                      if obj.get("n_calls") is not None else 1),
+            cost_known_calls=int(obj.get("cost_known_calls", 0) or 0),
         )
     raise TypeError(f"Cannot coerce {type(obj).__name__} into UsageRecord")
+
+
+def _known_cost_calls(rec: UsageRecord) -> int:
+    """Number of LLM calls whose dollar cost is represented in ``cost_usd``."""
+    if rec.cost_known_calls:
+        return rec.cost_known_calls
+    if rec.cost_usd is not None and rec.n_calls > 0:
+        return rec.n_calls
+    return 0

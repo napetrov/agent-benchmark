@@ -67,7 +67,7 @@ def render_arms_report(data: Dict[str, Any]) -> str:
                 cost_s = f"${cost:.4f}"
                 # Flag a partial total when some rows lacked litellm pricing.
                 known = cs.get("cost_known_n")
-                n = cs.get("n")
+                n = cs.get("total_llm_calls", cs.get("n"))
                 if known is not None and n is not None and known < n:
                     cost_s += f" ({known}/{n})"
             ttft = cs.get("mean_ttft_sec")

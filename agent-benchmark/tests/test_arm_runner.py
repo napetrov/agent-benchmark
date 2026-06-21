@@ -113,6 +113,30 @@ def test_arm_runner_emits_metrics_block_and_alias(monkeypatch):
     assert cs["mean_ttft_sec"] is None
 
 
+def test_cost_summary_flags_partial_pricing_by_call():
+    runner = ArmRunner([BaselineTreatment()])
+    records = [{
+        "arms": {
+            "agent": {
+                "metrics": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                    "cost_usd": 0.01,
+                    "cost_known_calls": 1,
+                    "n_calls": 2,
+                    "latency_sec": 1.0,
+                }
+            }
+        }
+    }]
+
+    cs = runner._cost_summary(records)["agent"]
+    assert cs["total_cost_usd"] == 0.01
+    assert cs["cost_known_n"] == 1
+    assert cs["total_llm_calls"] == 2
+
+
 def test_arm_runner_stamps_plugin_set_and_harness(monkeypatch):
     captured = []
     _patch_llm(monkeypatch, captured)

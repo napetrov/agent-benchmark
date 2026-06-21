@@ -154,6 +154,20 @@ class TestGenerateAnswers:
             assert ans["with_docs"]["token_usage"]["total_tokens"] == 15
             assert ans["without_docs"]["token_usage"]["total_tokens"] == 15
 
+    def test_empty_retrieval_fallback_includes_telemetry(self, sample_questions, mock_llm_call):
+        client = Mock()
+        client.get_library_docs.return_value = []
+
+        with patch('agent_benchmarks.eval.answerer.LANGCHAIN_AVAILABLE', True):
+            answerer = Answerer(mcp_client=client)
+            answers = answerer.generate_answers("oneTBB", "uxlfoundation/oneTBB", sample_questions[:1])
+
+            with_docs = answers[0]["with_docs"]
+            assert with_docs["token_usage"]["total_tokens"] == 0
+            assert with_docs["token_usage"]["context_chars"] == 0
+            assert with_docs["metrics"]["n_calls"] == 0
+            assert with_docs["metrics"]["cost_usd"] == 0.0
+
     def test_token_usage_summary_in_output(self, sample_questions, mock_mcp_client, mock_llm_call, tmp_path):
         """Output file should include token_usage_summary with with_docs/without_docs breakdown."""
         with patch('agent_benchmarks.eval.answerer.LANGCHAIN_AVAILABLE', True):

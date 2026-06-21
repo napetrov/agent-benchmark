@@ -64,8 +64,8 @@ def run_agent_loop(
 
     Returns a dict with: ``answer``, ``transcript`` (list of tool-call records,
     each with ``tool_elapsed_sec``), ``iterations``, ``stopped_reason``,
-    ``usage`` (a :class:`UsageRecord` accumulated across turns), ``token_usage``
-    (the legacy 3-key alias), and ``per_turn`` (per-turn latency/token detail).
+    ``usage`` (serialised metrics accumulated across turns), ``token_usage`` (the
+    legacy 3-key alias), and ``per_turn`` (per-turn latency/token detail).
     """
     by_name = {t.name: t for t in tools}
     schemas = [t.schema() for t in tools]
@@ -171,7 +171,7 @@ def run_agent_loop(
         "iterations": iteration,
         "tool_call_count": len(transcript),
         "stopped_reason": stopped_reason,
-        "usage": usage_total,
+        "usage": usage_total.as_metrics_dict(answer_chars=len(answer or "")),
         "token_usage": usage_total.as_token_usage_dict(),
         "per_turn": per_turn,
     }

@@ -112,6 +112,8 @@ def test_add_cost_none_only_when_both_none():
     priced = UsageRecord(cost_usd=0.05, n_calls=1)
     assert (none_a + none_a).cost_usd is None
     assert (none_a + priced).cost_usd == 0.05  # priced subtotal, not None
+    assert (none_a + priced).as_metrics_dict()["cost_known_calls"] == 1
+    assert (none_a + priced).as_metrics_dict()["n_calls"] == 2
 
 
 def test_sum_builtin_works_with_zero_start():
@@ -126,7 +128,8 @@ def test_metrics_dict_has_required_fields():
     m = rec.as_metrics_dict(answer_chars=740)
     for key in ("prompt_tokens", "completion_tokens", "total_tokens",
                 "cost_usd", "latency_sec", "ttft_sec", "cache_read_tokens",
-                "cache_write_tokens", "reasoning_tokens", "n_calls"):
+                "cache_write_tokens", "reasoning_tokens", "n_calls",
+                "cost_known_calls"):
         assert key in m
     assert m["raw_answer_chars"] == 740
     assert m["final_answer_chars"] == 740  # equal until a plugin shortens
@@ -137,6 +140,13 @@ def test_token_usage_alias():
     assert rec.as_token_usage_dict() == {
         "prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15,
     }
+
+
+def test_usage_record_supports_legacy_dict_access():
+    rec = UsageRecord(prompt_tokens=12, completion_tokens=3, total_tokens=15)
+    assert rec["total_tokens"] == 15
+    assert rec.get("prompt_tokens") == 12
+    assert rec.get("missing", "fallback") == "fallback"
 
 
 # ── coercion ─────────────────────────────────────────────────────────────────
