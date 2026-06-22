@@ -39,6 +39,7 @@ def cmd_tasks_run(args: argparse.Namespace) -> None:
     if not harnesses:
         raise SystemExit("No harnesses selected. Pass --harnesses codex,claude-code.")
     if args.baseline_harness and args.baseline_harness not in harnesses:
+        print(f"Also running baseline harness: {args.baseline_harness}")
         harnesses.insert(0, args.baseline_harness)
 
     runner = TaskSuiteRunner(
@@ -54,6 +55,7 @@ def cmd_tasks_run(args: argparse.Namespace) -> None:
 
     out_json = Path(args.out_json) if args.out_json else Path(args.output_dir) / "task_runs.json"
     from agent_benchmarks.artifacts import save_artifact
+
     save_artifact("task_runs", output, out_json)
     print(f"Saved task run artifact: {out_json}")
 
@@ -108,5 +110,7 @@ def register(sub, positive_int) -> None:
             "{model}, {output_dir}, {prompt}, {prompt_quoted}."
         ),
     )
-    run_p.add_argument("--dry-run", action="store_true", help="Build artifact without invoking agents")
+    run_p.add_argument(
+        "--dry-run", action="store_true", help="Build artifact without invoking agents"
+    )
     run_p.set_defaults(func=cmd_tasks_run)

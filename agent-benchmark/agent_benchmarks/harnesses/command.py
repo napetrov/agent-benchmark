@@ -25,8 +25,11 @@ _PLACEHOLDERS = (
     "model",
     "output_dir",
     "prompt",
+    "prompt_escaped",
     "prompt_quoted",
 )
+
+MAX_TIMEOUT_SEC = 3600.0
 
 
 @dataclass(frozen=True)
@@ -82,10 +85,13 @@ class CommandHarness:
                 metrics={"dry_run": True},
             )
 
-        timeout = timeout_sec or task.timeout_sec or self.default_timeout_sec
+        timeout = timeout_sec or task.timeout_sec or self.default_timeout_sec or MAX_TIMEOUT_SEC
+        task_root = task.path.parent
+        if task_root.parent == task_root:
+            raise ValueError(f"Task path must be inside a task root directory: {task.path}")
         proc = subprocess.run(
             command,
-            cwd=str(task.path.parent.parent),
+            cwd=str(task_root.parent),
             env=env,
             text=True,
             capture_output=True,
@@ -139,6 +145,7 @@ class CommandHarness:
         }
         prompt = _task_prompt(task)
         context["prompt"] = prompt
+        context["prompt_escaped"] = prompt.replace("{", "{{").replace("}", "}}")
         context["prompt_quoted"] = shlex.quote(prompt)
         rendered = _render_template(self.command_template, context)
         return shlex.split(rendered)
@@ -161,12 +168,15 @@ def _task_prompt(task: TaskSpec) -> str:
 
 def _find_reward(output_dir: Path | None, stdout: str, stderr: str) -> float | None:
     if output_dir:
-        candidates = sorted(output_dir.rglob("reward.txt")) + sorted(output_dir.rglob("reward.json"))
+        candidates = sorted(output_dir.rglob("reward.txt")) + sorted(
+            output_dir.rglob("reward.json")
+        )
         for path in candidates:
             parsed = _parse_reward_text(path.read_text(encoding="utf-8", errors="replace"))
             if parsed is not None:
                 return parsed
-    return _parse_reward_text(stdout) if _parse_reward_text(stdout) is not None else _parse_reward_text(stderr)
+    parsed = _parse_reward_text(stdout)
+    return parsed if parsed is not None else _parse_reward_text(stderr)
 
 
 def _parse_reward_text(text: str) -> float | None:

@@ -93,10 +93,16 @@ def _op_from_dict(data: dict[str, Any]) -> OperationRecord:
     op_type = str(data.get("type") or data.get("kind") or "operation")
     name = str(data.get("name") or data.get("tool") or data.get("subagent") or op_type)
     status = str(data.get("status") or "ok")
-    elapsed = float(data.get("elapsed_sec") or data.get("duration_sec") or 0.0)
+    try:
+        elapsed = float(data.get("elapsed_sec") or data.get("duration_sec") or 0.0)
+    except (TypeError, ValueError):
+        elapsed = 0.0
     metadata = {
         k: v
         for k, v in data.items()
-        if k not in {"type", "kind", "name", "tool", "subagent", "status", "elapsed_sec", "duration_sec"}
+        if k
+        not in {"type", "kind", "name", "tool", "subagent", "status", "elapsed_sec", "duration_sec"}
     }
-    return OperationRecord(type=op_type, name=name, status=status, elapsed_sec=elapsed, metadata=metadata)
+    return OperationRecord(
+        type=op_type, name=name, status=status, elapsed_sec=elapsed, metadata=metadata
+    )

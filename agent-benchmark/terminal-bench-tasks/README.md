@@ -93,7 +93,7 @@ schema-validated `task_runs.v1` artifact:
 ```bash
 python cli.py tasks run \
   --tasks onetbb-parallel-sort \
-  --harnesses codex \
+  --harnesses claude-code,codex \
   --baseline-harness claude-code \
   --model anthropic/claude-opus-4-6 \
   --out-json results/task-runs/onetbb-sort.json

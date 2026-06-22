@@ -86,6 +86,13 @@ def test_command_template_allows_code_braces_in_template_and_prompt(tmp_path):
     assert '{"ok": true}' in rendered_prompt
     assert 'f"{value}"' in rendered_prompt
 
+    escaped = CommandHarness("fake", "echo {prompt_escaped}")
+    rendered_escaped = " ".join(
+        escaped.build_command(task, model=None, output_dir=tmp_path / "out")
+    )
+    assert "{{ok: true}}" in rendered_escaped
+    assert "f{{value}}" in rendered_escaped
+
 
 def test_command_harness_collects_reward_and_operations(tmp_path, monkeypatch):
     task = load_task(_fixture_task(tmp_path))
@@ -119,6 +126,25 @@ def test_command_harness_collects_reward_and_operations(tmp_path, monkeypatch):
     assert by_type["loop"] == 1
 
 
+def test_command_harness_uses_finite_timeout_when_task_has_none(tmp_path, monkeypatch):
+    task_path = _fixture_task(tmp_path)
+    (task_path / "task.toml").write_text('[metadata]\ndifficulty = "easy"\n', encoding="utf-8")
+    task = load_task(task_path)
+    observed = {}
+
+    def fake_run(command, cwd, env, text, capture_output, timeout, check):
+        observed["timeout"] = timeout
+        return subprocess.CompletedProcess(command, 0, stdout="reward: 1.0", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = CommandHarness("fake", "fake-agent --task {task_path}").run(
+        task, output_dir=tmp_path / "out"
+    )
+
+    assert observed["timeout"] == 3600.0
+    assert result.metrics["timeout_sec"] == 3600.0
+
+
 def test_operation_loader_accepts_markers_and_unstructured_lines(tmp_path):
     out = tmp_path / "out"
     out.mkdir()
@@ -132,6 +158,17 @@ def test_operation_loader_accepts_markers_and_unstructured_lines(tmp_path):
         "",
     )
     assert [op.type for op in ops] == ["subagent", "tool", "loop"]
+
+
+def test_operation_loader_defaults_malformed_elapsed(tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "operations.jsonl").write_text(
+        json.dumps({"type": "tool", "name": "edit", "elapsed_sec": "not-a-number"}) + "\n",
+        encoding="utf-8",
+    )
+    ops = load_operations(out, "", "")
+    assert ops[0].elapsed_sec == 0.0
 
 
 def test_operation_loader_reports_unreadable_jsonl(tmp_path, monkeypatch):
@@ -186,10 +223,18 @@ def test_task_suite_summary_compares_to_baseline(tmp_path, monkeypatch):
 
 def test_summarize_task_results_counts_operations():
     rows = [
-        {"harness": "h1", "passed": True, "elapsed_sec": 1, "metrics": {"operation_count": 2,
-         "operations_by_type": {"tool": 1, "loop": 1}}},
-        {"harness": "h1", "passed": False, "elapsed_sec": 2, "metrics": {"operation_count": 1,
-         "operations_by_type": {"tool": 1}}},
+        {
+            "harness": "h1",
+            "passed": True,
+            "elapsed_sec": 1,
+            "metrics": {"operation_count": 2, "operations_by_type": {"tool": 1, "loop": 1}},
+        },
+        {
+            "harness": "h1",
+            "passed": False,
+            "elapsed_sec": 2,
+            "metrics": {"operation_count": 1, "operations_by_type": {"tool": 1}},
+        },
     ]
     summary = summarize_task_results(rows)
     assert summary["per_harness"]["h1"]["pass_rate"] == 0.5

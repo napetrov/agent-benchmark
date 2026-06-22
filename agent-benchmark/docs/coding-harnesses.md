@@ -39,11 +39,14 @@ Run one task through Codex and compare it to Claude Code:
 ```bash
 python cli.py tasks run \
   --tasks onetbb-parallel-reduce \
-  --harnesses codex \
+  --harnesses claude-code,codex \
   --baseline-harness claude-code \
   --model anthropic/claude-opus-4-6 \
   --out-json results/task-runs/onetbb-reduce.json
 ```
+
+If `--baseline-harness` is not listed in `--harnesses`, the CLI adds it to the
+run matrix and prints that it will also run the baseline harness.
 
 Run all tasks through a custom wrapper:
 
