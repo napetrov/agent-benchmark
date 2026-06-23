@@ -7,7 +7,7 @@ difficulty = "hard"
 difficulty_explanation = "Requires recognizing that a primitive comparison sort can be replaced when stability is not required, and producing the same sorted multiset with a faster non-comparison or vectorized sort"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "performance-patterns", "sort", "simd", "radix"]
+tags = ["c++", "performance", "performance-patterns", "sort", "simd", "radix", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 90.0

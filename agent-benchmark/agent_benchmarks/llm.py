@@ -103,16 +103,25 @@ def _build_litellm_model(model: str, provider: str) -> str:
         return f"{provider}/{model}"
 
 
-def _safe_completion_cost(resp, model: str) -> Optional[float]:
+def _safe_completion_cost(resp, model: str, litellm_model: Optional[str] = None) -> Optional[float]:
     """Dollar cost of a completion via litellm, or ``None`` if no pricing.
 
     A missing price is logged once per model and returns ``None`` — distinct
     from a genuinely free ``0.0`` call.
+
+    ``litellm_model`` is the provider-prefixed model string (e.g.
+    ``vertex_ai/claude-3-5-haiku@20241022``). Passing it is required for
+    providers whose response ``model`` field is bare (Vertex AI returns
+    ``claude-3-5-haiku@...`` with no ``vertex_ai/`` prefix), which otherwise
+    makes ``completion_cost`` fail with "LLM Provider NOT provided" → null cost.
     """
     try:
         from litellm import completion_cost
 
-        cost = completion_cost(completion_response=resp)
+        kwargs = {"completion_response": resp}
+        if litellm_model:
+            kwargs["model"] = litellm_model
+        cost = completion_cost(**kwargs)
         if cost is None:
             raise ValueError("completion_cost returned None")
         return float(cost)
@@ -129,6 +138,7 @@ def _extract_usage(
     provider: str,
     latency_sec: float = 0.0,
     ttft_sec: Optional[float] = None,
+    litellm_model: Optional[str] = None,
 ) -> UsageRecord:
     """Build a :class:`UsageRecord` from a litellm response (defensive).
 
@@ -160,7 +170,7 @@ def _extract_usage(
                                 or (ctd.get("reasoning_tokens") if isinstance(ctd, dict) else 0)
                                 or 0)
 
-    cost_usd = _safe_completion_cost(resp, model)
+    cost_usd = _safe_completion_cost(resp, model, litellm_model=litellm_model)
     return UsageRecord(
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
@@ -264,7 +274,8 @@ def llm_call_with_usage(
             )
             latency = time.time() - t0
             text = resp.choices[0].message.content
-            return text, _extract_usage(resp, model, provider, latency_sec=latency)
+            return text, _extract_usage(resp, model, provider, latency_sec=latency,
+                                        litellm_model=litellm_model)
 
         except Exception as exc:
             last_exc = exc
@@ -322,7 +333,8 @@ def _stream_call(completion, litellm_model, messages, api_key, model, provider):
             "Streaming response for %r returned no usage chunk; token/cost "
             "metrics will be zero/None for this call.", model
         )
-    usage = _extract_usage(final_chunk, model, provider, latency_sec=latency, ttft_sec=ttft)
+    usage = _extract_usage(final_chunk, model, provider, latency_sec=latency, ttft_sec=ttft,
+                           litellm_model=litellm_model)
     return text, usage
 
 

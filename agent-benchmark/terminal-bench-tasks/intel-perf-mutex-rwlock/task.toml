@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires recognizing a read-mostly mutex bottleneck and converting to a reader-writer lock while preserving correctness and the write-path"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "performance-patterns", "rwlock", "shared_mutex", "contention"]
+tags = ["c++", "performance", "performance-patterns", "rwlock", "shared_mutex", "contention", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 120.0

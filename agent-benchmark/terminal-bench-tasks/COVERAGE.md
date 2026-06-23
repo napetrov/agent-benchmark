@@ -21,6 +21,7 @@ honest effective state (`covered` needs both halves; `questions-only` and
 | `icx` | ⬜ | ⬜ 0 | planned |
 | `ifort` | ⬜ | ⬜ 0 | planned |
 | `inspector` | ⬜ | ⬜ 0 | planned |
+| `intel_performance_skills` | ✅ | ✅ 11 | covered |
 | `intelmpi` | ⬜ | ⬜ 0 | planned |
 | `ipp` | ⬜ | ✅ 1 | planned |
 | `numba_dpex` | ⬜ | ⬜ 0 | planned |
