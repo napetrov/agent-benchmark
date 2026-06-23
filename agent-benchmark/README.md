@@ -224,8 +224,11 @@ GitHub Actions runs two workflows on pull requests.
 
 `agent-quality.yml` — heavier, task/benchmark checks:
 
-6. `terminal-bench-verify` / `terminal-bench-verify-oneapi` — build each task
-   container and verify its oracle solution offline (`--network none`).
+6. `terminal-bench-verify` / `terminal-bench-verify-oneapi` — build the task
+   containers listed in the workflow and verify their oracle solutions offline
+   (`--network none`). The list is an explicit allow-list in
+   `agent-quality.yml`, not every directory under `terminal-bench-tasks/`, so a
+   new task is only covered once it is added there.
 7. `benchmark` — runs the static agent-quality benchmark and uploads artifacts.
 
 Manual workflow dispatch on `agent-quality.yml` supports strict mode for

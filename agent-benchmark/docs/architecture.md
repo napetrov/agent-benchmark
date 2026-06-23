@@ -151,8 +151,11 @@ Two GitHub Actions workflows run on PRs (see `.github/workflows/`):
 
 **`agent-quality.yml`** — task and benchmark checks:
 
-6. **terminal-bench-verify** / **terminal-bench-verify-oneapi** — build each
-   task container and verify its oracle solution offline (`--network none`).
+6. **terminal-bench-verify** / **terminal-bench-verify-oneapi** — build the task
+   containers listed in `agent-quality.yml` and verify their oracle solutions
+   offline (`--network none`). The workflow uses an explicit task allow-list, so
+   a task directory is only covered once it is added there (e.g.
+   `intel-perf-branch-mispredict` is currently not in the list).
 7. **benchmark** — runs the static agent-quality benchmark and uploads
    `current.json` / `current.md` artifacts.
 
