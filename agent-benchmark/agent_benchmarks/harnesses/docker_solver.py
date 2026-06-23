@@ -404,12 +404,10 @@ def _last_json_object(text: str) -> Optional[dict]:
             except json.JSONDecodeError:
                 continue
     # Fall back to the last {...} span anywhere in the output.
-    match = None
-    for match in re.finditer(r"\{.*\}", text, re.DOTALL):
-        pass
-    if match:
+    matches = re.findall(r"\{.*\}", text, re.DOTALL)
+    if matches:
         try:
-            return json.loads(match.group(0))
+            return json.loads(matches[-1])
         except json.JSONDecodeError:
             return None
     return None
