@@ -146,6 +146,13 @@ class Judge:
         self.provider = provider
         self.api_key = api_key
         self.run_metadata = dict(run_metadata) if run_metadata else {}
+        # Accumulate judge-side token/cost telemetry across all judge calls
+        # (Phase-C.0 covered answering; the judge path was untracked).
+        self._usage_lock = threading.Lock()
+        self._usage_totals = {
+            "calls": 0, "cost_known_calls": 0, "cost_usd": 0.0,
+            "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+        }
 
         if provider == "openai":
             self.llm = ChatOpenAI(model=model, api_key=api_key)
@@ -335,6 +342,7 @@ class Judge:
 
         response = self.llm.invoke(prompt)
         raw = response.content if hasattr(response, "content") else str(response)
+        self._accumulate_usage(getattr(response, "usage", None))
 
         scores = extract_json_object(raw)
 
@@ -389,6 +397,34 @@ class Judge:
         
         return "\n".join(formatted)
     
+    def _accumulate_usage(self, usage) -> None:
+        """Fold one judge call's UsageRecord into the running totals (thread-safe).
+
+        Defensive: a real UsageRecord has int token fields, but test doubles may
+        carry non-numeric attributes — coerce and skip what does not convert so
+        telemetry capture never breaks a judging run.
+        """
+        from agent_benchmarks.metrics.usage import UsageRecord
+        if not isinstance(usage, UsageRecord):
+            return
+
+        def _int(v):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return 0
+
+        with self._usage_lock:
+            t = self._usage_totals
+            t["calls"] += 1
+            t["prompt_tokens"] += _int(usage.prompt_tokens)
+            t["completion_tokens"] += _int(usage.completion_tokens)
+            t["total_tokens"] += _int(usage.total_tokens)
+            cost = usage.cost_usd
+            if isinstance(cost, (int, float)):
+                t["cost_usd"] += float(cost)
+                t["cost_known_calls"] += 1
+
     def _build_evaluation_output(self, evaluations: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Build the serialisable output structure for a set of evaluations."""
         output = {
@@ -399,6 +435,14 @@ class Judge:
             "total_evaluations": len(evaluations),
             "evaluations": evaluations,
         }
+        with self._usage_lock:
+            totals = dict(self._usage_totals)
+        # cost_usd is null (not 0.0) when no judge call had known pricing, so a
+        # missing price reads distinct from a genuinely free judge.
+        totals["cost_usd"] = (
+            round(totals["cost_usd"], 6) if totals["cost_known_calls"] else None
+        )
+        output["judge_metrics"] = totals
         if self.run_metadata:
             output["run_metadata"] = self.run_metadata
         return output

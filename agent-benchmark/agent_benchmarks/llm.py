@@ -29,8 +29,9 @@ _RETRYABLE_SUBSTRINGS = (
 
 
 class _Resp:
-    def __init__(self, content: str):
+    def __init__(self, content: str, usage=None):
         self.content = content
+        self.usage = usage   # UsageRecord | None — lets callers (judge) track cost
 
 
 class ChatOpenAI:
@@ -41,8 +42,9 @@ class ChatOpenAI:
         self.api_key = api_key
 
     def invoke(self, prompt: str):
-        """Invoke the model with a prompt."""
-        return _Resp(llm_call(prompt, self.model, provider="openai", api_key=self.api_key))
+        """Invoke the model with a prompt; response carries a UsageRecord."""
+        text, usage = llm_call_with_usage(prompt, self.model, provider="openai", api_key=self.api_key)
+        return _Resp(text, usage=usage)
 
 
 class ChatAnthropic:
@@ -53,8 +55,9 @@ class ChatAnthropic:
         self.api_key = api_key
 
     def invoke(self, prompt: str):
-        """Invoke the model with a prompt."""
-        return _Resp(llm_call(prompt, self.model, provider="anthropic", api_key=self.api_key))
+        """Invoke the model with a prompt; response carries a UsageRecord."""
+        text, usage = llm_call_with_usage(prompt, self.model, provider="anthropic", api_key=self.api_key)
+        return _Resp(text, usage=usage)
 
 
 def _is_retryable(exc: Exception) -> bool:

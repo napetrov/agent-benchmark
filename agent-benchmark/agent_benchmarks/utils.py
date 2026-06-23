@@ -65,8 +65,9 @@ def get_llm(provider: str, model: str, api_key: str = None):
     from litellm import completion
 
     class _Resp:
-        def __init__(self, content: str):
+        def __init__(self, content: str, usage=None):
             self.content = content
+            self.usage = usage   # UsageRecord | None — lets the judge track cost
 
     class _LLM:
         def __init__(self, litellm_model: str, key: str = None, default_max_tokens: int = None):
@@ -75,16 +76,24 @@ def get_llm(provider: str, model: str, api_key: str = None):
             self.default_max_tokens = default_max_tokens
 
         def invoke(self, prompt: str):
+            import time as _time
+            from agent_benchmarks.llm import _extract_usage
             kwargs = {}
             if self.default_max_tokens:
                 kwargs["max_tokens"] = self.default_max_tokens
+            t0 = _time.time()
             res = completion(
                 model=self.litellm_model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=self.key,
                 **kwargs,
             )
-            return _Resp(res.choices[0].message.content)
+            latency = _time.time() - t0
+            # Pass the provider-prefixed litellm_model so cost resolves for
+            # Vertex/Bedrock (their response.model is bare → null cost otherwise).
+            usage = _extract_usage(res, self.litellm_model, "litellm",
+                                   latency_sec=latency, litellm_model=self.litellm_model)
+            return _Resp(res.choices[0].message.content, usage=usage)
 
     api_key = _read_key(api_key)
 
