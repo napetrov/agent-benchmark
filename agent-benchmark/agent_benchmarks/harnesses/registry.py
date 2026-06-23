@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .command import CommandHarness
+from .docker_solver import DockerSolverHarness
 
 
 def known_harnesses() -> dict[str, str]:
@@ -12,16 +13,22 @@ def known_harnesses() -> dict[str, str]:
         "codex": "Codex CLI via Harbor agent 'codex'",
         "claude-code": "Claude Code via Harbor agent 'claude-code'",
         "terminal-bench:<agent>": "Arbitrary Harbor/terminal-bench agent id",
+        "docker-oracle": "Local Docker: apply the task's own solve.sh (no LLM)",
+        "docker-claude": "Local Docker: solve with `claude -p`, full cost/token telemetry",
+        "docker-claude-skill:<skill>": "docker-claude with a skill dir exposed (with-skill arm)",
         "command:<template>": "Custom shell-like command template",
     }
 
 
-def create_harness(harness: str, *, command_template: str | None = None) -> CommandHarness:
-    """Create a command-backed harness adapter.
+def create_harness(harness: str, *, command_template: str | None = None):
+    """Create a coding harness adapter.
 
-    Built-ins use Harbor because the repository's executable tasks already follow
-    the Harbor/terminal-bench task format. A custom template may use placeholders:
-    ``{task_path}``, ``{task}``, ``{model}``, ``{output_dir}``, ``{prompt}``.
+    Harbor-backed built-ins (``codex``, ``claude-code``) follow the
+    Harbor/terminal-bench task format. The ``docker-*`` adapters need no Harbor:
+    they build the task image, solve it (oracle or ``claude -p``), and verify
+    locally while capturing LLM telemetry. A custom ``command:`` template may use
+    placeholders ``{task_path}``, ``{task}``, ``{model}``, ``{output_dir}``,
+    ``{prompt}``.
     """
 
     if command_template:
@@ -30,6 +37,18 @@ def create_harness(harness: str, *, command_template: str | None = None) -> Comm
         return _harbor("codex", "codex")
     if harness == "claude-code":
         return _harbor("claude-code", "claude-code")
+    if harness == "docker-oracle":
+        return DockerSolverHarness(harness_id=harness, mode="oracle")
+    if harness == "docker-claude":
+        return DockerSolverHarness(harness_id=harness, mode="claude")
+    if harness.startswith("docker-claude-skill:"):
+        skill = harness.split(":", 1)[1]
+        if not skill:
+            raise ValueError(
+                "docker-claude-skill harness requires a skill path, e.g. "
+                "docker-claude-skill:data/skills/intel-performance-patterns/SKILL.md"
+            )
+        return DockerSolverHarness(harness_id=harness, mode="claude", skill_path=skill)
     if harness.startswith("terminal-bench:"):
         agent = harness.split(":", 1)[1]
         if not agent:

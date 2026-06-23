@@ -99,8 +99,24 @@ python cli.py tasks run \
   --out-json results/task-runs/onetbb-sort.json
 ```
 
-Built-in aliases are `codex`, `claude-code`, and `terminal-bench:<agent>`.
-Operation telemetry is collected from wrapper JSONL logs and
+Built-in aliases are the Harbor-backed `codex`, `claude-code`, and
+`terminal-bench:<agent>`, plus the no-Harbor `docker-oracle`, `docker-claude`,
+and `docker-claude-skill:<skill>` harnesses — the `docker-claude*` ones build,
+solve, and verify against local Docker and record full LLM telemetry (cost,
+tokens, cache, latency, turns). To run the without-skill vs with-skill
+experiment with variance:
+
+```bash
+python cli.py tasks run \
+  --tasks intel-perf-serial-accumulator,intel-perf-false-sharing \
+  --harnesses docker-claude,docker-claude-skill:data/skills/intel-performance-patterns/SKILL.md \
+  --baseline-harness docker-claude \
+  --model us.anthropic.claude-haiku-4-5-20251001-v1:0 \
+  --repeats 3 \
+  --out-json results/skill-task-arms.json
+```
+
+Operation telemetry is also collected from wrapper JSONL logs and
 `AGENT_BENCHMARK_OP` stdout/stderr markers. See
 [`docs/coding-harnesses.md`](../docs/coding-harnesses.md) for the full contract.
 
