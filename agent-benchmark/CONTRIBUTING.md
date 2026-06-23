@@ -30,11 +30,11 @@ Optional feature sets are available as extras: `ocr` (Docling ingestion),
 Run the same checks CI runs:
 
 ```bash
-ruff check .                   # lint
-ruff format --check .          # formatting
-mypy agent_benchmarks            # type check
-python -m agent_benchmarks.schema_check   # validate the benchmark spec
-pytest                         # tests
+ruff check .                              # lint
+mypy                                      # type check (config in pyproject.toml)
+python -m agent_benchmarks.schema_check benchmarks/spec.v1.yaml   # validate the benchmark spec
+python -m agent_benchmarks.config_check   # registry drift check
+pytest                                    # tests
 ```
 
 Guidelines:
@@ -67,7 +67,7 @@ When your change touches user-facing behavior, confirm:
 ## Subsystem ownership
 
 The repo spans three loosely-coupled subsystems; see
-[CODEOWNERS](.github/CODEOWNERS) for review routing:
+[CODEOWNERS](../.github/CODEOWNERS) for review routing:
 
 - **static benchmark** — `agent_benchmarks/runner`, `metrics`, `ingest`, `gate`
 - **LLM eval** — `agent_benchmarks/eval`, `questions`, `personas`, `treatments`

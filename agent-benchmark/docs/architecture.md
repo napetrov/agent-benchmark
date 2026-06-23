@@ -136,12 +136,28 @@ comparisons.
 
 ## CI
 
-Three GitHub Actions checks run on PRs (see `.github/workflows/`):
+Two GitHub Actions workflows run on PRs (see `.github/workflows/`):
 
-1. **test** — pytest with coverage.
-2. **benchmark** — runs the static agent-quality benchmark and uploads
+**`ci.yml`** — fast code checks:
+
+1. **lint** — `ruff check .`.
+2. **mypy** — type check.
+3. **schema** — `schema_check` validates `benchmarks/spec.v1.yaml`;
+   `config_check` checks `products.yaml`/`intents.yaml`/`config/products.yaml`
+   drift.
+4. **test** — pytest with coverage (Python 3.10–3.13).
+5. **package-smoke** — builds/installs the package and exercises the console and
+   module entry points.
+
+**`agent-quality.yml`** — task and benchmark checks:
+
+6. **terminal-bench-verify** / **terminal-bench-verify-oneapi** — build the task
+   containers listed in `agent-quality.yml` and verify their oracle solutions
+   offline (`--network none`). The workflow uses an explicit task allow-list, so
+   a task directory is only covered once it is added there (e.g.
+   `intel-perf-branch-mispredict` is currently not in the list).
+7. **benchmark** — runs the static agent-quality benchmark and uploads
    `current.json` / `current.md` artifacts.
-3. **Verify terminal-bench-tasks** — builds each task container and verifies
-   its oracle solution offline (`--network none`).
 
-Manual workflow dispatch supports `--strict` for blocking quality gates.
+Manual workflow dispatch on `agent-quality.yml` supports `--strict` for
+blocking quality gates.

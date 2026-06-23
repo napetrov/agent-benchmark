@@ -139,6 +139,15 @@ CLI surface. The files in this directory go deeper:
   — add an executable oneTBB / oneAPI task with Docker, oracle, and pytest
   verifier.
 
+## Reference
+
+- [example-execution.md](example-execution.md) — how the `example_pass_rate`
+  metric extracts and runs fenced code examples in isolation.
+- [ingestion-docling.md](ingestion-docling.md) — ingesting non-Markdown
+  documents (PDF, HTML, …) via Docling, installed with the optional `ocr` extra.
+- [difficulty-rubric.md](difficulty-rubric.md) — the difficulty/level rubric
+  used to grade performance-skill questions and tasks.
+
 ## Historical decisions
 
 The `decisions/` directory keeps point-in-time design reviews and

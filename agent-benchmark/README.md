@@ -210,13 +210,29 @@ tests/                   Pytest suite
 
 ## CI
 
-GitHub Actions runs three checks on pull requests:
+GitHub Actions runs two workflows on pull requests.
 
-1. `test` — installs `requirements-test.txt` and runs pytest with coverage.
-2. `benchmark` — runs the static agent-quality benchmark and uploads artifacts.
-3. `Verify terminal-bench-tasks` — builds task containers and verifies oracle solutions.
+`ci.yml` — fast code checks:
 
-Manual workflow dispatch supports strict mode for blocking quality gates.
+1. `lint` — `ruff check .`.
+2. `mypy` — type check.
+3. `schema` — validates `benchmarks/spec.v1.yaml` (`schema_check`) and checks
+   registry drift (`config_check`).
+4. `test` — pytest with coverage across Python 3.10–3.13.
+5. `package-smoke` — builds and installs the package, then runs the console
+   (`agent-benchmark`) and module (`python -m agent_benchmarks`) entry points.
+
+`agent-quality.yml` — heavier, task/benchmark checks:
+
+6. `terminal-bench-verify` / `terminal-bench-verify-oneapi` — build the task
+   containers listed in the workflow and verify their oracle solutions offline
+   (`--network none`). The list is an explicit allow-list in
+   `agent-quality.yml`, not every directory under `terminal-bench-tasks/`, so a
+   new task is only covered once it is added there.
+7. `benchmark` — runs the static agent-quality benchmark and uploads artifacts.
+
+Manual workflow dispatch on `agent-quality.yml` supports strict mode for
+blocking quality gates.
 
 ## Repository hygiene
 
