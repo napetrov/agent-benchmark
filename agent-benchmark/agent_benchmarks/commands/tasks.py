@@ -50,6 +50,7 @@ def cmd_tasks_run(args: argparse.Namespace) -> None:
         output_root=Path(args.output_dir),
         command_template=args.command_template,
         dry_run=args.dry_run,
+        repeats=args.repeats,
     )
     output = runner.run()
 
@@ -62,14 +63,18 @@ def cmd_tasks_run(args: argparse.Namespace) -> None:
     for harness, stats in output["summary"]["per_harness"].items():
         rate = stats["pass_rate"]
         rate_s = "n/a" if rate is None else f"{rate:.2%}"
+        cost = stats.get("cost", {}).get("total_cost_usd")
+        cost_s = "" if cost is None else f", cost=${cost:.4f}"
         print(
             f"{harness}: {stats['passed']}/{stats['n']} pass ({rate_s}), "
-            f"ops={stats['operation_count']}, elapsed={stats['elapsed_sec']:.2f}s"
+            f"ops={stats['operation_count']}, elapsed={stats['elapsed_sec']:.2f}s{cost_s}"
         )
     for harness, cmp_row in output["summary"]["comparisons"].items():
         delta = cmp_row["pass_rate_delta"]
         delta_s = "n/a" if delta is None else f"{delta:+.2%}"
-        print(f"{harness} vs {cmp_row['baseline_harness']}: pass-rate delta {delta_s}")
+        cost_delta = cmp_row.get("cost_delta_usd")
+        cost_s = "" if cost_delta is None else f", cost delta ${cost_delta:+.4f}"
+        print(f"{harness} vs {cmp_row['baseline_harness']}: pass-rate delta {delta_s}{cost_s}")
 
 
 def register(sub, positive_int) -> None:
@@ -102,6 +107,10 @@ def register(sub, positive_int) -> None:
     run_p.add_argument("--tasks-root", default=None)
     run_p.add_argument("--output-dir", default="results/task-runs", dest="output_dir")
     run_p.add_argument("--out-json", default=None, dest="out_json")
+    run_p.add_argument(
+        "--repeats", type=positive_int, default=1,
+        help="Run each (task, harness) cell N times for pass-rate/cost variance (default: 1)",
+    )
     run_p.add_argument(
         "--command-template",
         default=None,

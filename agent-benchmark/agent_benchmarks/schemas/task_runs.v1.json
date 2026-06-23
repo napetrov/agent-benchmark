@@ -35,6 +35,10 @@
         "type": "string"
       }
     },
+    "repeats": {
+      "type": "integer",
+      "minimum": 1
+    },
     "tasks": {
       "type": "array",
       "items": {
@@ -125,6 +129,10 @@
               "string",
               "null"
             ]
+          },
+          "repeat": {
+            "type": "integer",
+            "minimum": 1
           },
           "metrics": {
             "type": "object",
@@ -251,6 +259,51 @@
                   "number",
                   "null"
                 ]
+              },
+              "cost": {
+                "type": "object",
+                "description": "Rolled-up LLM telemetry; total_cost_usd is null when no call was priced.",
+                "properties": {
+                  "total_cost_usd": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "cost_known_n": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": true
+              },
+              "per_task": {
+                "type": "object",
+                "description": "Per-task pass breakdown for this harness.",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": [
+                    "n",
+                    "passed",
+                    "pass_rate"
+                  ],
+                  "properties": {
+                    "n": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "passed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pass_rate": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  }
+                }
               }
             }
           }
@@ -280,6 +333,12 @@
               },
               "operation_count_delta": {
                 "type": "integer"
+              },
+              "cost_delta_usd": {
+                "type": [
+                  "number",
+                  "null"
+                ]
               }
             }
           }
