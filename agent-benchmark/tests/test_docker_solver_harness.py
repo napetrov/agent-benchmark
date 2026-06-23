@@ -168,14 +168,12 @@ def _patch_pipeline(monkeypatch, *, reward: float, usage_json: str | None):
     monkeypatch.setattr(DockerSolverHarness, "_verify", fake_verify)
 
     if usage_json is not None:
-        from agent_benchmarks.metrics.usage import UsageRecord
-
-        def fake_solve_claude(self, task, container, output_dir, model, timeout, operations, log):
+        def fake_solve_claude(self, task, container, output_dir, model, timeout,
+                              operations, log, extra_metrics):
             (output_dir / "solver.json").write_text(usage_json, encoding="utf-8")
             return _parse_claude_json(usage_json, task.name, model or "", 1.0)
 
         monkeypatch.setattr(DockerSolverHarness, "_solve_claude", fake_solve_claude)
-        assert UsageRecord  # imported for clarity
 
 
 def test_docker_claude_run_folds_cost_into_metrics(tmp_path, monkeypatch):
@@ -274,3 +272,70 @@ def test_repeats_produce_multiple_rows_and_validate(tmp_path, monkeypatch):
     stats = output["summary"]["per_harness"]["docker-claude"]
     assert stats["n"] == 3
     assert stats["cost"]["cost_known_n"] == 3
+
+
+def test_one_failing_cell_does_not_abort_the_sweep(tmp_path, monkeypatch):
+    """A harness crash on one task records a failed row and the sweep continues
+    — the artifact still holds every other cell instead of being discarded."""
+    good = _fixture_task(tmp_path)
+    bad = tmp_path / "intel-perf-bad"
+    (bad / "tests").mkdir(parents=True)
+    (bad / "environment").mkdir()
+    (bad / "instruction.md").write_text("x", encoding="utf-8")
+    (bad / "task.toml").write_text('[metadata]\ntags = []\n', encoding="utf-8")
+
+    from agent_benchmarks.harnesses.command import CommandHarness
+
+    real_run = DockerSolverHarness.run
+
+    def flaky_run(self, task, *, model=None, output_dir=None, timeout_sec=None, dry_run=False):
+        if task.name == "intel-perf-bad":
+            raise RuntimeError("docker build failed (exit 1); see run.log")
+        # The good task: stub the Docker pipeline and run the real method.
+        _patch_pipeline(monkeypatch, reward=1.0, usage_json=_CLAUDE_JSON)
+        return real_run(self, task, model=model, output_dir=output_dir, dry_run=dry_run)
+
+    monkeypatch.setattr(DockerSolverHarness, "run", flaky_run)
+    suite = TaskSuiteRunner(
+        tasks=[load_task(bad), load_task(good)],
+        harnesses=["docker-claude"],
+        model="haiku",
+        output_root=tmp_path / "runs",
+    )
+    output = suite.run()
+
+    validate_artifact("task_runs", output)
+    assert len(output["results"]) == 2  # both cells present, sweep survived
+    rows = {r["task"]: r for r in output["results"]}
+    assert rows["intel-perf-bad"]["passed"] is False
+    assert rows["intel-perf-bad"]["reward"] is None  # no verdict, not a verified 0
+    assert "docker build failed" in rows["intel-perf-bad"]["metrics"]["error"]
+    assert rows["intel-perf-toy"]["passed"] is True
+    assert CommandHarness  # keep import for the patched module path
+
+
+def test_recompile_failure_recorded_in_metrics(tmp_path, monkeypatch):
+    """A failed in-container recompile is surfaced in metrics so the cell can be
+    told apart from a genuine model miss (it is a tooling failure)."""
+    task = load_task(_fixture_task(tmp_path))  # instruction has a `g++ ... -o /app/bench`
+    import agent_benchmarks.harnesses.docker_solver as mod
+
+    monkeypatch.setattr(mod, "_docker", lambda *a, **k: None)
+    monkeypatch.setattr(DockerSolverHarness, "_build_image", lambda self, t, i, log: None)
+    monkeypatch.setattr(DockerSolverHarness, "_start_container", lambda self, i, c, log: None)
+    monkeypatch.setattr(DockerSolverHarness, "_verify", lambda self, t, c, o, log: 0.0)
+
+    # Snapshot copy-out and the claude subprocess are stubbed; recompile "fails".
+    monkeypatch.setattr(DockerSolverHarness, "_recompile",
+                        lambda self, t, c, log: ["g++ -O3 bench.cpp -o /app/bench"])
+
+    def fake_solve(self, task, container, output_dir, model, timeout, operations, log, extra_metrics):
+        failed = self._recompile(task, container, log)
+        if failed:
+            extra_metrics["recompile_failed"] = failed
+        return _parse_claude_json(_CLAUDE_JSON, task.name, model or "", 1.0)
+
+    monkeypatch.setattr(DockerSolverHarness, "_solve_claude", fake_solve)
+    result = create_harness("docker-claude").run(task, model="haiku", output_dir=tmp_path / "out")
+    assert result.metrics["recompile_failed"] == ["g++ -O3 bench.cpp -o /app/bench"]
+    assert result.passed is False

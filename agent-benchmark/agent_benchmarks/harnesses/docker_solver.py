@@ -37,6 +37,7 @@ from typing import Any, Optional
 
 from agent_benchmarks.metrics.usage import UsageRecord
 
+from .command import _parse_reward_text
 from .models import HarnessResult, OperationRecord
 from .tasks import TaskSpec
 
@@ -112,6 +113,7 @@ class DockerSolverHarness:
         solve_timeout = timeout_sec or task.timeout_sec or _DEFAULT_SOLVE_TIMEOUT
         start = time.time()
         returncode = 0
+        extra_metrics: dict[str, Any] = {}
         try:
             self._build_image(task, image, log)
             self._start_container(image, container, log)
@@ -120,7 +122,8 @@ class DockerSolverHarness:
                     self._solve_oracle(task, container, log)
                 elif self.mode == "claude":
                     usage = self._solve_claude(
-                        task, container, output_dir, model, solve_timeout, operations, log
+                        task, container, output_dir, model, solve_timeout,
+                        operations, log, extra_metrics,
                     )
                 else:
                     raise ValueError(f"unknown mode {self.mode!r}")
@@ -139,6 +142,7 @@ class DockerSolverHarness:
         metrics: dict[str, Any] = {"dry_run": False, "mode": self.mode}
         if usage is not None:
             metrics.update(usage.as_metrics_dict())
+        metrics.update(extra_metrics)
         return HarnessResult(
             harness=self.harness_id,
             task=task.name,
@@ -191,6 +195,7 @@ class DockerSolverHarness:
     def _solve_claude(
         self, task: TaskSpec, container: str, output_dir: Path,
         model: Optional[str], timeout: float, operations: list[OperationRecord], log,
+        extra_metrics: dict[str, Any],
     ) -> Optional[UsageRecord]:
         """Snapshot /app, solve on the host, copy back, recompile in-container.
 
@@ -249,20 +254,31 @@ class DockerSolverHarness:
         if (work / ".skill").exists():
             _rmtree(work / ".skill")
         _docker(["cp", f"{str(work)}/.", f"{container}:/app/"], log)
-        self._recompile(task, container, log)
+        failed = self._recompile(task, container, log)
+        if failed:
+            extra_metrics["recompile_failed"] = failed
         return usage
 
-    def _recompile(self, task: TaskSpec, container: str, log) -> None:
+    def _recompile(self, task: TaskSpec, container: str, log) -> list[str]:
         """Recompile inside the container so the binary matches the image glibc.
 
         The agent edits source on the host (newer glibc); a host-built binary may
         fail in the older task image, so re-run the compile command(s) documented
         in instruction.md in-container. Matches both ``g++`` and ``gcc``.
+
+        Returns the compile commands that failed. A recompile failure is a
+        *tooling* failure, not a solve failure: the caller records it in
+        ``metrics`` so such cells can be told apart from genuine model misses.
         """
+        failed: list[str] = []
         for match in _RECOMPILE_RE.finditer(task.instruction):
             cc = match.group(0).strip()
             log.write(f"\n[recompile] {cc}\n")
-            _docker(["exec", "-u", "root", container, "bash", "-lc", cc], log, check=False)
+            proc = _docker(["exec", "-u", "root", container, "bash", "-lc", cc], log, check=False)
+            if proc.returncode != 0:
+                log.write(f"[recompile] FAILED (exit {proc.returncode}): {cc}\n")
+                failed.append(cc)
+        return failed
 
     def _verify(self, task: TaskSpec, container: str, output_dir: Path, log) -> Optional[float]:
         """Run tests/ in-container; pull /logs/verifier/reward.txt back out."""
@@ -278,7 +294,7 @@ class DockerSolverHarness:
             log, check=False,
         )
         if pulled.returncode == 0 and reward_file.is_file():
-            return _parse_reward(reward_file.read_text(encoding="utf-8", errors="replace"))
+            return _parse_reward_text(reward_file.read_text(encoding="utf-8", errors="replace"))
         # No reward file written: fall back to verifier exit code.
         return 1.0 if proc.returncode == 0 else 0.0
 
@@ -397,16 +413,6 @@ def _last_json_object(text: str) -> Optional[dict]:
         except json.JSONDecodeError:
             return None
     return None
-
-
-def _parse_reward(text: str) -> Optional[float]:
-    stripped = (text or "").strip()
-    if stripped in {"0", "0.0", "1", "1.0"}:
-        return float(stripped)
-    try:
-        return float(stripped)
-    except ValueError:
-        return None
 
 
 def _copytree(src: Path, dest: Path) -> None:

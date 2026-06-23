@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .models import TaskRunResult
+from .models import HarnessResult, OperationRecord, TaskRunResult
 from .registry import create_harness
 from .tasks import TaskSpec
 
@@ -41,12 +41,18 @@ class TaskSuiteRunner:
                     output_dir = self.output_root / task.name / _safe_id(harness_id)
                     if repeats > 1:
                         output_dir = output_dir / f"run{rep}"
-                    result = harness.run(
-                        task,
-                        model=self.model,
-                        output_dir=output_dir,
-                        dry_run=self.dry_run,
-                    )
+                    # Isolate each cell: a harness crash (docker build/exec error,
+                    # bad config) must not abort the whole sweep and discard every
+                    # completed cell — record it as a failed row and continue.
+                    try:
+                        result = harness.run(
+                            task,
+                            model=self.model,
+                            output_dir=output_dir,
+                            dry_run=self.dry_run,
+                        )
+                    except Exception as exc:  # noqa: BLE001 — one bad cell ≠ dead sweep
+                        result = _error_result(harness_id, task, output_dir, exc)
                     row = TaskRunResult(task.name, harness_id, self.model, result).as_dict()
                     if repeats > 1:
                         row["repeat"] = rep
@@ -175,6 +181,26 @@ def summarize_task_results(
             }
 
     return {"per_harness": per_harness, "comparisons": comparisons}
+
+
+def _error_result(harness_id: str, task: TaskSpec, output_dir: Path, exc: Exception) -> HarnessResult:
+    """Build a failed result for a cell whose harness raised, so the sweep
+    survives. ``reward`` is ``None`` (the cell did not produce a verdict —
+    distinct from a verified 0), and ``metrics.error`` carries the cause."""
+    return HarnessResult(
+        harness=harness_id,
+        task=task.name,
+        command=[],
+        returncode=1,
+        elapsed_sec=0.0,
+        reward=None,
+        passed=False,
+        stderr_tail=f"{type(exc).__name__}: {exc}",
+        output_dir=str(output_dir),
+        operations=[OperationRecord(type="harness", name=harness_id, status="error",
+                                    metadata={"task": task.name})],
+        metrics={"error": f"{type(exc).__name__}: {exc}"},
+    )
 
 
 def _safe_id(value: str) -> str:
