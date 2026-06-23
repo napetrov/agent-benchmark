@@ -20,7 +20,10 @@ cd "$HERE/.."
 
 OUT="${1:-results/skill-task-arms}"
 SKILL="${2:-data/skills/intel-performance-patterns/SKILL.md}"
-shift 2 2>/dev/null || true
+# Drop the consumed positionals one at a time so calling with 0 or 1 arg does
+# not leave them in $@ (a bare `shift 2` fails and mis-reads $1 as a task).
+[ "$#" -ge 1 ] && shift
+[ "$#" -ge 1 ] && shift
 TASKS=("$@")
 if [ "${#TASKS[@]}" -eq 0 ]; then
   TASKS=(serial-accumulator false-sharing shared-counter branch-mispredict

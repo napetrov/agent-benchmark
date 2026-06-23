@@ -72,9 +72,19 @@ case "$MODE" in
     # not in the container), copy back, then verify in-container.
     WORK="$OUT_DIR/work"; rm -rf "$WORK"; mkdir -p "$WORK"
     docker cp "$CONTAINER:/app/." "$WORK/" >>"$LOG" 2>&1
+    # Skill arm: copy the whole skill directory next to the work tree so the
+    # agent can Read the files SKILL.md references (triggers/, patterns/,
+    # guidelines/) — prepending SKILL.md text alone would point it at files that
+    # are not present, making the treatment incomplete.
+    SKILL_NOTE=""
+    if [ -n "$EXTRA_PROMPT_FILE" ] && [ -f "$EXTRA_PROMPT_FILE" ]; then
+        SKILL_SRC_DIR="$(cd "$(dirname "$EXTRA_PROMPT_FILE")" && pwd)"
+        cp -r "$SKILL_SRC_DIR" "$WORK/.skill" >>"$LOG" 2>&1
+        SKILL_NOTE="A performance skill is available at ./.skill/ (start with ./.skill/$(basename "$EXTRA_PROMPT_FILE")). Read the files it references before fixing."
+    fi
     PROMPT_FILE="$OUT_DIR/prompt.txt"
     {
-      [ -n "$EXTRA_PROMPT_FILE" ] && [ -f "$EXTRA_PROMPT_FILE" ] && cat "$EXTRA_PROMPT_FILE" && echo
+      [ -n "$SKILL_NOTE" ] && echo "$SKILL_NOTE" && echo
       echo "Solve this coding task. Edit files in the current directory only."
       echo "When done, leave the optimized source and any required outputs in place."
       echo
@@ -85,11 +95,13 @@ case "$MODE" in
         --dangerously-skip-permissions \
         --allowedTools "Read" "Edit" "Write" "Bash" \
         "${MODEL_ARG[@]}" ) >>"$LOG" 2>&1 || log "claude solver exited non-zero"
+    rm -rf "$WORK/.skill"   # don't ship the skill files into /app for the verifier
     docker cp "$WORK/." "$CONTAINER:/app/" >>"$LOG" 2>&1
     # The agent runs on the HOST (newer glibc); a host-built binary fails to run
     # in the older task image. Re-compile inside the container using the exact
-    # g++ command(s) documented in instruction.md so the binary matches runtime.
-    grep -oE 'g\+\+ [^`]*-o /app/[^ `]*' "$TASK_DIR/instruction.md" | while read -r cc; do
+    # compile command(s) documented in instruction.md so the binary matches the
+    # runtime. Match g++ and gcc (C tasks like missing-restrict use gcc).
+    grep -oE '(g\+\+|gcc) [^`]*-o /app/[^ `]*' "$TASK_DIR/instruction.md" | while read -r cc; do
         log "recompile in-container: $cc"
         docker exec -u root "$CONTAINER" bash -lc "$cc" >>"$LOG" 2>&1 || log "recompile failed: $cc"
     done

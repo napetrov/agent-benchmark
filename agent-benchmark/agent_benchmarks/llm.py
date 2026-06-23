@@ -173,7 +173,11 @@ def _extract_usage(
                                 or (ctd.get("reasoning_tokens") if isinstance(ctd, dict) else 0)
                                 or 0)
 
-    cost_usd = _safe_completion_cost(resp, model, litellm_model=litellm_model)
+    # Resolve the provider-prefixed model so cost works even when a caller omits
+    # litellm_model (e.g. agent_runner) — Vertex/Bedrock return a bare
+    # response.model that otherwise makes completion_cost emit null.
+    resolved_litellm_model = litellm_model or _build_litellm_model(model, provider)
+    cost_usd = _safe_completion_cost(resp, model, litellm_model=resolved_litellm_model)
     return UsageRecord(
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
