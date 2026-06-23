@@ -163,10 +163,13 @@ class DockerSolverHarness:
             val = os.environ.get(var)
             if val:
                 build_args += ["--build-arg", f"{var}={val}"]
+        # Honor the task's own build_timeout_sec (some images need >10 min);
+        # _DEFAULT_BUILD_TIMEOUT is only the fallback when the task omits it.
+        timeout = _task_build_timeout(task)
         _docker(
             ["build", "-q", *build_args, "-t", image,
              "-f", str(env_dir / "Dockerfile"), str(env_dir)],
-            log, timeout=_DEFAULT_BUILD_TIMEOUT,
+            log, timeout=timeout,
         )
 
     def _start_container(self, image: str, container: str, log) -> None:
@@ -267,7 +270,7 @@ class DockerSolverHarness:
         proc = _docker(
             ["exec", "-u", "root", container, "bash", "-lc",
              "mkdir -p /logs/verifier && chmod +x /tests/test.sh && /tests/test.sh"],
-            log, check=False, timeout=_DEFAULT_VERIFY_TIMEOUT,
+            log, check=False, timeout=_task_verify_timeout(task),
         )
         reward_file = output_dir / "reward.txt"
         pulled = _docker(
@@ -299,6 +302,26 @@ class DockerSolverHarness:
         if self.skill_path:
             parts += ["--skill", self.skill_path]
         return parts
+
+
+def _task_build_timeout(task: TaskSpec) -> float:
+    """Image build timeout: the task's ``environment.build_timeout_sec`` if set,
+    else :data:`_DEFAULT_BUILD_TIMEOUT`."""
+    val = task.environment.get("build_timeout_sec")
+    try:
+        return float(val) if val is not None else _DEFAULT_BUILD_TIMEOUT
+    except (TypeError, ValueError):
+        return _DEFAULT_BUILD_TIMEOUT
+
+
+def _task_verify_timeout(task: TaskSpec) -> float:
+    """Verifier timeout: the task's ``verifier.timeout_sec`` if set, else
+    :data:`_DEFAULT_VERIFY_TIMEOUT`."""
+    val = task.verifier.get("timeout_sec")
+    try:
+        return float(val) if val is not None else _DEFAULT_VERIFY_TIMEOUT
+    except (TypeError, ValueError):
+        return _DEFAULT_VERIFY_TIMEOUT
 
 
 def _docker(args: list[str], log, *, check: bool = True,

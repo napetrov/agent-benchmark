@@ -15,8 +15,12 @@ from agent_benchmarks.artifacts import validate_artifact
 from agent_benchmarks.harnesses import TaskSuiteRunner, load_task
 from agent_benchmarks.harnesses.docker_solver import (
     DockerSolverHarness,
+    _DEFAULT_BUILD_TIMEOUT,
+    _DEFAULT_VERIFY_TIMEOUT,
     _last_json_object,
     _parse_claude_json,
+    _task_build_timeout,
+    _task_verify_timeout,
 )
 from agent_benchmarks.harnesses.registry import create_harness, known_harnesses
 from agent_benchmarks.harnesses.runner import summarize_task_results
@@ -97,6 +101,32 @@ def test_last_json_object_picks_final_result_line():
     assert obj["total_cost_usd"] == 0.0731
 
 
+# ── task-driven timeouts ──────────────────────────────────────────────────────
+
+
+def test_build_timeout_honors_task_metadata(tmp_path):
+    task = load_task(_fixture_task(tmp_path))
+    # fixture has no build_timeout_sec -> default fallback
+    assert _task_build_timeout(task) == _DEFAULT_BUILD_TIMEOUT
+    assert _task_verify_timeout(task) == _DEFAULT_VERIFY_TIMEOUT
+
+
+def test_build_and_verify_timeouts_read_toml(tmp_path):
+    task = tmp_path / "intel-perf-slow-build"
+    (task / "tests").mkdir(parents=True)
+    (task / "environment").mkdir()
+    (task / "instruction.md").write_text("x", encoding="utf-8")
+    (task / "task.toml").write_text(
+        "[metadata]\ntags = []\n"
+        "[environment]\nbuild_timeout_sec = 900\n"
+        "[verifier]\ntimeout_sec = 120\n",
+        encoding="utf-8",
+    )
+    spec = load_task(task)
+    assert _task_build_timeout(spec) == 900.0
+    assert _task_verify_timeout(spec) == 120.0
+
+
 # ── registry wiring ───────────────────────────────────────────────────────────
 
 
@@ -122,6 +152,11 @@ def test_docker_claude_skill_requires_a_path():
 
 def _patch_pipeline(monkeypatch, *, reward: float, usage_json: str | None):
     """Stub the Docker-touching steps so run() exercises only host logic."""
+    import agent_benchmarks.harnesses.docker_solver as mod
+
+    # run()'s cleanup calls _docker(["rm", ...]); stub it so these stay
+    # Docker-free even on hosts without a `docker` binary.
+    monkeypatch.setattr(mod, "_docker", lambda *a, **k: None)
     monkeypatch.setattr(DockerSolverHarness, "_build_image", lambda self, t, i, log: None)
     monkeypatch.setattr(DockerSolverHarness, "_start_container", lambda self, i, c, log: None)
     monkeypatch.setattr(DockerSolverHarness, "_solve_oracle", lambda self, t, c, log: None)
