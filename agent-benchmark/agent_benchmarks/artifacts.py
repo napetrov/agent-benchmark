@@ -20,6 +20,7 @@ SCHEMA_VERSIONS: dict[str, str] = {
     "answers": "answers.v1",
     "eval": "eval.v1",
     "arms": "arms.v1",
+    "task_runs": "task_runs.v1",
 }
 
 

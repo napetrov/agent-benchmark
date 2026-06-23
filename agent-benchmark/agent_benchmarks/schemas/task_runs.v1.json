@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/napetrov/agent-benchmark/schemas/task_runs.v1.json",
+  "title": "Executable task-run artifact v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "harnesses",
+    "tasks",
+    "results",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "task_runs.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "baseline_harness": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "harnesses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "metadata",
+          "verifier",
+          "agent",
+          "environment"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "verifier": {
+            "type": "object"
+          },
+          "agent": {
+            "type": "object"
+          },
+          "environment": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task",
+          "harness",
+          "passed",
+          "metrics",
+          "operations"
+        ],
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "harness": {
+            "type": "string"
+          },
+          "command": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "returncode": {
+            "type": "integer"
+          },
+          "elapsed_sec": {
+            "type": "number"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "reward": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "stdout_tail": {
+            "type": "string"
+          },
+          "stderr_tail": {
+            "type": "string"
+          },
+          "output_dir": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metrics": {
+            "type": "object",
+            "required": [
+              "operation_count",
+              "operations_by_type"
+            ],
+            "properties": {
+              "dry_run": {
+                "type": "boolean"
+              },
+              "timeout_sec": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "stdout_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "stderr_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "operation_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "operations_by_type": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "additionalProperties": true
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "name",
+                "status",
+                "elapsed_sec",
+                "metadata"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "elapsed_sec": {
+                  "type": "number"
+                },
+                "metadata": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "per_harness",
+        "comparisons"
+      ],
+      "properties": {
+        "per_harness": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "n",
+              "passed",
+              "elapsed_sec",
+              "operation_count",
+              "operations_by_type",
+              "pass_rate",
+              "avg_reward"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "passed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "elapsed_sec": {
+                "type": "number"
+              },
+              "operation_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "operations_by_type": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "pass_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "avg_reward": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "comparisons": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "baseline_harness",
+              "pass_rate_delta",
+              "passed_delta",
+              "operation_count_delta"
+            ],
+            "properties": {
+              "baseline_harness": {
+                "type": "string"
+              },
+              "pass_rate_delta": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "passed_delta": {
+                "type": "integer"
+              },
+              "operation_count_delta": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

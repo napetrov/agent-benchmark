@@ -107,8 +107,16 @@ Harbor](https://harborframework.com)-format tasks: Docker environment,
 container and runs the oracle to make sure each task is solvable and the
 verifier catches the obvious failure modes.
 
+`agent_benchmarks/harnesses/` turns those task directories into measured
+`task_runs.v1` artifacts. Built-in harness aliases include `codex`,
+`claude-code`, and `terminal-bench:<agent>`; each runs a Harbor-compatible agent,
+records operation telemetry (`harness`, `loop`, `tool`, `subagent`, ...), and
+summarizes pass-rate deltas against a baseline harness. Entry point:
+`python cli.py tasks run`.
+
 See [contributing-terminal-bench-task.md](contributing-terminal-bench-task.md)
-to add one.
+to add a task and [coding-harnesses.md](coding-harnesses.md) to run harness
+comparisons.
 
 ## Shared building blocks
 

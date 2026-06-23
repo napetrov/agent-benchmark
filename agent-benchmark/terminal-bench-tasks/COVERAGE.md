@@ -27,10 +27,10 @@ honest effective state (`covered` needs both halves; `questions-only` and
 | `oneccl` | ⬜ | ⬜ 0 | planned |
 | `onedal` | ✅ | ✅ 1 | covered |
 | `onednn` | ⬜ | ⬜ 0 | planned |
-| `onedpl` | ⬜ | ✅ 3 | planned |
+| `onedpl` | ⬜ | ✅ 1 | planned |
 | `onemath` | ⬜ | ⬜ 0 | planned |
-| `onemkl` | ✅ | ✅ 3 | covered |
-| `onetbb` | ✅ | ✅ 9 | covered |
+| `onemkl` | ✅ | ✅ 2 | covered |
+| `onetbb` | ✅ | ✅ 7 | covered |
 | `openmp` | ⬜ | ⬜ 0 | planned |
 | `openvino` | ⬜ | ⬜ 0 | planned |
 | `optimization_guide` | ⬜ | ⬜ 0 | planned |

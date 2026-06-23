@@ -85,6 +85,25 @@ harbor run \
   -a oracle
 ```
 
+## Running Harness Comparisons
+
+`agent-benchmark` can run these tasks through named coding harnesses and write a
+schema-validated `task_runs.v1` artifact:
+
+```bash
+python cli.py tasks run \
+  --tasks onetbb-parallel-sort \
+  --harnesses claude-code,codex \
+  --baseline-harness claude-code \
+  --model anthropic/claude-opus-4-6 \
+  --out-json results/task-runs/onetbb-sort.json
+```
+
+Built-in aliases are `codex`, `claude-code`, and `terminal-bench:<agent>`.
+Operation telemetry is collected from wrapper JSONL logs and
+`AGENT_BENCHMARK_OP` stdout/stderr markers. See
+[`docs/coding-harnesses.md`](../docs/coding-harnesses.md) for the full contract.
+
 ## Provenance
 
 The ParRes-inspired tasks are simplified exercises derived from the ideas in [ParRes/Kernels](https://github.com/ParRes/Kernels), not verbatim copies of upstream source files. See [PROVENANCE.md](./PROVENANCE.md) for details and license notes.
