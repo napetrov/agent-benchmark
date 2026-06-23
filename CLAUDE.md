@@ -17,6 +17,9 @@ python -m agent_benchmarks.config_check  # registry consistency; CI runs this
 python cli.py --help                     # single CLI entry point
 ```
 
+CI also runs `ruff check .`, `mypy`, and `python -m agent_benchmarks.schema_check`.
+See `agent-benchmark/CONTRIBUTING.md` for the full set of checks to run before a PR.
+
 - The Python package is `agent_benchmarks/` (note: plural), organized by
   pipeline stage (`metrics/`, `questions/`, `eval/`, `gate/`, `treatments/`, …).
   See `agent-benchmark/docs/architecture.md` for the module map.
