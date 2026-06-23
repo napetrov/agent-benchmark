@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires recognizing branch misprediction from perf stat and converting a data-dependent branch into branchless arithmetic without changing the result"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "branch-misprediction", "branchless", "perf-stat"]
+tags = ["c++", "performance", "branch-misprediction", "branchless", "perf-stat", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 90.0

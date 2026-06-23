@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires recognizing a test-and-set spinlock from annotate evidence and converting it to test-and-test-and-set while preserving mutual exclusion"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "linux-perf", "spinlock", "ttas", "contention"]
+tags = ["c++", "performance", "linux-perf", "spinlock", "ttas", "contention", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 120.0

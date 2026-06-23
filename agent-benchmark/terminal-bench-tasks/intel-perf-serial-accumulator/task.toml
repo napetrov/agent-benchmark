@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires recognizing and fixing a serial accumulator dependency without changing the numeric result"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "linux-perf", "simd", "reduction"]
+tags = ["c++", "performance", "linux-perf", "simd", "reduction", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 90.0

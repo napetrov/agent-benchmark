@@ -113,6 +113,7 @@ def _task_product_tags(tasks_dir: Path) -> dict[str, set[str]]:
 # the onedal library they accelerate).
 _TAG_ALIASES: dict[str, set[str]] = {
     "onedal": {"sklearnex"},
+    "intel_performance_skills": {"intel-performance-skills"},
 }
 
 

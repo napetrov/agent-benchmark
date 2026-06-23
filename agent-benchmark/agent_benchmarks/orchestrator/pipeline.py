@@ -96,10 +96,19 @@ class EvaluationPipeline:
         self.output_dir = Path(output_dir)
 
         # Auto-discover golden questions for this product if not explicitly provided.
-        # Convention: data/questions/<product_lower>_golden.json next to the project root (two levels
-        # up from this file: agent_benchmarks/orchestrator/pipeline.py → agent_benchmarks/ → project root)
+        # Convention: data/questions/<slug>_golden.json next to the project root (two levels
+        # up from this file: agent_benchmarks/orchestrator/pipeline.py → agent_benchmarks/ → project root).
+        # `product` may be a display name with spaces (e.g. "Intel Performance Skills"),
+        # but golden files are named with the registry key slug
+        # (intel_performance_skills_golden.json), so normalize spaces/hyphens to underscores.
         _project_root = Path(__file__).resolve().parent.parent.parent
-        _auto_golden = _project_root / "data" / "questions" / f"{product.lower()}_golden.json"
+        _questions_dir = _project_root / "data" / "questions"
+        _slug = product.lower().replace(" ", "_").replace("-", "_")
+        _candidates = [
+            _questions_dir / f"{_slug}_golden.json",
+            _questions_dir / f"{product.lower()}_golden.json",  # legacy/literal form
+        ]
+        _auto_golden = next((c for c in _candidates if c.exists()), _candidates[0])
         if custom_questions_path:
             _custom_path = Path(custom_questions_path)
             if not _custom_path.exists():

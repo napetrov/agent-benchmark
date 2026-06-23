@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires adding a valid C restrict contract and preserving output"
 level = "diagnosis"
 category = "programming"
-tags = ["c", "performance", "restrict", "vectorization", "compiler"]
+tags = ["c", "performance", "restrict", "vectorization", "compiler", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 90.0

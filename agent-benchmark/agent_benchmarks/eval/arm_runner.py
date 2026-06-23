@@ -300,6 +300,7 @@ class ArmRunner:
         records: List[Dict[str, Any]],
         evaluations: Optional[List[Dict[str, Any]]] = None,
         baseline_arm: str = "baseline",
+        judge: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Assemble the serialisable arms-comparison artifact."""
         out: Dict[str, Any] = {
@@ -322,6 +323,15 @@ class ArmRunner:
         if evaluations is not None:
             out["evaluations"] = evaluations
             out["summary"] = self._summarize(evaluations, baseline_arm)
+        # Judge-side token/cost telemetry, when a judge ran (mirrors the answer
+        # cost_summary so a full run's spend is auditable from one artifact).
+        if judge is not None and hasattr(judge, "_usage_totals"):
+            with judge._usage_lock:
+                totals = dict(judge._usage_totals)
+            totals["cost_usd"] = (
+                round(totals["cost_usd"], 6) if totals["cost_known_calls"] else None
+            )
+            out["judge_metrics"] = totals
         return out
 
     def _cost_summary(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:

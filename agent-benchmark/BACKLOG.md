@@ -6,7 +6,7 @@
 
 ### #59 — Evaluation beyond MCP docs: artifacts as subjects, model × harness, tasks for every project
 **Scope:** Evaluation architecture / coverage
-**Status:** PROPOSED
+**Status:** IN PROGRESS (Phase A/B/C.0 landed; Phase C, D open)
 
 Extend the treatment-arm framework (#56) and the executable-task track so that
 the things we actually want to ship — skills, agent profiles, bundles — are
@@ -26,18 +26,18 @@ terminal-bench track, and feeds the packaging scorecard (#58d/#58i).
 
 Phases (each independently shippable; existing `arms run` / two-arm doc flow stay
 working):
-- **Phase A — Coverage contract**
+- **Phase A — Coverage contract** — **DONE (PR #81).**
   ([ADR](docs/decisions/2026-06-10-questions-and-tasks-coverage-contract.md)).
   Per-product contract in config + a product × {questions, tasks} matrix in
   `terminal-bench-tasks/COVERAGE.md`; dashboard gains awareness vs work columns.
   Makes "text-only" products a visible TODO. No new eval machinery.
-- **Phase B — Model × harness dimension**
+- **Phase B — Model × harness dimension** — **DONE (PR #82).**
   ([ADR](docs/decisions/2026-06-10-model-harness-dimension.md)). Promote answer
   model to a reported axis; name + record the harness (`single-shot` / `agent` /
   `terminal-bench:<agent>`); `matrix:` config block + `(model, harness)` key
   through `arm_runner`, report, dashboard; a `terminal-bench` harness adapter so
   task pass-rate is an arm outcome. Cost-gated, single-cell default.
-- **Phase C.0 — Run telemetry (tokens, cost, cache, latency)**
+- **Phase C.0 — Run telemetry (tokens, cost, cache, latency)** — **DONE (PR #84/#85).**
   ([ADR](docs/decisions/2026-06-19-run-telemetry-metrics.md)). Normalized
   `UsageRecord` from the `llm.py` chokepoint; per-row `metrics{}` block (tokens,
   cache read/write, `litellm` cost, latency; TTFT behind a streaming flag);
@@ -285,14 +285,17 @@ Static HTML file (Chart.js embedded) layered on top of the existing
 
 ---
 
-### #31 — Jenkins / CI pipeline
+### #31 — Scheduled benchmark run + regression notification
 **Scope:** Automation
-**Status:** PLANNED
+**Status:** OBSOLETE → re-scoped to GitHub Actions
 
-Jenkinsfile for automatic benchmark runs.
-- Parameterized run: library and model selection
-- `benchmark batch --all` → `dashboard generate` → commit `DASHBOARD.md`
-- Slack/Teams notification on score regression
+Original ask was a Jenkinsfile; superseded — CI already runs on GitHub Actions
+(`test`, `benchmark`, terminal-bench verify). No Jenkins needed; it would only
+duplicate the existing Actions pipeline. Remaining useful intent, if pursued,
+is a *scheduled* Actions workflow (not Jenkins):
+- Parameterized dispatch: library + model selection (`workflow_dispatch` inputs)
+- `benchmark batch --all` → `dashboard generate` → commit/publish `DASHBOARD.md`
+- Slack/Teams notification on score regression vs saved baseline
 
 ---
 

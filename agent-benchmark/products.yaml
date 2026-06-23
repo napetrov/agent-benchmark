@@ -10,6 +10,21 @@
 
 products:
 
+  # ── Performance optimization skills ──────────────────────────────────────
+
+  intel_performance_skills:
+    coverage_status: covered
+    name: Intel Performance Skills
+    description: >
+      Intel performance-optimization Agent Skills (intel/intel-performance-skills):
+      composable SKILL.md skills — linux-perf (profile with perf), performance-patterns
+      (fix playbook: serial accumulators, false sharing, narrow SIMD, missing
+      restrict/vzeroupper, lock contention), and phoronix-test-suite. Targets
+      x86/AVX2/AVX-512 CPU performance debugging and tuning.
+    repo: intel/intel-performance-skills
+    doc_sources:
+      - url:https://raw.githubusercontent.com/intel/intel-performance-skills/main/README.md
+
   # ── Threading & Parallelism ──────────────────────────────────────────────
 
   onetbb:

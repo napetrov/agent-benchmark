@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires recognizing a condition-variable thundering herd and reducing wakeups without losing or double-processing jobs"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "performance-patterns", "condition-variable", "thundering-herd", "scheduler"]
+tags = ["c++", "performance", "performance-patterns", "condition-variable", "thundering-herd", "scheduler", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 120.0

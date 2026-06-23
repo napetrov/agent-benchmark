@@ -62,6 +62,7 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
     )
 
     evaluations = None
+    judge = None
     if args.judge:
         from agent_benchmarks.eval import Judge
         judge = Judge(model=args.judge_model, provider=args.judge_provider)
@@ -72,7 +73,8 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
         )
 
     output = runner.build_output(
-        args.product, records, evaluations=evaluations, baseline_arm=args.baseline_arm
+        args.product, records, evaluations=evaluations, baseline_arm=args.baseline_arm,
+        judge=judge,
     )
 
     out_json = Path(args.out_json) if args.out_json else Path(f"results/arms/{args.product}.json")

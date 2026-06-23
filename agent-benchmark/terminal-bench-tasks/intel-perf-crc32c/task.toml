@@ -7,7 +7,7 @@ difficulty = "medium"
 difficulty_explanation = "Requires recognizing CRC32C as a known algorithm and using the hardware instruction with CPU dispatch and a portable fallback while matching the exact checksum"
 level = "diagnosis"
 category = "programming"
-tags = ["c++", "performance", "performance-patterns", "crc32c", "simd", "cpu-dispatch"]
+tags = ["c++", "performance", "performance-patterns", "crc32c", "simd", "cpu-dispatch", "intel-performance-skills"]
 
 [verifier]
 timeout_sec = 90.0

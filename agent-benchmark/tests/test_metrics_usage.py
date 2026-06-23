@@ -35,7 +35,7 @@ class _Resp:
 
 # ── extraction ──────────────────────────────────────────────────────────────
 def test_extract_basic_tokens(monkeypatch):
-    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m: 0.01)
+    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m, **kw: 0.01)
     rec = _extract_usage(_Resp(_Usage(prompt=100, completion=40, total=140)),
                          "gpt-4o", "openai", latency_sec=1.5)
     assert (rec.prompt_tokens, rec.completion_tokens, rec.total_tokens) == (100, 40, 140)
@@ -45,7 +45,7 @@ def test_extract_basic_tokens(monkeypatch):
 
 
 def test_extract_anthropic_cache_fields(monkeypatch):
-    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m: None)
+    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m, **kw: None)
     rec = _extract_usage(
         _Resp(_Usage(prompt=200, completion=30, total=230,
                      cache_create=150, cache_read=900)),
@@ -55,7 +55,7 @@ def test_extract_anthropic_cache_fields(monkeypatch):
 
 
 def test_extract_openai_cached_and_reasoning_tokens(monkeypatch):
-    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m: None)
+    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m, **kw: None)
     rec = _extract_usage(
         _Resp(_Usage(prompt=300, completion=80, total=380,
                      prompt_details={"cached_tokens": 256},
@@ -66,7 +66,7 @@ def test_extract_openai_cached_and_reasoning_tokens(monkeypatch):
 
 
 def test_extract_missing_usage_is_zeroed(monkeypatch):
-    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m: None)
+    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m, **kw: None)
     rec = _extract_usage(_Resp(None), "m", "p", latency_sec=0.0)
     assert rec.total_tokens == 0 and rec.cost_usd is None
 
@@ -188,7 +188,7 @@ class _Chunk:
 
 
 def test_stream_call_measures_ttft(monkeypatch):
-    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m: None)
+    monkeypatch.setattr(llm_mod, "_safe_completion_cost", lambda r, m, **kw: None)
     chunks = [_Chunk("Hello "), _Chunk("world"),
               _Chunk(None, usage=_Usage(prompt=5, completion=2, total=7))]
 

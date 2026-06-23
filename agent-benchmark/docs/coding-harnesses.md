@@ -61,6 +61,38 @@ python cli.py tasks run \
 Use `--dry-run` to validate matrix expansion and artifact shape without invoking
 external agents.
 
+## Standalone Docker harness (no Harbor)
+
+The built-in `codex` / `claude-code` aliases shell out to `harbor`. When Harbor
+is not installed, `scripts/run_task.sh` runs a single task end to end against
+local Docker directly: it builds the task image, solves it, runs the verifier,
+and drops a `reward.txt` that the `command:` harness can read.
+
+```bash
+# Validate a task + verifier with its own oracle solution (free, no LLM):
+scripts/run_task.sh oracle terminal-bench-tasks/intel-perf-serial-accumulator /tmp/out
+
+# Solve with the claude-code CLI (any model via the 4th arg); the 5th arg is an
+# optional skill file prepended to the instruction (the skill treatment arm):
+scripts/run_task.sh claude terminal-bench-tasks/intel-perf-serial-accumulator \
+  /tmp/out  us.anthropic.claude-haiku-4-5-20251001-v1:0 \
+  data/skills/intel-performance-patterns/SKILL.md
+```
+
+Notes the script handles: it passes the host proxy through to `docker build`
+(corporate networks), runs solve/verify as root for images that set a non-root
+`USER`, and recompiles inside the container using the `g++` command from
+`instruction.md` (the agent edits source on the host, whose newer glibc would
+otherwise break the binary in the older task image).
+
+`scripts/run_skill_task_arms.sh` drives the full without-skill vs with-skill
+experiment over the perf task set and prints the pass-rate delta:
+
+```bash
+SOLVER_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0 \
+  scripts/run_skill_task_arms.sh
+```
+
 ## Output Artifact
 
 `tasks run` writes a `task_runs.v1` JSON artifact. Important fields:
