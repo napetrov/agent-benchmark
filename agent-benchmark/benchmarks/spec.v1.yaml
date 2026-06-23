@@ -71,7 +71,7 @@ future:
 
 golden_manifest:
   min_docs: 10
-  max_docs: 26
+  max_docs: 27
   include:
     - docs/**/*.md
   exclude:
