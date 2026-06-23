@@ -7,16 +7,31 @@ pass rate against a baseline harness.
 
 ## Supported Harnesses
 
+Harbor-backed (delegate to an installed `harbor`):
+
 - `codex` — runs Harbor with agent id `codex`.
 - `claude-code` — runs Harbor with agent id `claude-code`.
 - `terminal-bench:<agent>` — runs any Harbor agent id, for example
   `terminal-bench:terminus`.
+
+Standalone Docker (no Harbor; **full LLM telemetry** — cost, tokens, cache,
+latency, turns):
+
+- `docker-oracle` — apply the task's own `solution/solve.sh` (no LLM). Free; use
+  it to validate that a task image + verifier work end to end.
+- `docker-claude` — solve with `claude -p --output-format json`. The JSON result
+  carries `total_cost_usd`, token `usage`, `duration_ms`, `ttft_ms`, and
+  `num_turns`, which are folded into the run artifact's `metrics{}`.
+- `docker-claude-skill:<skill-path>` — `docker-claude` with a skill directory
+  exposed to the agent. This is the **with-skill treatment arm**; compare it
+  against `docker-claude` (without-skill) as the baseline.
+
+Custom:
+
 - `command:<template>` or `--command-template` — runs a custom command template
   for local wrappers and CI fakes.
 
-The built-in Codex and Claude Code harnesses intentionally use Harbor because
-the repository's executable tasks already follow the Harbor/terminal-bench
-contract. The adapter command is:
+The Harbor adapter command is:
 
 ```bash
 harbor run -p <task-path> -a <agent> -m <model> --jobs-dir <run-dir>
@@ -24,7 +39,8 @@ harbor run -p <task-path> -a <agent> -m <model> --jobs-dir <run-dir>
 
 Harbor writes job/trial results under the jobs directory. If a local Harbor
 version uses different flags, pass `--command-template` and keep the same output
-contract.
+contract. When Harbor is not installed, prefer the `docker-*` harnesses — they
+build, solve, and verify against local Docker directly and record telemetry.
 
 ## Run Examples
 
@@ -61,54 +77,72 @@ python cli.py tasks run \
 Use `--dry-run` to validate matrix expansion and artifact shape without invoking
 external agents.
 
-## Standalone Docker harness (no Harbor)
+## Skill treatment experiment (without-skill vs with-skill)
 
-The built-in `codex` / `claude-code` aliases shell out to `harbor`. When Harbor
-is not installed, `scripts/run_task.sh` runs a single task end to end against
-local Docker directly: it builds the task image, solves it, runs the verifier,
-and drops a `reward.txt` that the `command:` harness can read.
+The skill experiment is just two `docker-*` harnesses over one task set, with
+the no-skill harness as the baseline. Everything — pass rate, cost, tokens,
+per-task breakdown — lands in one schema-validated artifact:
 
 ```bash
-# Validate a task + verifier with its own oracle solution (free, no LLM):
-scripts/run_task.sh oracle terminal-bench-tasks/intel-perf-serial-accumulator /tmp/out
-
-# Solve with the claude-code CLI (any model via the 4th arg); the 5th arg is an
-# optional skill file prepended to the instruction (the skill treatment arm):
-scripts/run_task.sh claude terminal-bench-tasks/intel-perf-serial-accumulator \
-  /tmp/out  us.anthropic.claude-haiku-4-5-20251001-v1:0 \
-  data/skills/intel-performance-patterns/SKILL.md
+python cli.py tasks run \
+  --tasks intel-perf-serial-accumulator,intel-perf-false-sharing,intel-perf-missing-restrict \
+  --harnesses docker-claude,docker-claude-skill:data/skills/intel-performance-patterns/SKILL.md \
+  --baseline-harness docker-claude \
+  --model us.anthropic.claude-haiku-4-5-20251001-v1:0 \
+  --repeats 3 \
+  --out-json results/skill-task-arms.json
 ```
 
-Notes the script handles: it passes the host proxy through to `docker build`
-(corporate networks), runs solve/verify as root for images that set a non-root
-`USER`, and recompiles inside the container using the `g++` command from
-`instruction.md` (the agent edits source on the host, whose newer glibc would
-otherwise break the binary in the older task image).
+- `--repeats 3` runs every `(task, harness)` cell three times so the pass-rate
+  and cost deltas carry variance (N=1 is noisy on a binary verifier).
+- `--baseline-harness docker-claude` makes the no-skill harness the reference,
+  so `summary.comparisons` reports the skill arm's `pass_rate_delta` and
+  `cost_delta_usd`.
 
-`scripts/run_skill_task_arms.sh` drives the full without-skill vs with-skill
-experiment over the perf task set and prints the pass-rate delta:
+What the harnesses handle for you (ported from the older `scripts/run_task.sh`):
+pass the host proxy through to `docker build` (corporate networks), run
+solve/verify as root for images that set a non-root `USER`, expose the whole
+skill tree to the agent (not just `SKILL.md`), and recompile inside the
+container using the `g++`/`gcc` command from `instruction.md` — the agent edits
+source on the host, whose newer glibc would otherwise break the binary in the
+older task image.
+
+### Low-level single-task scripts
+
+`scripts/run_task.sh` and `scripts/run_skill_task_arms.sh` run the same Docker
+flow from bash without the CLI. They only emit `reward.txt` (no cost/token
+telemetry and no saved artifact), so prefer the `docker-*` harnesses above for
+any tracked experiment. The scripts remain useful for a quick one-off oracle
+check:
 
 ```bash
-SOLVER_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0 \
-  scripts/run_skill_task_arms.sh
+scripts/run_task.sh oracle terminal-bench-tasks/intel-perf-serial-accumulator /tmp/out
 ```
 
 ## Output Artifact
 
 `tasks run` writes a `task_runs.v1` JSON artifact. Important fields:
 
-- `results[]`: one row per `(task, harness, model)` cell.
+- `results[]`: one row per `(task, harness, model, repeat)` cell. With
+  `--repeats > 1` each row carries a `repeat` index and the run lands in a
+  `run<N>/` subdirectory.
 - `results[].passed`: verifier pass/fail. If a reward file is present,
   `1.0` means pass and `0.0` means fail. If no reward is found, adapter exit code
   is used as the fallback.
-- `results[].metrics.operation_count`: number of tracked harness operations.
-- `results[].metrics.operations_by_type`: counts for operation classes such as
-  `harness`, `loop`, `tool`, and `subagent`.
-- `summary.per_harness`: pass rate, elapsed time, and operation totals.
-- `summary.comparisons`: deltas against `--baseline-harness`.
+- `results[].metrics`: for LLM harnesses (`docker-claude*`), the per-run
+  `UsageRecord` fields — `cost_usd`, `prompt_tokens`, `completion_tokens`,
+  `total_tokens`, `cache_read_tokens`, `cache_write_tokens`, `latency_sec`,
+  `ttft_sec`, `n_calls` (agent turns) — plus `operation_count` /
+  `operations_by_type`.
+- `summary.per_harness`: pass rate, elapsed time, operation totals, a rolled-up
+  `cost{}` block (`total_cost_usd` is `null` when no call was priced), and a
+  `per_task{}` pass breakdown.
+- `summary.comparisons`: `pass_rate_delta`, `passed_delta`, and `cost_delta_usd`
+  against `--baseline-harness`.
 
 The artifact is schema-validated on write, like question/answer/eval/arms
-artifacts.
+artifacts. Per-run detail (the agent's `claude --output-format json` result, the
+prompt, and `run.log`) is written under each cell's output directory.
 
 ## Operation Telemetry
 
