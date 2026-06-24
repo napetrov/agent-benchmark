@@ -79,6 +79,25 @@ def test_task_missing_fields_raise(tmp_path):
         _task_from_data({"id": "t"}, _write_task(tmp_path, ""))
 
 
+@pytest.mark.parametrize("bad", [[1, 2, 3], [0], [-5, 10], ["x"]])
+def test_parse_lines_rejects_malformed(tmp_path, bad):
+    with pytest.raises(ValueError):
+        _task_from_data(
+            {"id": "t", "query": "q", "references": [{"path": "a.py", "lines": bad}]},
+            _write_task(tmp_path, ""),
+        )
+
+
+def test_discover_raises_on_duplicate_ids(tmp_path):
+    body = "id: dup\nproduct: p\nquery: q\nreferences:\n  - path: a.py\n"
+    (tmp_path / "one.yaml").write_text(body, encoding="utf-8")
+    (tmp_path / "two.yaml").write_text(body, encoding="utf-8")
+    with pytest.raises(ValueError):
+        discover_explore_tasks(tmp_path)
+    with pytest.raises(ValueError):
+        load_explore_task("dup", root=tmp_path)
+
+
 def test_load_task_by_id_when_filename_differs(tmp_path):
     # id != filename stem must still be loadable (as listed by `explore list`).
     (tmp_path / "renamed.yaml").write_text(
@@ -156,6 +175,15 @@ def test_command_explorer_timeout_returns_error_result(tmp_path):
 
     result = CommandExplorer("sleep 5", timeout_sec=0.2).explore("q", repo_root=tmp_path)
     assert result.returncode == 124
+
+
+def test_command_explorer_empty_command_returns_error(tmp_path):
+    from agent_benchmarks.explore import CommandExplorer
+
+    # A template that renders to nothing must not raise.
+    result = CommandExplorer("   ").explore("q", repo_root=tmp_path)
+    assert result.returncode == 127
+    assert result.final_answer == ""
 
 
 def test_command_explorer_clears_stale_operation_logs(tmp_path):
@@ -260,6 +288,21 @@ def test_render_exploration_metrics_skips_rows_without_block():
     md = render_exploration_metrics(artifact)
     assert "t1" in md and "t2" not in md
     assert "2/1" in md  # broad / after-subagent
+
+
+def test_render_escapes_pipes_in_arm_names():
+    artifact = {
+        "summary": {
+            "per_arm": {
+                "command:rg x | head": {"n": 1, "avg_file_f1": 0.5, "avg_line_f1": None,
+                                        "avg_citation_validity_rate": 1.0,
+                                        "avg_citation_compactness": None},
+            },
+            "comparisons": {},
+        }
+    }
+    md = render_explore_report(artifact)
+    assert r"command:rg x \| head" in md  # pipe escaped, table intact
 
 
 def test_render_empty_artifacts():

@@ -50,7 +50,10 @@ class ExploreRunner:
                 explorer = factory(task)
                 start = self._clock()
                 result = explorer.explore(task.query, repo_root=task.repo_root)
-                elapsed = result.elapsed_sec or (self._clock() - start)
+                wall = self._clock() - start
+                # Prefer the explorer's own measurement when it reports one
+                # (>0); 0.0 means "did not measure" (e.g. StaticExplorer).
+                elapsed = result.elapsed_sec if result.elapsed_sec > 0 else wall
                 rows.append(self._row(task, arm, result, reference, elapsed))
 
         summary = summarize_explore_results(rows, baseline_arm=self.baseline_arm)

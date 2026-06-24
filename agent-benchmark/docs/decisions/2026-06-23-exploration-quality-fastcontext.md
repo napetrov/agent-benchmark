@@ -1,6 +1,7 @@
 # ADR: Exploration quality as a measurable layer (FastContext-informed)
 
-**Status:** PROPOSED. New backlog item **#60**. Extends the
+**Status:** ACCEPTED — all 7 slices implemented (see §5). New backlog item
+**#60**. Extends the
 [evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
 (#59) and consumes the telemetry record defined in the
 [per-run telemetry ADR](2026-06-19-run-telemetry-metrics.md) (`UsageRecord`,

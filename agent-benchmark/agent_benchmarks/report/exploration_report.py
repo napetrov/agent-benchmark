@@ -32,7 +32,7 @@ def render_explore_report(artifact: dict[str, Any]) -> str:
         per_arm.items(), key=lambda kv: _sort_key(kv[1].get("avg_file_f1"))
     ):
         lines.append(
-            f"| {arm} | {stats.get('n', 0)} "
+            f"| {_cell(arm)} | {stats.get('n', 0)} "
             f"| {_fmt(stats.get('avg_file_f1'))} "
             f"| {_fmt(stats.get('avg_line_f1'))} "
             f"| {_fmt(stats.get('avg_citation_validity_rate'))} "
@@ -45,7 +45,7 @@ def render_explore_report(artifact: dict[str, Any]) -> str:
         lines += ["| arm | baseline | file F1 Δ | line F1 Δ |", "|---|---|---|---|"]
         for arm, cmp_row in comparisons.items():
             lines.append(
-                f"| {arm} | {cmp_row.get('baseline_arm')} "
+                f"| {_cell(arm)} | {_cell(cmp_row.get('baseline_arm'))} "
                 f"| {_fmt_delta(cmp_row.get('file_f1_delta'))} "
                 f"| {_fmt_delta(cmp_row.get('line_f1_delta'))} |"
             )
@@ -77,7 +77,7 @@ def render_exploration_metrics(artifact: dict[str, Any]) -> str:
     for row in rows:
         em = row["metrics"]["exploration_metrics"]
         lines.append(
-            f"| {row.get('task')} | {row.get('harness')} "
+            f"| {_cell(row.get('task'))} | {_cell(row.get('harness'))} "
             f"| {_int(em.get('pre_edit_tool_calls'))} "
             f"| {_fmt(em.get('repeated_read_ratio'))} "
             f"| {_int(em.get('broad_search_count'))}/"
@@ -104,3 +104,9 @@ def _fmt_delta(value: Any) -> str:
 
 def _int(value: Any) -> str:
     return str(value) if isinstance(value, int) else "n/a"
+
+
+def _cell(value: Any) -> str:
+    """Escape a value for a Markdown table cell (pipes/newlines break layout)."""
+    text = "" if value is None else str(value)
+    return text.replace("|", r"\|").replace("\n", "<br>")

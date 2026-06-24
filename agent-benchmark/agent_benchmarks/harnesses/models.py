@@ -105,7 +105,12 @@ def _exploration_metrics(
     """
     from .exploration import summarize_exploration
 
-    main_tokens = metrics.get("total_tokens")
-    return summarize_exploration(
-        operations, main_tokens=int(main_tokens) if main_tokens else None
-    )
+    raw = metrics.get("total_tokens")
+    if raw is None:
+        main_tokens: int | None = None
+    else:
+        try:
+            main_tokens = int(raw)  # preserve an explicit 0; tolerate junk
+        except (TypeError, ValueError):
+            main_tokens = None
+    return summarize_exploration(operations, main_tokens=main_tokens)

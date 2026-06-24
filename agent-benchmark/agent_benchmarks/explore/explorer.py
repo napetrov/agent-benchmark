@@ -108,6 +108,10 @@ class CommandExplorer:
             "output_dir": str(output_dir or ""),
         }
         command = shlex.split(_render(self.command_template, context))
+        if not command:
+            # An empty rendered template would make subprocess.run raise; record
+            # a failed row instead.
+            return ExplorerResult(final_answer="", operations=(), returncode=127)
         env = os.environ.copy()
         env.update(self.env)
         if output_dir is not None:
@@ -124,9 +128,9 @@ class CommandExplorer:
                 timeout=self.timeout_sec,
                 check=False,
             )
-        except (subprocess.TimeoutExpired, OSError) as exc:
-            # External explorers can hang or be missing; record a failed row and
-            # let the suite continue rather than aborting the whole run.
+        except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+            # External explorers can hang, be missing, or get a bad command;
+            # record a failed row and let the suite continue.
             elapsed = time.time() - start
             partial = getattr(exc, "stdout", "") or ""
             if isinstance(partial, bytes):

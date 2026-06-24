@@ -40,7 +40,7 @@ tighter edits, less frontier-model token spend.
 When you have located the evidence, write it as a compact, machine-readable
 block of `path:start-end` citations (one per line):
 
-```
+```text
 <final_answer>
 src/pkg/module.py:42-58
 tests/test_module.py:101-119

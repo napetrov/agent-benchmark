@@ -175,8 +175,10 @@ def roll_up_by_role(records: "Iterable[UsageRecord]") -> dict:
     the system cost.
     """
     records = list(records)
-    main = sum((r for r in records if r.role != "subagent"), UsageRecord(n_calls=0))
-    sub = sum((r for r in records if r.role == "subagent"), UsageRecord(n_calls=0))
+    # Seed with role="" so the empty identity element never overrides the
+    # bucket's real role under ``__add__`` (role=self.role or other.role).
+    main = sum((r for r in records if r.role != "subagent"), UsageRecord(n_calls=0, role=""))
+    sub = sum((r for r in records if r.role == "subagent"), UsageRecord(n_calls=0, role=""))
     # full-system cost is a trustworthy total only when *every* call (main and
     # subagent) is priced; otherwise an unpriced portion would read as free.
     cost_complete = _cost_complete(main) and _cost_complete(sub)

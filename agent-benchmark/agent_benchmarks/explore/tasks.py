@@ -78,9 +78,14 @@ class ExploreTask:
 def _parse_lines(value) -> tuple[int, int] | None:
     if value is None:
         return None
-    if not isinstance(value, (list, tuple)) or not value:
+    if not isinstance(value, (list, tuple)) or not (1 <= len(value) <= 2):
         raise ValueError(f"'lines' must be [start, end] or [n], got {value!r}")
-    nums = [int(v) for v in value]
+    try:
+        nums = [int(v) for v in value]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"'lines' must contain integers, got {value!r}") from exc
+    if any(n < 1 for n in nums):
+        raise ValueError(f"'lines' values must be >= 1 (1-based), got {value!r}")
     start = nums[0]
     end = nums[1] if len(nums) > 1 else nums[0]
     return (min(start, end), max(start, end))
@@ -129,10 +134,17 @@ def load_explore_task(ref: str, root: Path | None = None) -> ExploreTask:
         if path.stem == ref:
             data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             return _task_from_data(data, path)
+    id_matches = []
     for path in files:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if str(data.get("id")) == ref:
-            return _task_from_data(data, path)
+            id_matches.append((path, data))
+    if len(id_matches) > 1:
+        paths = ", ".join(str(p) for p, _ in id_matches)
+        raise ValueError(f"Ambiguous explore task id {ref!r} matches multiple files: {paths}")
+    if id_matches:
+        path, data = id_matches[0]
+        return _task_from_data(data, path)
     raise FileNotFoundError(f"Explore task not found: {ref!r} under {root}")
 
 
@@ -143,6 +155,13 @@ def discover_explore_tasks(root: Path | None = None) -> list[ExploreTask]:
     for path in _task_files(root):
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         tasks.append(_task_from_data(data, path))
+    by_id: dict[str, list[Path]] = {}
+    for t in tasks:
+        by_id.setdefault(t.id, []).append(t.path)
+    dupes = {k: v for k, v in by_id.items() if len(v) > 1}
+    if dupes:
+        detail = "; ".join(f"{k}: {', '.join(map(str, v))}" for k, v in dupes.items())
+        raise ValueError(f"Duplicate explore task ids: {detail}")
     return sorted(tasks, key=lambda t: t.id)
 
 
