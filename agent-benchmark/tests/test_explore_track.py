@@ -191,6 +191,25 @@ def test_command_explorer_timeout_returns_error_result(tmp_path):
     assert result.returncode == 124
 
 
+def test_command_explorer_timeout_preserves_partial_telemetry(tmp_path):
+    from agent_benchmarks.explore import CommandExplorer
+
+    writer = tmp_path / "slow.py"
+    writer.write_text(
+        "import os, time\n"
+        "open(os.environ['AGENT_BENCHMARK_OPERATIONS_FILE'], 'a')."
+        "write('{\"type\": \"read\", \"name\": \"pre-timeout\"}\\n')\n"
+        "time.sleep(5)\n",
+        encoding="utf-8",
+    )
+    result = CommandExplorer(
+        f"python {writer}", timeout_sec=0.5, output_root=tmp_path / "o"
+    ).explore("q", repo_root=tmp_path)
+    assert result.returncode == 124
+    # Telemetry written before the hang is preserved, not discarded.
+    assert any(op.name == "pre-timeout" for op in result.operations)
+
+
 def test_command_explorer_empty_command_returns_error(tmp_path):
     from agent_benchmarks.explore import CommandExplorer
 

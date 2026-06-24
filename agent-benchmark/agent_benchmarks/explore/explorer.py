@@ -139,13 +139,18 @@ class CommandExplorer:
             )
         except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
             # External explorers can hang, be missing, or get a bad command;
-            # record a failed row and let the suite continue.
+            # record a failed row and let the suite continue. On timeout the
+            # explorer may already have written operations.jsonl / emitted
+            # markers, so preserve any telemetry produced before it failed.
             elapsed = time.time() - start
-            partial = getattr(exc, "stdout", "") or ""
-            if isinstance(partial, bytes):
-                partial = partial.decode("utf-8", "replace")
+            partial_out = _to_text(getattr(exc, "stdout", ""))
+            partial_err = _to_text(getattr(exc, "stderr", ""))
+            operations = tuple(load_operations(output_dir, partial_out, partial_err))
             return ExplorerResult(
-                final_answer=partial, operations=(), elapsed_sec=elapsed, returncode=124
+                final_answer=partial_out,
+                operations=operations,
+                elapsed_sec=elapsed,
+                returncode=124,
             )
         elapsed = time.time() - start
         stdout = proc.stdout or ""
@@ -156,6 +161,13 @@ class CommandExplorer:
             elapsed_sec=elapsed,
             returncode=proc.returncode,
         )
+
+
+def _to_text(value: object) -> str:
+    """Decode subprocess output that may be bytes (e.g. on TimeoutExpired)."""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return value if isinstance(value, str) else ""
 
 
 _PLACEHOLDERS = ("query", "query_quoted", "repo_root", "output_dir")
