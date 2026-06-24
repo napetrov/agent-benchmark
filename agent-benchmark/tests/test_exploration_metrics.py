@@ -218,6 +218,17 @@ def test_pre_edit_counts_and_ordering():
     assert m["read_count"] == 3
 
 
+def test_no_edit_run_marks_pre_edit_counts_unavailable():
+    # Reads/searches but no edit (Q&A / pure exploration): pre-edit counts are
+    # unavailable (None), not a misleading 0.
+    ops = [_op("read", "read", path="a.py"), _op("search", "grep", command="rg x src/")]
+    m = summarize_exploration(ops)
+    assert m["pre_edit_tool_calls"] is None
+    assert m["pre_edit_reads"] is None
+    assert m["pre_edit_searches"] is None
+    assert m["read_count"] == 1  # raw counts still reported
+
+
 def test_repeated_read_ratio():
     ops = [
         _op("read", "read", path="a.py"),

@@ -256,6 +256,8 @@ def summarize_exploration(
     )
 
     # ── trajectory shape (pre-edit) ─────────────────────────────────────────
+    pre_reads: Optional[int]
+    pre_searches: Optional[int]
     if first_edit_idx is not None:
         pre = classes[:first_edit_idx]
         pre_tool = [op for kind, op in pre if kind in ("read", "search", "subagent")]
@@ -265,9 +267,10 @@ def summarize_exploration(
         time_to_first_edit = round(pre_elapsed, 4) if pre_elapsed > 0 else None
         pre_edit_tool_calls: Optional[int] = len(pre_tool)
     else:
-        # No edit observed (e.g. a pure exploration or Q&A run): pre-edit
-        # framing does not apply.
-        pre_reads = pre_searches = 0
+        # No edit observed (e.g. a pure exploration or Q&A run): the pre-edit
+        # frame does not apply, so all pre-edit counts are unavailable (None),
+        # not a misleading 0.
+        pre_reads = pre_searches = None
         time_to_first_edit = None
         pre_edit_tool_calls = None
 

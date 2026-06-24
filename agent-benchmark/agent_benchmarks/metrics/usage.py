@@ -112,6 +112,7 @@ class UsageRecord:
             "ttft_sec": round(self.ttft_sec, 4) if self.ttft_sec is not None else None,
             "n_calls": self.n_calls,
             "cost_known_calls": _known_cost_calls(self),
+            "role": self.role,
         }
         if answer_chars is not None:
             m["raw_answer_chars"] = answer_chars

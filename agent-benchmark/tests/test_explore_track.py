@@ -30,7 +30,7 @@ from agent_benchmarks.explore.explorer import (
 from agent_benchmarks.explore.tasks import ExploreReference, ExploreTask, _task_from_data
 from agent_benchmarks.harnesses.operations import load_operations
 from agent_benchmarks.metrics.exploration import parse_final_answer
-from agent_benchmarks.metrics.usage import UsageRecord, roll_up_by_role
+from agent_benchmarks.metrics.usage import UsageRecord, roll_up_by_role, to_record
 from agent_benchmarks.report.exploration_report import (
     render_explore_report,
     render_exploration_metrics,
@@ -359,6 +359,17 @@ def test_roll_up_full_cost_when_all_priced():
     roll = roll_up_by_role(records)
     assert roll["full_system_cost"] == 0.012
     assert roll["full_system_cost_complete"] is True
+
+
+def test_role_survives_metrics_serialization_roundtrip():
+    # A subagent record serialized to a metrics dict and re-read must keep its
+    # role, or the rollup would bucket its tokens under main.
+    sub = UsageRecord(total_tokens=200, cost_usd=0.002, role="subagent")
+    restored = to_record(sub.as_metrics_dict())
+    assert restored.role == "subagent"
+    roll = roll_up_by_role([restored])
+    assert roll["subagent_tokens"] == 200
+    assert roll["main_agent_tokens"] == 0
 
 
 def test_roll_up_cost_none_when_all_unpriced():
