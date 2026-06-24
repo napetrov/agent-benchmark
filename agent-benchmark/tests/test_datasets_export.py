@@ -68,6 +68,44 @@ def test_export_parquet(tmp_path):
     assert primary.exists()
 
 
+def test_flatten_task_runs_lifts_metrics_to_columns():
+    data = {
+        "schema_version": "task_runs.v1",
+        "model": "haiku",
+        "results": [
+            {"task": "t1", "harness": "docker-claude", "passed": True, "reward": 1.0,
+             "metrics": {"operation_count": 1, "operations_by_type": {"harness": 1},
+                         "cost_usd": 0.05, "n_calls": 7, "total_tokens": 600, "mode": "claude"}},
+        ],
+    }
+    rows = flatten("task_runs", data)
+    assert rows[0]["task"] == "t1"
+    assert rows[0]["model"] == "haiku"
+    # telemetry lifted to flat, typed columns
+    assert rows[0]["metric_cost_usd"] == 0.05
+    assert rows[0]["metric_n_calls"] == 7
+    assert rows[0]["metric_mode"] == "claude"
+    # full metrics block still present as a JSON-encoded column
+    assert json.loads(rows[0]["metrics"])["operation_count"] == 1
+
+
+def test_export_task_runs_jsonl(tmp_path):
+    src = tmp_path / "tr.json"
+    src.write_text(json.dumps({
+        "schema_version": "task_runs.v1",
+        "harnesses": ["docker-claude"],
+        "tasks": [{"name": "t1", "path": "p", "metadata": {}, "verifier": {},
+                   "agent": {}, "environment": {}}],
+        "results": [{"task": "t1", "harness": "docker-claude", "passed": False,
+                     "metrics": {"operation_count": 0, "operations_by_type": {}},
+                     "operations": []}],
+        "summary": {"per_harness": {}, "comparisons": {}},
+    }))
+    primary = export_artifact("task_runs", src, tmp_path / "out", fmt="jsonl")
+    assert primary.exists()
+    assert json.loads(primary.read_text().strip())["task"] == "t1"
+
+
 def test_flatten_missing_record_key_raises():
     import pytest
     with pytest.raises(KeyError):

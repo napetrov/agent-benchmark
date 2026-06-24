@@ -116,6 +116,21 @@ python cli.py tasks run \
   --out-json results/skill-task-arms.json
 ```
 
+`tasks run` writes two artifacts: the schema-validated JSON (`--out-json`) and a
+Markdown report alongside it (override with `--out-md`). The report has a
+headline, a difficulty rollup, the per-harness comparison, a per-task pass/cost
+table, and a per-cell answer detail that contrasts the verifier verdict with the
+model's own self-report (the ⚠️ cells claimed success but failed the verifier).
+
+For analysis, export the run to a flat per-cell table (one row per cell, with
+the telemetry lifted into `metric_*` columns):
+
+```bash
+python cli.py dataset export --kind task_runs \
+  --input results/skill-task-arms.json \
+  --out-dir results/skill-task-arms-dataset --format jsonl   # or parquet / hf
+```
+
 Operation telemetry is also collected from wrapper JSONL logs and
 `AGENT_BENCHMARK_OP` stdout/stderr markers. See
 [`docs/coding-harnesses.md`](../docs/coding-harnesses.md) for the full contract.

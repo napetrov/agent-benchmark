@@ -26,7 +26,8 @@ def register(sub, positive_int) -> None:
     dataset_sub = dataset_p.add_subparsers(dest="dataset_cmd", required=True)
 
     export_p = dataset_sub.add_parser("export", help="Export an artifact to JSONL/Parquet/HF")
-    export_p.add_argument("--kind", required=True, choices=["questions", "answers", "eval", "arms"])
+    export_p.add_argument("--kind", required=True,
+                          choices=["questions", "answers", "eval", "arms", "task_runs"])
     export_p.add_argument("--input", required=True, help="Path to the artifact JSON")
     export_p.add_argument("--out-dir", required=True, help="Output directory")
     export_p.add_argument("--format", default="jsonl", choices=["jsonl", "parquet", "hf"])

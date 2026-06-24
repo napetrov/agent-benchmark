@@ -41,3 +41,21 @@ def test_tasks_run_dry_run_writes_schema_artifact(tmp_path):
     assert '"schema_version": "task_runs.v1"' in text
     assert '"codex"' in text
     assert '"claude-code"' in text
+    # report is written alongside the default out-json path
+    assert out.with_suffix(".md").is_file()
+
+
+def test_tasks_run_out_md_creates_missing_parent_dir(tmp_path):
+    _fixture_task(tmp_path)
+    out = tmp_path / "runs.json"
+    # --out-md points into a directory that does not exist yet.
+    md = tmp_path / "nested" / "report.md"
+    parser = build_parser()
+    args = parser.parse_args([
+        "tasks", "run", "--tasks", "toy-task", "--tasks-root", str(tmp_path),
+        "--harnesses", "codex", "--model", "m",
+        "--out-json", str(out), "--out-md", str(md), "--dry-run",
+    ])
+    args.func(args)  # must not raise FileNotFoundError
+    assert md.is_file()
+    assert "# Executable task-run report" in md.read_text(encoding="utf-8")
