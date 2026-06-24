@@ -49,7 +49,12 @@ _BROAD_MARKERS = ("grep -r", "grep -R", "grep -rn", "--recursive", "find ")
 
 
 def _word_match(words: Sequence[str], text: str) -> bool:
-    return any(re.search(rf"\b{re.escape(w)}\b", text) for w in words)
+    # Boundary = start/end or any non-alphanumeric char, so ``_``/``-``/``.``
+    # act as separators (``read_file`` matches ``read``) while a keyword embedded
+    # in a longer word does not (``review`` does not match ``view``).
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(w)}(?![a-z0-9])", text) for w in words
+    )
 
 
 def _classify(op: OperationRecord) -> Optional[str]:
@@ -85,16 +90,16 @@ def _op_path(op: OperationRecord) -> Optional[str]:
 def _is_broad(op: OperationRecord) -> tuple[bool, bool]:
     """Return ``(is_broad, inferred)``.
 
-    ``inferred`` is True when broadness was guessed from the command/query text
+    ``inferred`` is True when broadness was guessed from the executed command
     rather than an explicit ``metadata.broad`` flag — surfaced so a reader can
-    tell heuristic counts from authoritative ones.
+    tell heuristic counts from authoritative ones. Inference looks **only** at
+    shell-command fields (``command``/``args``); a human-readable ``query`` like
+    ``"find Foo in src/bar.py"`` is intent, not an unbounded ``find`` shell run.
     """
     flag = op.metadata.get("broad")
     if isinstance(flag, bool):
         return flag, False
-    text = " ".join(
-        str(op.metadata.get(k, "")) for k in ("command", "query", "args", "line")
-    ).lower()
+    text = " ".join(str(op.metadata.get(k, "")) for k in ("command", "args")).lower()
     return any(m.lower() in text for m in _BROAD_MARKERS), True
 
 

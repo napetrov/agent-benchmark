@@ -240,6 +240,26 @@ def test_scoped_search_not_inferred_broad():
     assert m["broad_search_inferred_count"] == 1
 
 
+def test_snake_case_tool_names_classified():
+    # Underscores must act as separators so read_file/str_replace_editor match.
+    ops = [
+        _op("tool", "read_file", path="a.py"),
+        _op("tool", "str_replace_editor", path="a.py"),
+    ]
+    m = summarize_exploration(ops)
+    assert m["read_count"] == 1
+    # str_replace_editor is an edit op, so the read precedes the first edit.
+    assert m["pre_edit_tool_calls"] == 1
+    assert m["pre_edit_reads"] == 1
+
+
+def test_prose_query_not_inferred_broad():
+    # A human-readable query mentioning "find" is intent, not a shell `find`.
+    ops = [_op("search", "grep", query="find Foo in src/bar.py")]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 0
+
+
 def test_harness_seed_op_not_classified_as_exploration():
     # A harness id containing "review" (substring "view") must not be read-
     # classified; a non-exploring run emits no exploration block.
