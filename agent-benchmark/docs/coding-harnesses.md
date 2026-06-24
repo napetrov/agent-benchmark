@@ -99,6 +99,32 @@ python cli.py tasks run \
   so `summary.comparisons` reports the skill arm's `pass_rate_delta` and
   `cost_delta_usd`.
 
+### Report and raw data
+
+`tasks run` writes a Markdown report next to `--out-json` (override with
+`--out-md`), rendered by `agent_benchmarks/report/task_runs_report.py` — the same
+package the Q&A `arms`/`eval` reports live in. Sections: headline, difficulty
+rollup, per-harness comparison, per-task pass/cost, and a per-cell answer detail
+that puts the verifier verdict next to the model's own `solver.json` self-report
+(⚠️ flags cells the model claimed it solved but the verifier scored 0 — typically
+correct code that misses the performance bar). Re-render any existing artifact:
+
+```python
+import json
+from agent_benchmarks.report.task_runs_report import render_task_runs_report
+print(render_task_runs_report(json.load(open("results/skill-task-arms.json"))))
+```
+
+For analysis, export to a flat per-cell table — one row per cell with the
+telemetry promoted to `metric_*` columns, the full `metrics`/`operations` blocks
+kept as JSON-encoded columns:
+
+```bash
+python cli.py dataset export --kind task_runs \
+  --input results/skill-task-arms.json \
+  --out-dir results/skill-task-arms-dataset --format jsonl   # or parquet / hf
+```
+
 What the harnesses handle for you (ported from the older `scripts/run_task.sh`):
 pass the host proxy through to `docker build` (corporate networks), run
 solve/verify as root for images that set a non-root `USER`, expose the whole

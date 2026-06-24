@@ -1,9 +1,10 @@
 """Export benchmark artifacts to shareable, versioned dataset files.
 
-Converts the JSON artifacts (questions/answers/eval/arms) into tabular form for
-reproducible sharing and analysis: JSONL (no extra deps), Parquet, or a
+Converts the JSON artifacts (questions/answers/eval/arms/task_runs) into tabular
+form for reproducible sharing and analysis: JSONL (no extra deps), Parquet, or a
 Hugging Face ``datasets`` dataset saved to disk. A dataset card (README.md) with
-provenance is written alongside.
+provenance is written alongside. For ``task_runs`` the per-cell telemetry is
+lifted into ``metric_*`` columns so analysis tools see real columns.
 """
 
 from __future__ import annotations
@@ -19,7 +20,17 @@ RECORD_KEY = {
     "answers": "answers",
     "eval": "evaluations",
     "arms": "answers",
+    "task_runs": "results",
 }
+
+# Telemetry/metrics fields lifted out of each task-run row's nested ``metrics``
+# block into top-level columns (so analysis tools see them as real columns
+# rather than one JSON-encoded blob).
+_TASK_RUN_METRIC_COLS = (
+    "cost_usd", "n_calls", "prompt_tokens", "completion_tokens",
+    "cache_read_tokens", "cache_write_tokens", "total_tokens",
+    "latency_sec", "ttft_sec", "mode", "error",
+)
 
 # Top-level metadata fields copied onto every row (when present).
 META_KEYS = (
@@ -65,8 +76,25 @@ def flatten(kind: str, data: dict) -> list[dict]:
                 row[k] = _jsonify(v)
         else:
             row["value"] = _jsonify(rec)
+        if kind == "task_runs":
+            _lift_task_run_metrics(rec, row)
         rows.append(row)
     return rows
+
+
+def _lift_task_run_metrics(rec: dict, row: dict) -> None:
+    """Promote selected ``metrics`` fields to top-level columns for analysis.
+
+    The full ``metrics``/``operations`` blocks stay as JSON-encoded columns
+    (set by the generic flatten); this only adds flat, typed columns for the
+    telemetry an analyst actually pivots on.
+    """
+    if not isinstance(rec, dict):
+        return
+    metrics = rec.get("metrics") or {}
+    for col in _TASK_RUN_METRIC_COLS:
+        if col in metrics:
+            row[f"metric_{col}"] = _jsonify(metrics[col])
 
 
 def to_jsonl(rows: list[dict], path: Path) -> None:

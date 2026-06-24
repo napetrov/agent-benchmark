@@ -60,6 +60,12 @@ def cmd_tasks_run(args: argparse.Namespace) -> None:
     save_artifact("task_runs", output, out_json)
     print(f"Saved task run artifact: {out_json}")
 
+    out_md = Path(args.out_md) if args.out_md else out_json.with_suffix(".md")
+    from agent_benchmarks.report.task_runs_report import render_task_runs_report
+
+    out_md.write_text(render_task_runs_report(output), encoding="utf-8")
+    print(f"Saved task run report:   {out_md}")
+
     for harness, stats in output["summary"]["per_harness"].items():
         rate = stats["pass_rate"]
         rate_s = "n/a" if rate is None else f"{rate:.2%}"
@@ -107,6 +113,8 @@ def register(sub, positive_int) -> None:
     run_p.add_argument("--tasks-root", default=None)
     run_p.add_argument("--output-dir", default="results/task-runs", dest="output_dir")
     run_p.add_argument("--out-json", default=None, dest="out_json")
+    run_p.add_argument("--out-md", default=None, dest="out_md",
+                       help="Markdown report path (default: alongside --out-json)")
     run_p.add_argument(
         "--repeats", type=positive_int, default=1,
         help="Run each (task, harness) cell N times for pass-rate/cost variance (default: 1)",
