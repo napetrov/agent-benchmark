@@ -298,6 +298,19 @@ def test_ripgrep_option_values_not_treated_as_path():
     assert m["broad_search_count"] == 3
 
 
+def test_rg_pattern_option_makes_positionals_paths():
+    # With -e/--regexp/--files the pattern is not a positional, so a single
+    # positional is already a PATH (scoped), and none means broad.
+    ops = [
+        _op("search", "rg", command="rg -e foo src/"),     # scoped → not broad
+        _op("search", "rg", command="rg -e foo"),          # no path → broad
+        _op("search", "rg", command="rg --files src/"),    # scoped → not broad
+        _op("search", "rg", command="rg --files"),         # cwd listing → broad
+    ]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 2
+
+
 def test_quoted_multiword_pattern_is_broad():
     # shlex parsing keeps "error message" as one token, so no PATH was supplied.
     ops = [

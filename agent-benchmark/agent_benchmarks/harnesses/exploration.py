@@ -164,24 +164,29 @@ def _rg_has_path(tokens: list[str]) -> bool:
     """True when a ripgrep arg list supplies a PATH after the PATTERN.
 
     Walks ``rg [OPTIONS] PATTERN [PATH ...]``, skipping flags and the values of
-    value-taking options; the first positional is the PATTERN, any further
-    positional is a PATH.
+    value-taking options. Normally the first positional is the PATTERN and a
+    PATH needs a second positional; but when the pattern is supplied via an
+    option (``-e/--regexp``, ``-f/--file``) or there is no pattern (``--files``),
+    *every* positional is a PATH, so one positional already means scoped.
     """
     positionals = 0
+    pattern_from_opt = False
     i = 0
     while i < len(tokens):
         t = tokens[i]
-        if t.startswith("--"):
-            # ``--opt=value`` is self-contained; ``--opt value`` consumes next.
-            if "=" not in t and t in _RG_VALUE_OPTS:
-                i += 1
-        elif t.startswith("-"):
-            if t in _RG_VALUE_OPTS:
+        base = t.split("=", 1)[0]
+        if base in ("-e", "--regexp", "-f", "--file"):
+            pattern_from_opt = True
+        if base == "--files":
+            pattern_from_opt = True  # listing mode: no pattern, positionals are paths
+        if t.startswith("-"):
+            # ``--opt=value`` is self-contained; ``-opt value`` consumes next.
+            if "=" not in t and base in _RG_VALUE_OPTS:
                 i += 1
         else:
             positionals += 1
         i += 1
-    return positionals >= 2
+    return positionals >= (1 if pattern_from_opt else 2)
 
 
 def _grep_is_recursive(tokens: list[str]) -> bool:

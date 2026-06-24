@@ -108,15 +108,26 @@ class CommandExplorer:
             env["AGENT_BENCHMARK_OUTPUT_DIR"] = str(output_dir)
             env["AGENT_BENCHMARK_OPERATIONS_FILE"] = str(output_dir / "operations.jsonl")
         start = time.time()
-        proc = subprocess.run(
-            command,
-            cwd=str(repo_root),
-            env=env,
-            text=True,
-            capture_output=True,
-            timeout=self.timeout_sec,
-            check=False,
-        )
+        try:
+            proc = subprocess.run(
+                command,
+                cwd=str(repo_root),
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=self.timeout_sec,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            # External explorers can hang or be missing; record a failed row and
+            # let the suite continue rather than aborting the whole run.
+            elapsed = time.time() - start
+            partial = getattr(exc, "stdout", "") or ""
+            if isinstance(partial, bytes):
+                partial = partial.decode("utf-8", "replace")
+            return ExplorerResult(
+                final_answer=partial, operations=(), elapsed_sec=elapsed, returncode=124
+            )
         elapsed = time.time() - start
         stdout = proc.stdout or ""
         operations = tuple(load_operations(output_dir, stdout, proc.stderr or ""))

@@ -141,6 +141,23 @@ def test_build_subagent_op_flags_invalid_answer():
     assert op.metadata["final_answer_valid"] is False
 
 
+def test_command_explorer_missing_binary_returns_error_result(tmp_path):
+    from agent_benchmarks.explore import CommandExplorer
+
+    result = CommandExplorer("this-binary-does-not-exist-xyz {query_quoted}").explore(
+        "q", repo_root=tmp_path
+    )
+    assert result.returncode == 124
+    assert result.final_answer == ""
+
+
+def test_command_explorer_timeout_returns_error_result(tmp_path):
+    from agent_benchmarks.explore import CommandExplorer
+
+    result = CommandExplorer("sleep 5", timeout_sec=0.2).explore("q", repo_root=tmp_path)
+    assert result.returncode == 124
+
+
 # ── runner → explore_runs.v1 ─────────────────────────────────────────────────
 
 
