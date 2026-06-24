@@ -4,6 +4,45 @@
 
 ---
 
+### #60 — Exploration quality as a measurable layer (FastContext-informed)
+**Scope:** Evaluation architecture / telemetry
+**Status:** LANDED (all 7 slices) — design in
+`docs/decisions/2026-06-23-exploration-quality-fastcontext.md`. Delivered:
+`metrics/exploration.py` (citation parser + localization F1),
+`harnesses/exploration.py` (`exploration_metrics` on `task_runs`),
+`metrics/usage.py` `roll_up_by_role` (main/subagent/full-system tokens+cost),
+the `data/skills/fastcontext` skill fixture, the **ExploreBench** track
+(`explore_runs.v1` + `agent_benchmarks/explore/` + `explore` CLI + 6 seed
+tasks), and `report/exploration_report.py` panels.
+
+Future work is breadth, not mechanism: curated Intel/oneAPI exploration tasks
+with oracle-derived line ranges, an LLM-backed explorer arm, and wiring the
+role-tagged `UsageRecord` rollup into a subagent-spawning answering arm.
+
+Measure whether an agent finds the right context *efficiently* before it
+answers/edits/solves — not just whether context exists. Additive slices on top
+of existing telemetry (`OperationRecord`, `AGENT_BENCHMARK_OP`, `UsageRecord`):
+
+- `metrics/exploration.py` — `<final_answer>` citation parser + file/line
+  precision/recall/F1, validity, compactness.
+- `exploration_metrics` block on `task_runs.v1` results (pre-edit turns,
+  read/search token share, repeated-read ratio, broad-search-after-subagent),
+  derived from the operation stream already collected.
+- Main-vs-subagent token/cost accounting so savings are never overstated
+  (`main_agent_tokens` / `subagent_tokens` / `full_system_tokens`).
+- `data/skills/fastcontext/SKILL.md` fixture evaluated as `skill:` /
+  `skill-agent:` and on the task track (baseline → +fastcontext → +intel skill
+  → combined).
+- Standalone **ExploreBench** track (`explore_runs.v1`): exploration-only tasks
+  scored against curated/oracle reference locations.
+- Dashboard panels: score–token Pareto, pass-rate vs full-system cost, citation
+  F1, wasted-search-after-subagent.
+
+Caveat: localization is a proxy (under-credits tests/callers/config); always
+pair citation F1 with pass-rate / judge score, and change one axis at a time.
+
+---
+
 ### #59 — Evaluation beyond MCP docs: artifacts as subjects, model × harness, tasks for every project
 **Scope:** Evaluation architecture / coverage
 **Status:** IN PROGRESS (Phase A/B/C.0 landed; Phase C, D open)

@@ -13,6 +13,7 @@ from agent_benchmarks.commands import (
     dashboard,
     dataset,
     evaluate,
+    explore,
     ingest,
     library,
     orchestrate,
@@ -55,6 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard.register(sub, positive_int)       # dashboard
     arms.register(sub, positive_int)            # arms
     tasks.register(sub, positive_int)           # tasks
+    explore.register(sub, positive_int)         # explore (ExploreBench, #60)
     dataset.register(sub, positive_int)         # dataset
     ingest.register(sub, positive_int)          # ingest
 

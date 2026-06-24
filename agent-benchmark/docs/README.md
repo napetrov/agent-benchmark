@@ -181,6 +181,10 @@ current status.
   - [decisions/2026-06-10-artifacts-as-evaluation-subjects.md](decisions/2026-06-10-artifacts-as-evaluation-subjects.md)
     — promote skills/profiles/bundles from arms to first-class evaluation
     *subjects* emitting a per-subject scorecard. *(Phase D.)*
+  - [decisions/2026-06-23-exploration-quality-fastcontext.md](decisions/2026-06-23-exploration-quality-fastcontext.md)
+    — add exploration quality (citation localization F1, pre-edit cost,
+    main-vs-subagent token accounting) as a measurable layer; FastContext skill
+    arm + standalone ExploreBench track. *(Item #60.)*
 - [decisions/benchmark-methodology.md](decisions/benchmark-methodology.md)
   — current operational methodology for model roles, question types,
   difficulty levels, answer generation, judging, trust checks, and executable

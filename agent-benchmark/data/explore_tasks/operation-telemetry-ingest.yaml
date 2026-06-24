@@ -1,0 +1,8 @@
+id: operation-telemetry-ingest
+product: agent-benchmark
+query: >
+  How are AGENT_BENCHMARK_OP markers and operations.jsonl files ingested into
+  OperationRecord telemetry for a harness run?
+references:
+  - path: agent_benchmarks/harnesses/operations.py
+  - path: agent_benchmarks/harnesses/models.py

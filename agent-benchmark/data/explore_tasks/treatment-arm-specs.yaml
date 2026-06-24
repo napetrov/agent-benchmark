@@ -1,0 +1,7 @@
+id: treatment-arm-specs
+product: agent-benchmark
+query: >
+  Where are treatment-arm specs (baseline, docs:, mcp:, profile:, skill:,
+  skill-agent:) parsed into concrete treatments?
+references:
+  - path: agent_benchmarks/treatments/factory.py
