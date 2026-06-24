@@ -358,6 +358,28 @@ def test_harness_seed_op_not_classified_as_exploration():
     assert "exploration_metrics" not in result.as_dict()["metrics"]
 
 
+def test_broad_after_failed_subagent_not_counted():
+    # A broad search after a FAILED/empty subagent is a fallback, not redundant
+    # search after focused evidence, so it must not inflate the after count.
+    failed = [
+        OperationRecord(type="subagent", name="fc", status="error",
+                        metadata={"citation_count": 0}),
+        _op("search", "grep", command="grep -R x ."),
+    ]
+    m = summarize_exploration(failed)
+    assert m["broad_search_count"] == 1
+    assert m["broad_search_after_subagent_count"] == 0
+
+    # A broad search after a SUCCESSFUL subagent still counts.
+    ok = [
+        OperationRecord(type="subagent", name="fc", status="ok",
+                        metadata={"citation_count": 2, "citation_paths": ["a.py"]}),
+        _op("search", "grep", command="grep -R x ."),
+    ]
+    m2 = summarize_exploration(ok)
+    assert m2["broad_search_after_subagent_count"] == 1
+
+
 def test_main_reads_overlap_with_citations():
     ops = [
         _op("subagent", "fastcontext", citation_paths=["a.py", "b.py"]),

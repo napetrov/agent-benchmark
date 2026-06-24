@@ -95,6 +95,12 @@ class CommandExplorer:
         output_dir = self.output_root
         if output_dir is not None:
             output_dir.mkdir(parents=True, exist_ok=True)
+            # Clear any operation logs from a previous run in the same dir so
+            # stale telemetry is never attached to this invocation's row.
+            for name in ("operations.jsonl", "operation-log.jsonl"):
+                stale = output_dir / name
+                if stale.exists():
+                    stale.unlink()
         context = {
             "query": query,
             "query_quoted": shlex.quote(query),

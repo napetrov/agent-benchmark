@@ -199,6 +199,21 @@ def _grep_is_recursive(tokens: list[str]) -> bool:
     return False
 
 
+def _subagent_returned_evidence(op: OperationRecord) -> bool:
+    """True when a subagent op succeeded and returned at least one citation.
+
+    A failed (``status="error"``) or empty subagent did not deliver focused
+    evidence, so searches after it are fallbacks, not redundant re-exploration.
+    """
+    if str(op.status).lower() == "error":
+        return False
+    meta = _meta(op)
+    count = meta.get("citation_count")
+    if count is not None:
+        return int(count) > 0
+    return bool(_subagent_cited_paths(op))
+
+
 def _subagent_cited_paths(op: OperationRecord) -> set[str]:
     # Entries may be bare paths or full ``<final_answer>`` citations
     # (``path:start-end``); ``citation_path`` strips any range so they compare
@@ -270,8 +285,16 @@ def summarize_exploration(
         repeated_read_ratio = None
 
     # ── broad search (and broad search after a subagent returned) ───────────
+    # Cutoff is the first *successful* subagent (returned citations). A broad
+    # search after a failed/empty delegation is a fallback, not redundant search
+    # after focused evidence, so it must not inflate the after-subagent count.
     first_subagent_idx = next(
-        (i for i, (kind, _) in enumerate(classes) if kind == "subagent"), None
+        (
+            i
+            for i, (kind, op) in enumerate(classes)
+            if kind == "subagent" and _subagent_returned_evidence(op)
+        ),
+        None,
     )
     broad_count = 0
     broad_inferred = 0

@@ -158,6 +158,19 @@ def test_command_explorer_timeout_returns_error_result(tmp_path):
     assert result.returncode == 124
 
 
+def test_command_explorer_clears_stale_operation_logs(tmp_path):
+    from agent_benchmarks.explore import CommandExplorer
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "operations.jsonl").write_text(
+        '{"type": "subagent", "name": "stale"}\n', encoding="utf-8"
+    )
+    # `echo` writes stdout but no operations.jsonl; the stale file must be gone.
+    result = CommandExplorer("echo hi", output_root=out).explore("q", repo_root=tmp_path)
+    assert all(op.name != "stale" for op in result.operations)
+
+
 # ── runner → explore_runs.v1 ─────────────────────────────────────────────────
 
 
@@ -257,7 +270,7 @@ def test_render_empty_artifacts():
 # ── token-role rollup (slice 3) ──────────────────────────────────────────────
 
 
-def test_roll_up_by_role_splits_main_and_subagent():
+def test_roll_up_by_role_splits_tokens_and_withholds_partial_cost():
     records = [
         UsageRecord(total_tokens=1000, cost_usd=0.01, role="main"),
         UsageRecord(total_tokens=200, cost_usd=0.002, role="subagent"),
@@ -269,7 +282,19 @@ def test_roll_up_by_role_splits_main_and_subagent():
     assert roll["full_system_tokens"] == 1250
     assert roll["main_agent_cost"] == 0.01
     assert roll["subagent_cost"] == 0.002
+    # One subagent call is unpriced → full-system cost is withheld, not 0.012.
+    assert roll["full_system_cost"] is None
+    assert roll["full_system_cost_complete"] is False
+
+
+def test_roll_up_full_cost_when_all_priced():
+    records = [
+        UsageRecord(total_tokens=1000, cost_usd=0.01, role="main"),
+        UsageRecord(total_tokens=200, cost_usd=0.002, role="subagent"),
+    ]
+    roll = roll_up_by_role(records)
     assert roll["full_system_cost"] == 0.012
+    assert roll["full_system_cost_complete"] is True
 
 
 def test_roll_up_cost_none_when_all_unpriced():
@@ -277,4 +302,5 @@ def test_roll_up_cost_none_when_all_unpriced():
     assert roll["main_agent_cost"] is None
     assert roll["subagent_cost"] is None
     assert roll["full_system_cost"] is None
+    assert roll["full_system_cost_complete"] is False
     assert roll["full_system_tokens"] == 10

@@ -177,14 +177,25 @@ def roll_up_by_role(records: "Iterable[UsageRecord]") -> dict:
     records = list(records)
     main = sum((r for r in records if r.role != "subagent"), UsageRecord(n_calls=0))
     sub = sum((r for r in records if r.role == "subagent"), UsageRecord(n_calls=0))
+    # full-system cost is a trustworthy total only when *every* call (main and
+    # subagent) is priced; otherwise an unpriced portion would read as free.
+    cost_complete = _cost_complete(main) and _cost_complete(sub)
     return {
         "main_agent_tokens": main.total_tokens,
         "subagent_tokens": sub.total_tokens,
         "full_system_tokens": main.total_tokens + sub.total_tokens,
         "main_agent_cost": main.cost_usd,
         "subagent_cost": sub.cost_usd,
-        "full_system_cost": _add_optional_costs(main.cost_usd, sub.cost_usd),
+        "full_system_cost": (
+            _add_optional_costs(main.cost_usd, sub.cost_usd) if cost_complete else None
+        ),
+        "full_system_cost_complete": cost_complete,
     }
+
+
+def _cost_complete(rec: UsageRecord) -> bool:
+    """True when a bucket's cost is fully known: empty, or all calls priced."""
+    return rec.n_calls == 0 or _known_cost_calls(rec) == rec.n_calls
 
 
 def _add_optional_costs(a: Optional[float], b: Optional[float]) -> Optional[float]:
