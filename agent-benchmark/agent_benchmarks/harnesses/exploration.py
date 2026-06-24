@@ -22,6 +22,7 @@ with a recorded reason, never fabricated.
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
@@ -137,9 +138,14 @@ def _infer_broad(command: str) -> bool:
     Broad when it is a ``find`` tree walk, a recursive grep (``grep -r``), or a
     ripgrep search with no PATH argument (``rg`` recurses the cwd by default). A
     *scoped* search (``rg sym src/mod.py``) is not broad. ripgrep option values
-    (``-g '*.py'``, ``--type py``) are not mistaken for a PATH.
+    (``-g '*.py'``, ``--type py``) are not mistaken for a PATH, and a quoted
+    multi-word pattern (``rg "error message"``) is a single token.
     """
-    tokens = command.lower().split()
+    try:
+        tokens = [t.lower() for t in shlex.split(command)]
+    except ValueError:
+        # Unbalanced quotes etc. — fall back to naive splitting.
+        tokens = command.lower().split()
     if not tokens:
         return False
     binary = Path(tokens[0]).name

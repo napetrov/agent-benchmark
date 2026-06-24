@@ -164,7 +164,20 @@ def test_whole_file_reference_has_no_line_metrics():
     pred = parse_final_answer("<final_answer>\nsrc/a.py:1-5\n</final_answer>")
     score = score_localization(pred, _ref({"src/a.py": ()}))
     assert score.file_f1 == 1.0
-    assert score.citation_compactness is None  # no reference lines to compare
+    # No line-level ground truth → line metrics and compactness are undefined,
+    # NOT a vacuous perfect 1.0.
+    assert score.line_f1 is None
+    assert score.line_precision is None
+    assert score.line_recall is None
+    assert score.citation_compactness is None
+
+
+def test_file_only_task_empty_answer_not_perfect_line_match():
+    # The reported bug: an empty answer on a file-only task scored line_f1 1.0.
+    empty = parse_final_answer("<final_answer>\n</final_answer>")
+    score = score_localization(empty, _ref({"src/a.py": ()}))
+    assert score.file_f1 == 0.0      # missed the file
+    assert score.line_f1 is None     # not a perfect line match
 
 
 def test_merged_overlapping_citations_not_double_counted():
@@ -283,6 +296,16 @@ def test_ripgrep_option_values_not_treated_as_path():
     ]
     m = summarize_exploration(ops)
     assert m["broad_search_count"] == 3
+
+
+def test_quoted_multiword_pattern_is_broad():
+    # shlex parsing keeps "error message" as one token, so no PATH was supplied.
+    ops = [
+        _op("search", "rg", command='rg "error message"'),         # broad
+        _op("search", "rg", command='rg "error message" src/'),    # scoped → not broad
+    ]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 1
 
 
 def test_nested_metadata_tokens_and_citations_are_read():

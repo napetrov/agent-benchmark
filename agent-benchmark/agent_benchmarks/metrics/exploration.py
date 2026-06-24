@@ -112,9 +112,12 @@ class LocalizationScore:
     file_precision: float
     file_recall: float
     file_f1: float
-    line_precision: float
-    line_recall: float
-    line_f1: float
+    # Line metrics are ``None`` when the reference declares no line ranges
+    # (whole-file-only task): there is no line-level ground truth, so an empty or
+    # whole-file prediction must not score as a perfect line match.
+    line_precision: Optional[float]
+    line_recall: Optional[float]
+    line_f1: Optional[float]
     # Cited lines / reference lines. <1 is tight, >1 over-broad. ``None`` when
     # the reference has no line ranges to compare against.
     citation_compactness: Optional[float]
@@ -125,15 +128,15 @@ class LocalizationScore:
             "file_precision": round(self.file_precision, 4),
             "file_recall": round(self.file_recall, 4),
             "file_f1": round(self.file_f1, 4),
-            "line_precision": round(self.line_precision, 4),
-            "line_recall": round(self.line_recall, 4),
-            "line_f1": round(self.line_f1, 4),
-            "citation_compactness": (
-                round(self.citation_compactness, 4)
-                if self.citation_compactness is not None
-                else None
-            ),
+            "line_precision": _round_opt(self.line_precision),
+            "line_recall": _round_opt(self.line_recall),
+            "line_f1": _round_opt(self.line_f1),
+            "citation_compactness": _round_opt(self.citation_compactness),
         }
+
+
+def _round_opt(value: Optional[float]) -> Optional[float]:
+    return round(value, 4) if value is not None else None
 
 
 def normalize_path(path: str) -> str:
@@ -288,9 +291,14 @@ def score_localization(
         for path in pred_intervals.keys() & ref_intervals.keys()
     )
 
-    line_p, line_r, line_f1 = _prf(
-        tp=overlap_lines, pred_total=pred_lines, ref_total=ref_lines
-    )
+    if ref_lines == 0:
+        # No line-level ground truth (whole-file-only task): line metrics are
+        # undefined rather than a vacuous perfect/zero score.
+        line_p = line_r = line_f1 = None
+    else:
+        line_p, line_r, line_f1 = _prf(
+            tp=overlap_lines, pred_total=pred_lines, ref_total=ref_lines
+        )
 
     # Compactness compares cited lines to reference lines. It is undefined
     # (``None``) when there are no predicted lines — a whole-file-only or empty

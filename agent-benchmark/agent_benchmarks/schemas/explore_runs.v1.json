@@ -123,13 +123,13 @@
                 "type": "number"
               },
               "line_precision": {
-                "type": "number"
+                "type": ["number", "null"]
               },
               "line_recall": {
-                "type": "number"
+                "type": ["number", "null"]
               },
               "line_f1": {
-                "type": "number"
+                "type": ["number", "null"]
               },
               "citation_compactness": {
                 "type": ["number", "null"]
