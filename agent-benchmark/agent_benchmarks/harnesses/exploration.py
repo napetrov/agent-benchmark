@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
-from agent_benchmarks.metrics.exploration import normalize_path
+from agent_benchmarks.metrics.exploration import citation_path, normalize_path
 
 from .models import OperationRecord
 
@@ -81,10 +81,13 @@ def _is_broad(op: OperationRecord) -> tuple[bool, bool]:
 
 
 def _subagent_cited_paths(op: OperationRecord) -> set[str]:
+    # Entries may be bare paths or full ``<final_answer>`` citations
+    # (``path:start-end``); ``citation_path`` strips any range so they compare
+    # equal to the plain paths recorded on main read ops.
     for key in ("citation_paths", "citations", "cited_paths", "citation_files_list"):
         value = op.metadata.get(key)
         if isinstance(value, (list, tuple)):
-            return {normalize_path(str(v)) for v in value if v}
+            return {citation_path(str(v)) for v in value if v}
     return set()
 
 

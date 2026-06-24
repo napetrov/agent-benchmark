@@ -195,6 +195,18 @@ def _parse_loose(text: str) -> CitationSet:
     return _finish(citations, [])
 
 
+def citation_path(entry: str) -> str:
+    """Normalized file path from a single citation entry.
+
+    Accepts a bare path, ``path:line``, or ``path:start-end`` and returns just
+    the file portion, stripping any line range — so a cited ``src/a.py:10-20``
+    compares equal to a plain ``src/a.py`` read. Falls back to
+    :func:`normalize_path` when the entry has no recognizable citation shape.
+    """
+    cite = _parse_one(_clean_citation_line(entry))
+    return cite.path if cite is not None else normalize_path(entry)
+
+
 def _parse_one(token: str) -> Optional[Citation]:
     m = _RANGE_RE.match(token)
     if not m:

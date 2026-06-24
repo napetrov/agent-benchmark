@@ -16,6 +16,7 @@ from agent_benchmarks.harnesses.models import HarnessResult, OperationRecord
 from agent_benchmarks.metrics.exploration import (
     Citation,
     ReferenceLocations,
+    citation_path,
     normalize_path,
     parse_final_answer,
     score_localization,
@@ -95,6 +96,13 @@ def test_normalize_path_variants():
     assert normalize_path("./a/b.py") == "a/b.py"
     assert normalize_path("/a/b.py") == "a/b.py"
     assert normalize_path("`a\\b.py`") == "a/b.py"
+
+
+def test_citation_path_strips_range():
+    assert citation_path("src/a.py:10-20") == "src/a.py"
+    assert citation_path("src/a.py:42") == "src/a.py"
+    assert citation_path("- `./src/a.py`") == "src/a.py"
+    assert citation_path("src/a.py") == "src/a.py"
 
 
 # ── localization scoring ─────────────────────────────────────────────────────
@@ -227,6 +235,17 @@ def test_main_reads_overlap_with_citations():
     ]
     m = summarize_exploration(ops)
     assert m["main_reads_overlap_with_citations"] == 0.5
+
+
+def test_overlap_handles_ranged_citation_entries():
+    # Subagent stored full <final_answer> entries (path:start-end); the bare
+    # main read of the same file must still count as overlapping.
+    ops = [
+        _op("subagent", "fastcontext", citations=["a.py:10-20", "b.py:5"]),
+        _op("read", "read", path="a.py"),
+    ]
+    m = summarize_exploration(ops)
+    assert m["main_reads_overlap_with_citations"] == 1.0
 
 
 def test_token_accounting_split():
