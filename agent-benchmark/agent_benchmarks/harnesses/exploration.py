@@ -174,13 +174,24 @@ def summarize_exploration(
         main_reads_overlap = None
 
     # ── token accounting (main vs subagent) ─────────────────────────────────
-    subagent_tokens = _sum_subagent_tokens(subagents)
+    # Never let unmeasured subagent cost masquerade as free. ``subagent_tokens``
+    # is the summed *known* usage; it is ``None`` when subagents ran but none
+    # reported tokens (0 would falsely read as "free"). ``full_system_tokens``
+    # is a hard number only when main is known *and* every subagent's tokens are
+    # accounted for; otherwise it is ``None`` (unknown), not an understatement.
+    known_subagent_tokens, subagents_with_tokens = _subagent_token_totals(subagents)
+    subagent_tokens_complete = subagents_with_tokens == len(subagents)
+    if not subagents:
+        subagent_tokens: Optional[int] = 0
+    elif subagents_with_tokens == 0:
+        subagent_tokens = None  # ran, but cost is entirely unmeasured
+    else:
+        subagent_tokens = known_subagent_tokens
     read_search_token_share = _read_search_token_share(reads, searches, main_tokens)
-    full_system_tokens = (
-        (main_tokens or 0) + subagent_tokens
-        if (main_tokens is not None or subagent_tokens)
-        else None
-    )
+    if main_tokens is not None and subagent_tokens_complete:
+        full_system_tokens: Optional[int] = main_tokens + (subagent_tokens or 0)
+    else:
+        full_system_tokens = None
 
     metrics: dict[str, Any] = {
         "read_count": len(reads),
@@ -198,25 +209,45 @@ def summarize_exploration(
         "read_search_token_share": read_search_token_share,
         "main_agent_tokens": main_tokens,
         "subagent_tokens": subagent_tokens,
+        "subagent_tokens_complete": subagent_tokens_complete,
         "full_system_tokens": full_system_tokens,
     }
     return metrics
 
 
-def _sum_subagent_tokens(subagents: Sequence[OperationRecord]) -> int:
+def _op_token_count(op: OperationRecord) -> Optional[int]:
+    """Token usage recorded on an op, or ``None`` when it carries no token data.
+
+    Prefers ``total_tokens`` (avoids double counting); falls back to
+    ``prompt_tokens + completion_tokens``. An explicit ``total_tokens: 0`` is a
+    known zero, distinct from "no token metadata at all" (``None``).
+    """
+    total = op.metadata.get("total_tokens")
+    if total is not None:
+        return int(total)
+    prompt = op.metadata.get("prompt_tokens")
+    completion = op.metadata.get("completion_tokens")
+    if prompt is None and completion is None:
+        return None
+    return int(prompt or 0) + int(completion or 0)
+
+
+def _subagent_token_totals(subagents: Sequence[OperationRecord]) -> tuple[int, int]:
+    """Return ``(summed_known_tokens, n_ops_that_reported_tokens)``.
+
+    Ops without token metadata are excluded from the sum *and* the count, so the
+    caller can tell whether the subagent cost is fully, partially, or not at all
+    accounted for.
+    """
     total = 0
+    known = 0
     for op in subagents:
-        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
-            value = op.metadata.get(key)
-            # Prefer total_tokens when present to avoid double counting.
-            if key == "total_tokens" and value:
-                total += int(value)
-                break
-        else:
-            prompt = op.metadata.get("prompt_tokens") or 0
-            completion = op.metadata.get("completion_tokens") or 0
-            total += int(prompt) + int(completion)
-    return total
+        tokens = _op_token_count(op)
+        if tokens is None:
+            continue
+        total += tokens
+        known += 1
+    return total, known
 
 
 def _read_search_token_share(
@@ -226,23 +257,20 @@ def _read_search_token_share(
 ) -> Optional[float]:
     """Fraction of main-agent tokens spent on read/search ops.
 
-    Requires per-op token metadata and a positive ``main_tokens`` total; returns
-    ``None`` when either is unavailable.
+    Requires a positive ``main_tokens`` total and per-op token metadata on
+    *every* read/search op. Returns ``None`` if any op lacks token data — a
+    partial sum would understate the share and let agents look artificially
+    context-cheap.
     """
     if not main_tokens or main_tokens <= 0:
         return None
-    spent = 0
-    have_any = False
-    for op in (*reads, *searches):
-        tokens = op.metadata.get("total_tokens")
-        if tokens is None:
-            prompt = op.metadata.get("prompt_tokens")
-            completion = op.metadata.get("completion_tokens")
-            if prompt is None and completion is None:
-                continue
-            tokens = (prompt or 0) + (completion or 0)
-        have_any = True
-        spent += int(tokens)
-    if not have_any:
+    ops = (*reads, *searches)
+    if not ops:
         return None
+    spent = 0
+    for op in ops:
+        tokens = _op_token_count(op)
+        if tokens is None:
+            return None
+        spent += tokens
     return round(min(spent / main_tokens, 1.0), 4)

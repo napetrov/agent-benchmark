@@ -238,12 +238,55 @@ def test_token_accounting_split():
     m = summarize_exploration(ops, main_tokens=10_000)
     assert m["main_agent_tokens"] == 10_000
     assert m["subagent_tokens"] == 2000
+    assert m["subagent_tokens_complete"] is True
     assert m["full_system_tokens"] == 12_000
     assert m["read_search_token_share"] == 0.05  # (300+200)/10000
 
 
+def test_unmeasured_subagent_tokens_not_reported_as_free():
+    # A subagent ran but reported no token metadata: subagent cost is unknown,
+    # so it must not read as 0, and full_system must not equal the main total.
+    ops = [_op("subagent", "fastcontext", citation_paths=["a.py"])]
+    m = summarize_exploration(ops, main_tokens=10_000)
+    assert m["subagent_tokens"] is None
+    assert m["subagent_tokens_complete"] is False
+    assert m["full_system_tokens"] is None
+
+
+def test_partial_subagent_tokens_marked_incomplete():
+    # One subagent reports tokens, another does not: report the known lower bound
+    # but flag it incomplete and withhold a (would-be understated) full_system.
+    ops = [
+        _op("subagent", "fastcontext", total_tokens=2000),
+        _op("subagent", "fastcontext"),
+    ]
+    m = summarize_exploration(ops, main_tokens=10_000)
+    assert m["subagent_tokens"] == 2000
+    assert m["subagent_tokens_complete"] is False
+    assert m["full_system_tokens"] is None
+
+
+def test_no_subagents_full_system_equals_main():
+    ops = [_op("read", "read", path="a.py", total_tokens=300)]
+    m = summarize_exploration(ops, main_tokens=10_000)
+    assert m["subagent_tokens"] == 0
+    assert m["subagent_tokens_complete"] is True
+    assert m["full_system_tokens"] == 10_000
+
+
 def test_token_share_none_without_per_op_tokens():
     ops = [_op("read", "read", path="a.py"), _op("search", "grep")]
+    m = summarize_exploration(ops, main_tokens=10_000)
+    assert m["read_search_token_share"] is None
+
+
+def test_token_share_none_with_partial_per_op_tokens():
+    # Mixed telemetry: one op has tokens, one does not. A partial sum would be a
+    # misleading lower bound, so the share is withheld entirely.
+    ops = [
+        _op("read", "read", path="a.py", total_tokens=300),
+        _op("search", "grep"),  # no token metadata
+    ]
     m = summarize_exploration(ops, main_tokens=10_000)
     assert m["read_search_token_share"] is None
 
