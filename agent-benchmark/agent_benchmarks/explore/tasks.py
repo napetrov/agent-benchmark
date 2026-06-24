@@ -118,10 +118,10 @@ def _task_from_data(data: dict, path: Path) -> ExploreTask:
 def load_explore_task(ref: str, root: Path | None = None) -> ExploreTask:
     """Load one task by id (or path) from the explore-tasks root.
 
-    A direct file path is loaded as-is. Otherwise ``ref`` is matched against the
-    filename stem first (cheap) and then against each file's parsed ``id`` — so a
-    task whose ``id`` differs from its filename (as listed by ``explore list``)
-    is still runnable.
+    A direct file path is loaded as-is. Otherwise ``ref`` is matched against
+    each file's parsed ``id`` first (the documented selector that ``explore
+    list`` advertises) and only then against the filename stem, so a file whose
+    ``id`` differs from its name cannot shadow the task that owns that id.
     """
     root = Path(root or EXPLORE_TASKS_ROOT)
     candidate = Path(ref)
@@ -130,21 +130,18 @@ def load_explore_task(ref: str, root: Path | None = None) -> ExploreTask:
         return _task_from_data(data, candidate)
 
     files = _task_files(root)
-    for path in files:
-        if path.stem == ref:
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            return _task_from_data(data, path)
-    id_matches = []
-    for path in files:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        if str(data.get("id")) == ref:
-            id_matches.append((path, data))
+    loaded = [(path, yaml.safe_load(path.read_text(encoding="utf-8")) or {}) for path in files]
+    id_matches = [(path, data) for path, data in loaded if str(data.get("id")) == ref]
     if len(id_matches) > 1:
         paths = ", ".join(str(p) for p, _ in id_matches)
         raise ValueError(f"Ambiguous explore task id {ref!r} matches multiple files: {paths}")
     if id_matches:
         path, data = id_matches[0]
         return _task_from_data(data, path)
+    # Fall back to filename stem only when no task declares this id.
+    for path, data in loaded:
+        if path.stem == ref:
+            return _task_from_data(data, path)
     raise FileNotFoundError(f"Explore task not found: {ref!r} under {root}")
 
 

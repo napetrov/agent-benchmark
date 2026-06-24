@@ -111,6 +111,19 @@ def test_load_task_by_id_when_filename_differs(tmp_path):
         load_explore_task("nope", root=tmp_path)
 
 
+def test_load_task_id_not_shadowed_by_filename_stem(tmp_path):
+    # foo.yaml declares id "bar"; another file declares id "foo". Requesting
+    # "foo" must run the task whose *id* is foo, not foo.yaml.
+    (tmp_path / "foo.yaml").write_text(
+        "id: bar\nproduct: p\nquery: q\nreferences:\n  - path: a.py\n", encoding="utf-8"
+    )
+    (tmp_path / "other.yaml").write_text(
+        "id: foo\nproduct: p\nquery: q\nreferences:\n  - path: b.py\n", encoding="utf-8"
+    )
+    assert load_explore_task("foo", root=tmp_path).references[0].path == "b.py"
+    assert load_explore_task("bar", root=tmp_path).references[0].path == "a.py"
+
+
 def test_seed_tasks_load_and_reference_real_files():
     # The shipped seed set must parse and its references must exist in the repo.
     tasks = discover_explore_tasks()
