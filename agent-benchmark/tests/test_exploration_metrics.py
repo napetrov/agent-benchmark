@@ -59,6 +59,15 @@ def test_parse_single_line_and_whole_file_and_bullets():
     assert any(c.is_whole_file for c in cs.citations)
 
 
+def test_bullet_only_lines_are_not_phantom_citations():
+    # Stray bullet/empty lines must not parse into Citation(path="-").
+    cs = parse_final_answer(
+        "<final_answer>\n- \n* \n1. \nsrc/a.py:1-2\n</final_answer>"
+    )
+    assert cs.citations == (Citation("src/a.py", 1, 2),)
+    assert cs.malformed == ()
+
+
 def test_parse_malformed_counts_against_validity():
     text = (
         "<final_answer>\n"

@@ -155,9 +155,14 @@ def normalize_path(path: str) -> str:
 def _clean_citation_line(line: str) -> str:
     """Strip list bullets, numbering, and surrounding markup from a line."""
     text = line.strip()
-    # leading bullets / numbering: "- ", "* ", "1. ", "1) "
-    text = re.sub(r"^([-*+]\s+|\d+[.)]\s+)", "", text)
-    return text.strip().strip("`").strip()
+    # leading bullets / numbering: "- ", "* ", "1. ", "1) ", or a bare bullet
+    # with nothing after it (``\s*`` — the outer strip already removed trailing
+    # space, so a bullet-only line like "- " arrives as "-").
+    text = re.sub(r"^([-*+]\s*|\d+[.)]\s*)", "", text)
+    text = text.strip().strip("`").strip()
+    # A line with no alphanumerics (a stray/unicode bullet) is not a citation;
+    # treat it as blank so it never parses into a phantom Citation(path="-").
+    return text if any(c.isalnum() for c in text) else ""
 
 
 def parse_final_answer(text: str) -> CitationSet:
