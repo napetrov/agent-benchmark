@@ -111,18 +111,29 @@ def _task_from_data(data: dict, path: Path) -> ExploreTask:
 
 
 def load_explore_task(ref: str, root: Path | None = None) -> ExploreTask:
-    """Load one task by id (or path) from the explore-tasks root."""
+    """Load one task by id (or path) from the explore-tasks root.
+
+    A direct file path is loaded as-is. Otherwise ``ref`` is matched against the
+    filename stem first (cheap) and then against each file's parsed ``id`` — so a
+    task whose ``id`` differs from its filename (as listed by ``explore list``)
+    is still runnable.
+    """
     root = Path(root or EXPLORE_TASKS_ROOT)
     candidate = Path(ref)
     if candidate.is_file():
-        path = candidate
-    else:
-        matches = [p for p in _task_files(root) if p.stem == ref]
-        if not matches:
-            raise FileNotFoundError(f"Explore task not found: {ref!r} under {root}")
-        path = matches[0]
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return _task_from_data(data, path)
+        data = yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}
+        return _task_from_data(data, candidate)
+
+    files = _task_files(root)
+    for path in files:
+        if path.stem == ref:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            return _task_from_data(data, path)
+    for path in files:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if str(data.get("id")) == ref:
+            return _task_from_data(data, path)
+    raise FileNotFoundError(f"Explore task not found: {ref!r} under {root}")
 
 
 def discover_explore_tasks(root: Path | None = None) -> list[ExploreTask]:

@@ -273,6 +273,18 @@ def test_unscoped_ripgrep_is_broad_but_scoped_is_not():
     assert m["broad_search_inferred_count"] == 2
 
 
+def test_ripgrep_option_values_not_treated_as_path():
+    # -g/--type take a value; without a PATH these still recurse the cwd → broad.
+    ops = [
+        _op("search", "rg", command="rg -g '*.py' symbol"),       # broad
+        _op("search", "rg", command="rg --type py symbol"),       # broad
+        _op("search", "rg", command="rg --type=py symbol"),       # broad
+        _op("search", "rg", command="rg -g '*.py' symbol src/"),  # scoped → not broad
+    ]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 3
+
+
 def test_nested_metadata_tokens_and_citations_are_read():
     # The documented AGENT_BENCHMARK_OP shape nests fields under `metadata`;
     # load_operations preserves that as op.metadata["metadata"].

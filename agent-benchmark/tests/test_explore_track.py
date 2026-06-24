@@ -79,6 +79,18 @@ def test_task_missing_fields_raise(tmp_path):
         _task_from_data({"id": "t"}, _write_task(tmp_path, ""))
 
 
+def test_load_task_by_id_when_filename_differs(tmp_path):
+    # id != filename stem must still be loadable (as listed by `explore list`).
+    (tmp_path / "renamed.yaml").write_text(
+        "id: real-id\nproduct: p\nquery: q\nreferences:\n  - path: a.py\n",
+        encoding="utf-8",
+    )
+    task = load_explore_task("real-id", root=tmp_path)
+    assert task.id == "real-id"
+    with pytest.raises(FileNotFoundError):
+        load_explore_task("nope", root=tmp_path)
+
+
 def test_seed_tasks_load_and_reference_real_files():
     # The shipped seed set must parse and its references must exist in the repo.
     tasks = discover_explore_tasks()

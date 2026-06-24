@@ -42,8 +42,19 @@ _SUBAGENT_WORDS = ("subagent",)
 # emits). Skipped outright so non-exploring runs emit no exploration block.
 _IGNORED_TYPES = frozenset({"harness", "log", "log_parse_error"})
 
-# Recursive-search flags that make any grep/rg invocation broad.
+# Recursive-search flags that make a grep invocation broad.
 _RECURSIVE_FLAGS = frozenset({"-r", "-R", "--recursive"})
+
+# ripgrep options that consume the following token as a value (so it is not a
+# PATH). Used to tell ``rg -g '*.py' sym`` (no path → broad) from
+# ``rg sym src/`` (scoped). Long ``--opt=value`` forms are a single token.
+_RG_VALUE_OPTS = frozenset({
+    "-g", "--glob", "--iglob", "-t", "--type", "-T", "--type-not",
+    "-e", "--regexp", "-f", "--file", "--ignore-file", "-m", "--max-count",
+    "--max-depth", "-d", "--maxdepth", "-A", "--after-context",
+    "-B", "--before-context", "-C", "--context", "-M", "--max-columns",
+    "-r", "--replace", "--sort", "--sortr", "--colors", "--pre",
+})
 
 
 def _word_match(words: Sequence[str], text: str) -> bool:
@@ -123,25 +134,57 @@ def _is_broad(op: OperationRecord) -> tuple[bool, bool]:
 def _infer_broad(command: str) -> bool:
     """Heuristic: is ``command`` an unbounded/recursive tree search?
 
-    Broad when it carries a recursive flag (``grep -r``), is a ``find`` tree
-    walk, or is a ripgrep search with no path argument (``rg`` recurses the cwd
-    by default). A *scoped* search (``rg sym src/mod.py``) is not broad.
+    Broad when it is a ``find`` tree walk, a recursive grep (``grep -r``), or a
+    ripgrep search with no PATH argument (``rg`` recurses the cwd by default). A
+    *scoped* search (``rg sym src/mod.py``) is not broad. ripgrep option values
+    (``-g '*.py'``, ``--type py``) are not mistaken for a PATH.
     """
     tokens = command.lower().split()
     if not tokens:
         return False
-    if any(t in _RECURSIVE_FLAGS for t in tokens):
-        return True
-    # combined short flags like ``-rn`` / ``-rl``
-    if any(t.startswith("-") and not t.startswith("--") and ("r" in t) for t in tokens):
-        return True
     binary = Path(tokens[0]).name
+    rest = tokens[1:]
     if binary == "find":
         return True
     if binary in ("rg", "ripgrep"):
-        # Recurses the cwd unless a path argument follows the pattern.
-        non_flags = [t for t in tokens[1:] if not t.startswith("-")]
-        return len(non_flags) < 2
+        return not _rg_has_path(rest)
+    if binary == "grep":
+        return _grep_is_recursive(rest)
+    # Unknown binary: fall back to explicit recursive flags only.
+    return any(t in _RECURSIVE_FLAGS for t in tokens)
+
+
+def _rg_has_path(tokens: list[str]) -> bool:
+    """True when a ripgrep arg list supplies a PATH after the PATTERN.
+
+    Walks ``rg [OPTIONS] PATTERN [PATH ...]``, skipping flags and the values of
+    value-taking options; the first positional is the PATTERN, any further
+    positional is a PATH.
+    """
+    positionals = 0
+    i = 0
+    while i < len(tokens):
+        t = tokens[i]
+        if t.startswith("--"):
+            # ``--opt=value`` is self-contained; ``--opt value`` consumes next.
+            if "=" not in t and t in _RG_VALUE_OPTS:
+                i += 1
+        elif t.startswith("-"):
+            if t in _RG_VALUE_OPTS:
+                i += 1
+        else:
+            positionals += 1
+        i += 1
+    return positionals >= 2
+
+
+def _grep_is_recursive(tokens: list[str]) -> bool:
+    """grep recurses only with ``-r`` / ``-R`` / ``--recursive`` (incl. ``-rn``)."""
+    for t in tokens:
+        if t in _RECURSIVE_FLAGS:
+            return True
+        if t.startswith("-") and not t.startswith("--") and ("r" in t or "R" in t):
+            return True
     return False
 
 
