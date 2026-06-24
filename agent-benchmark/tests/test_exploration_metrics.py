@@ -342,6 +342,17 @@ def test_argv_list_preserves_boundaries():
     assert m["broad_search_count"] == 1
 
 
+def test_rg_double_dash_ends_flag_parsing():
+    # `--` makes following `-foo` a positional (pattern), so a trailing path is
+    # scoped; without a path it is broad.
+    ops = [
+        _op("search", "rg", command="rg -- -foo src/"),   # scoped → not broad
+        _op("search", "rg", command="rg -- -foo"),         # pattern only → broad
+    ]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 1
+
+
 def test_quoted_multiword_pattern_is_broad():
     # shlex parsing keeps "error message" as one token, so no PATH was supplied.
     ops = [
@@ -419,6 +430,20 @@ def test_main_reads_overlap_with_citations():
     ]
     m = summarize_exploration(ops)
     assert m["main_reads_overlap_with_citations"] == 0.5
+
+
+def test_partial_read_paths_withhold_path_metrics():
+    # One read has a path, one does not: path-dependent metrics are not
+    # derivable over the full set, so they are withheld (None).
+    ops = [
+        _op("subagent", "fastcontext", citation_paths=["a.py"]),
+        _op("read", "read", path="a.py"),
+        _op("read", "read"),  # no path metadata
+    ]
+    m = summarize_exploration(ops)
+    assert m["read_count"] == 2
+    assert m["repeated_read_ratio"] is None
+    assert m["main_reads_overlap_with_citations"] is None
 
 
 def test_overlap_handles_ranged_citation_entries():

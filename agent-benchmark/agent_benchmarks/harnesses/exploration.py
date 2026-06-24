@@ -178,9 +178,20 @@ def _rg_has_path(tokens: list[str]) -> bool:
     """
     positionals = 0
     pattern_from_opt = False
+    end_of_flags = False
     i = 0
     while i < len(tokens):
         t = tokens[i]
+        if end_of_flags:
+            positionals += 1
+            i += 1
+            continue
+        if t == "--":
+            # Bare ``--`` ends flag parsing; everything after is positional even
+            # if it starts with ``-`` (e.g. ``rg -- -foo src/``).
+            end_of_flags = True
+            i += 1
+            continue
         base = t.split("=", 1)[0]
         if base in ("-e", "--regexp", "-f", "--file"):
             pattern_from_opt = True
@@ -282,8 +293,12 @@ def summarize_exploration(
         pre_edit_tool_calls = None
 
     # ── repeated reads ──────────────────────────────────────────────────────
+    # Path-dependent metrics require *every* read to carry a path: a pathless
+    # read could be a repeat or a non-overlapping read, so a subset ratio would
+    # misrepresent the trajectory. Withhold (None) when coverage is partial.
     read_paths = [p for p in (_op_path(op) for op in reads) if p]
-    if read_paths:
+    read_paths_complete = bool(reads) and len(read_paths) == len(reads)
+    if read_paths and read_paths_complete:
         seen: set[str] = set()
         repeats = 0
         for p in read_paths:
@@ -323,10 +338,11 @@ def summarize_exploration(
 
     # ── delegation health: do main reads overlap subagent citations? ────────
     cited = set().union(*(_subagent_cited_paths(op) for op in subagents)) if subagents else set()
-    if cited and read_paths:
-        overlap = len({p for p in read_paths} & cited) / len(set(read_paths))
+    if cited and read_paths and read_paths_complete:
+        overlap = len(set(read_paths) & cited) / len(set(read_paths))
         main_reads_overlap = round(overlap, 4)
     else:
+        # Partial read-path coverage → overlap is not derivable.
         main_reads_overlap = None
 
     # ── token accounting (main vs subagent) ─────────────────────────────────
