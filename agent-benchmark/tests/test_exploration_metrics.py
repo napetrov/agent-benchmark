@@ -169,6 +169,21 @@ def test_overbroad_citation_compactness_above_one():
     assert score.line_recall == 1.0
 
 
+def test_mixed_wholefile_and_ranged_refs_score_lines_only_for_ranged():
+    # a.py is a whole-file ref (no line truth); b.py is ranged. A perfect answer
+    # that cites a range for a.py + the exact b.py range must score line F1 = 1.0
+    # (a.py's lines are not line-level false positives).
+    pred = parse_final_answer(
+        "<final_answer>\na.py:1-100\nb.py:10-20\n</final_answer>"
+    )
+    score = score_localization(pred, _ref({"a.py": (), "b.py": ((10, 20),)}))
+    assert score.file_f1 == 1.0
+    assert score.line_precision == 1.0
+    assert score.line_recall == 1.0
+    assert score.line_f1 == 1.0
+    assert score.citation_compactness == 1.0
+
+
 def test_whole_file_reference_has_no_line_metrics():
     pred = parse_final_answer("<final_answer>\nsrc/a.py:1-5\n</final_answer>")
     score = score_localization(pred, _ref({"src/a.py": ()}))

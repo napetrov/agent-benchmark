@@ -282,11 +282,21 @@ def score_localization(
         ref_total=len(ref_paths),
     )
 
-    pred_intervals = _intervals_by_file(pred.citations)
     ref_intervals = {
         normalize_path(p): _merge(list(ranges))
         for p, ranges in reference.files.items()
         if ranges
+    }
+    # Line metrics are only defined over files that have ranged ground truth.
+    # Predicted ranges for a file referenced whole-file (or not referenced at
+    # all) have no line-level truth to score against, so they must not count as
+    # line-level false positives — that is a file-level concern, already scored
+    # by file precision/recall above.
+    ranged_files = set(ref_intervals)
+    pred_intervals = {
+        path: iv
+        for path, iv in _intervals_by_file(pred.citations).items()
+        if path in ranged_files
     }
 
     pred_lines = sum(_length(iv) for iv in pred_intervals.values())
