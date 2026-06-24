@@ -94,6 +94,10 @@ class CommandExplorer:
     def explore(self, query: str, *, repo_root: Path) -> ExplorerResult:
         output_dir = self.output_root
         if output_dir is not None:
+            # Resolve to absolute: the child runs with cwd=repo_root, so a
+            # relative output dir/ops file would resolve against the wrong tree
+            # for both the explorer's writes and our load_operations read-back.
+            output_dir = output_dir.resolve()
             output_dir.mkdir(parents=True, exist_ok=True)
             # Clear any operation logs from a previous run in the same dir so
             # stale telemetry is never attached to this invocation's row.

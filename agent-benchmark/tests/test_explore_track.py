@@ -186,6 +186,27 @@ def test_command_explorer_empty_command_returns_error(tmp_path):
     assert result.final_answer == ""
 
 
+def test_command_explorer_resolves_relative_output_dir(tmp_path, monkeypatch):
+    # Relative output_root + repo_root != cwd: the child writes telemetry via
+    # $AGENT_BENCHMARK_OPERATIONS_FILE, which must resolve to the same absolute
+    # path the runner reads back.
+    from agent_benchmarks.explore import CommandExplorer
+
+    monkeypatch.chdir(tmp_path)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    writer = tmp_path / "writer.py"
+    writer.write_text(
+        "import os\n"
+        "open(os.environ['AGENT_BENCHMARK_OPERATIONS_FILE'], 'a')."
+        "write('{\"type\": \"subagent\", \"name\": \"child-op\"}\\n')\n",
+        encoding="utf-8",
+    )
+    explorer = CommandExplorer(f"python {writer}", output_root=Path("out"))
+    result = explorer.explore("q", repo_root=repo)
+    assert any(op.name == "child-op" for op in result.operations)
+
+
 def test_command_explorer_clears_stale_operation_logs(tmp_path):
     from agent_benchmarks.explore import CommandExplorer
 
