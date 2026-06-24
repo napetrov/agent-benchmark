@@ -76,3 +76,58 @@ def test_report_renders_without_cell_dirs():
     # output_dir is None for every row -> self-report column blank, no crash.
     md = render_task_runs_report(_artifact())
     assert "(no result)" in md
+
+
+def test_rollups_keep_distinct_harnesses():
+    # Two non-skill harnesses must NOT be merged into one bucket: each keeps its
+    # own pass count. codex solves t1, claude-code fails it.
+    data = {
+        "schema_version": "task_runs.v1", "model": "m", "repeats": 1,
+        "baseline_harness": "claude-code", "harnesses": ["claude-code", "codex"],
+        "tasks": [{"name": "t1", "path": "p", "metadata": {"difficulty": "easy"},
+                   "verifier": {}, "agent": {}, "environment": {}}],
+        "results": [
+            {"task": "t1", "harness": "claude-code", "passed": False, "reward": 0.0,
+             "returncode": 0, "output_dir": None,
+             "metrics": {"operation_count": 0, "operations_by_type": {}, "cost_usd": 0.01}},
+            {"task": "t1", "harness": "codex", "passed": True, "reward": 1.0,
+             "returncode": 0, "output_dir": None,
+             "metrics": {"operation_count": 0, "operations_by_type": {}, "cost_usd": 0.02}},
+        ],
+        "summary": {"per_harness": {
+            "claude-code": {"n": 1, "passed": 0, "pass_rate": 0.0, "avg_reward": 0.0,
+                            "elapsed_sec": 1.0, "operation_count": 0, "operations_by_type": {},
+                            "cost": {"total_cost_usd": 0.01, "cost_known_n": 1}},
+            "codex": {"n": 1, "passed": 1, "pass_rate": 1.0, "avg_reward": 1.0,
+                      "elapsed_sec": 1.0, "operation_count": 0, "operations_by_type": {},
+                      "cost": {"total_cost_usd": 0.02, "cost_known_n": 1}},
+        }, "comparisons": {}},
+    }
+    md = render_task_runs_report(data)
+    # both harness ids appear as distinct columns; per-task row shows 0/1 and 1/1
+    assert "`claude-code` pass" in md
+    assert "`codex` pass" in md
+    assert "| t1 | easy | 0/1 |" in md  # claude-code column = 0/1, not merged with codex
+
+
+def test_per_task_cost_unknown_renders_dash():
+    # A harness whose rows omit cost_usd (oracle/dry-run) must show — not $0.0000.
+    data = {
+        "schema_version": "task_runs.v1", "model": "m", "repeats": 1,
+        "harnesses": ["docker-oracle"],
+        "tasks": [{"name": "t1", "path": "p", "metadata": {"difficulty": "easy"},
+                   "verifier": {}, "agent": {}, "environment": {}}],
+        "results": [
+            {"task": "t1", "harness": "docker-oracle", "passed": True, "reward": 1.0,
+             "returncode": 0, "output_dir": None,
+             "metrics": {"operation_count": 0, "operations_by_type": {}}},  # no cost_usd
+        ],
+        "summary": {"per_harness": {
+            "docker-oracle": {"n": 1, "passed": 1, "pass_rate": 1.0, "avg_reward": 1.0,
+                              "elapsed_sec": 1.0, "operation_count": 0, "operations_by_type": {},
+                              "cost": {"total_cost_usd": None, "cost_known_n": 0}},
+        }, "comparisons": {}},
+    }
+    md = render_task_runs_report(data)
+    assert "| t1 | easy | 1/1 | — |" in md
+    assert "$0.0000" not in md

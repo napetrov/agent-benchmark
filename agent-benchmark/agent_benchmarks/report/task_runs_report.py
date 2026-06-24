@@ -5,6 +5,10 @@ artifact produced by :class:`~agent_benchmarks.harnesses.runner.TaskSuiteRunner`
 and renders a headline, a difficulty rollup, the per-harness comparison, a
 per-task pass/cost table, and a per-cell answer detail.
 
+Aggregates are keyed by the **full harness id**, so a run with several harnesses
+(``--harnesses codex,claude-code`` or two skill harnesses) keeps them distinct
+rather than collapsing them into one bucket.
+
 The per-cell detail contrasts the verifier verdict with the model's own
 self-report (``solver.json.result`` in each cell's ``output_dir``); cells where
 the model claimed success yet the verifier scored 0 are the most informative.
@@ -18,14 +22,6 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
-
-
-def _is_skill(harness: str) -> bool:
-    return "skill" in harness
-
-
-def _arm(harness: str) -> str:
-    return "SKILL" if _is_skill(harness) else "BASE"
 
 
 def _md_cell(text: str) -> str:
@@ -63,6 +59,13 @@ def render_task_runs_report(data: dict[str, Any]) -> str:
     }
     rows = data.get("results", [])
     baseline = data.get("baseline_harness")
+    # Fall back to harnesses observed in the rows if the summary is empty.
+    if not harnesses:
+        seen: list[str] = []
+        for r in rows:
+            if r["harness"] not in seen:
+                seen.append(r["harness"])
+        harnesses = seen
 
     lines.append("# Executable task-run report")
     lines.append("")
@@ -80,30 +83,33 @@ def render_task_runs_report(data: dict[str, Any]) -> str:
                  "Completion tok | Cache read tok | Cost-known |")
     lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
     for h in harnesses:
-        s = ph[h]
+        s = ph.get(h, {})
         c = s.get("cost", {})
         rate = s.get("pass_rate")
-        rate_s = "—" if rate is None else f"{rate*100:.2f}% ({s['passed']}/{s['n']})"
+        rate_s = "—" if rate is None else f"{rate*100:.2f}% ({s.get('passed', 0)}/{s.get('n', 0)})"
         lines.append(
             f"| `{h}` | {rate_s} | {_fmt_cost(c.get('total_cost_usd'))} | "
             f"{s.get('elapsed_sec', 0)/60:.1f} | {c.get('completion_tokens', '—')} | "
-            f"{c.get('cache_read_tokens', '—')} | {c.get('cost_known_n', '—')}/{s['n']} |"
+            f"{c.get('cache_read_tokens', '—')} | "
+            f"{c.get('cost_known_n', '—')}/{s.get('n', 0)} |"
         )
     lines.append("")
 
-    # ── difficulty rollup ──
+    # ── per-cell aggregation, keyed by full harness id ──
+    # cost is None until a row actually reports cost_usd, so harnesses without
+    # LLM telemetry (oracle, dry runs) render "—" rather than a fake $0.0000.
     tasks = sorted({r["task"] for r in rows})
     cell: dict[tuple[str, str], dict[str, Any]] = defaultdict(
-        lambda: {"passed": 0, "n": 0, "cost": 0.0, "detail": []}
+        lambda: {"passed": 0, "n": 0, "cost": None, "detail": []}
     )
     for r in rows:
-        key = (r["task"], _arm(r["harness"]))
+        key = (r["task"], r["harness"])
         c = cell[key]
         c["n"] += 1
         c["passed"] += 1 if r.get("passed") else 0
         cost = r.get("metrics", {}).get("cost_usd")
         if isinstance(cost, (int, float)):
-            c["cost"] += cost
+            c["cost"] = (c["cost"] or 0.0) + cost
         claim, turns = _self_report(r.get("output_dir"))
         c["detail"].append({
             "repeat": r.get("repeat", 1), "reward": r.get("reward"),
@@ -111,24 +117,24 @@ def render_task_runs_report(data: dict[str, Any]) -> str:
             "cost": cost, "turns": turns, "claim": claim,
         })
 
-    arms_present = sorted({_arm(h) for h in harnesses})
+    # ── difficulty rollup (one column pair per harness) ──
     lines.append("## Difficulty rollup")
     lines.append("")
-    lines.append("| Difficulty | Tasks | " + " | ".join(f"{a} pass" for a in arms_present) + " |")
-    lines.append("|-----------|------:|" + "|".join("------:" for _ in arms_present) + "|")
+    lines.append("| Difficulty | Tasks | " + " | ".join(f"`{h}` pass" for h in harnesses) + " |")
+    lines.append("|-----------|------:|" + "|".join("------:" for _ in harnesses) + "|")
     by_diff: dict[str, dict[str, list[int]]] = defaultdict(
-        lambda: {a: [0, 0] for a in arms_present}
+        lambda: {h: [0, 0] for h in harnesses}
     )
     for t in tasks:
         dlv = diff_of.get(t, "?")
-        for a in arms_present:
-            by_diff[dlv][a][0] += cell[(t, a)]["passed"]
-            by_diff[dlv][a][1] += cell[(t, a)]["n"]
+        for h in harnesses:
+            by_diff[dlv][h][0] += cell[(t, h)]["passed"]
+            by_diff[dlv][h][1] += cell[(t, h)]["n"]
     for dlv in sorted(by_diff):
         n_tasks = sum(1 for t in tasks if diff_of.get(t) == dlv)
         cols = []
-        for a in arms_present:
-            p, n = by_diff[dlv][a]
+        for h in harnesses:
+            p, n = by_diff[dlv][h]
             cols.append(f"{p}/{n}" if n else "—")
         lines.append(f"| {dlv} | {n_tasks} | " + " | ".join(cols) + " |")
     lines.append("")
@@ -149,18 +155,17 @@ def render_task_runs_report(data: dict[str, Any]) -> str:
                          f"{cr.get('operation_count_delta', 0):+} | {cd_s} |")
         lines.append("")
 
-    # ── per-task pass + cost ──
+    # ── per-task pass + cost (one column pair per harness) ──
     lines.append("## Per-task pass + cost")
     lines.append("")
-    head = "| Task | Diff | " + " | ".join(
-        f"{a} pass | {a} $" for a in arms_present
-    ) + " |"
-    lines.append(head)
-    lines.append("| --- | :---: |" + "|".join(" :---: | ---: " for _ in arms_present) + "|")
+    lines.append("| Task | Diff | " + " | ".join(
+        f"`{h}` pass | `{h}` $" for h in harnesses
+    ) + " |")
+    lines.append("| --- | :---: |" + "|".join(" :---: | ---: " for _ in harnesses) + "|")
     for t in tasks:
         cols = []
-        for a in arms_present:
-            c = cell[(t, a)]
+        for h in harnesses:
+            c = cell[(t, h)]
             cols.append(f"{c['passed']}/{c['n']} | {_fmt_cost(c['cost'])}")
         lines.append(f"| {t} | {diff_of.get(t, '?')} | " + " | ".join(cols) + " |")
     lines.append("")
@@ -176,17 +181,17 @@ def render_task_runs_report(data: dict[str, Any]) -> str:
     for t in tasks:
         lines.append(f"### {t} ({diff_of.get(t, '?')})")
         lines.append("")
-        lines.append("| Arm | Rep | Reward | Pass | Turns | Cost | Model self-report |")
+        lines.append("| Harness | Rep | Reward | Pass | Turns | Cost | Model self-report |")
         lines.append("| --- | :---: | :---: | :---: | :---: | ---: | --- |")
-        for a in arms_present:
-            for det in sorted(cell[(t, a)]["detail"], key=lambda x: x["repeat"]):
+        for h in harnesses:
+            for det in sorted(cell[(t, h)]["detail"], key=lambda x: x["repeat"]):
                 rw = det["reward"]
                 rw_s = f"{rw:g}" if isinstance(rw, (int, float)) else "null"
                 claimed = det["claim"] and "done" in det["claim"].lower()
                 pass_s = "✅" if det["passed"] else ("❌ ⚠️" if claimed else "❌")
                 turns = det["turns"] if det["turns"] is not None else "—"
                 claim = det["claim"] or ("(timeout rc124)" if det["rc"] == 124 else "(no result)")
-                lines.append(f"| {a} | {det['repeat']} | {rw_s} | {pass_s} | {turns} | "
+                lines.append(f"| `{h}` | {det['repeat']} | {rw_s} | {pass_s} | {turns} | "
                              f"{_fmt_cost(det['cost'])} | {_md_cell(claim)} |")
         lines.append("")
 
