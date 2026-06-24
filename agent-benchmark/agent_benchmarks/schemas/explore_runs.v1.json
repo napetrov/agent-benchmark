@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/napetrov/agent-benchmark/schemas/explore_runs.v1.json",
+  "title": "Exploration-task run artifact v1",
+  "description": "Results of the standalone ExploreBench track (BACKLOG #60): exploration-only tasks where an agent emits file:line citations that are scored against reference locations, independent of any downstream answer or fix.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "arms",
+    "tasks",
+    "results",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "explore_runs.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "model": {
+      "type": ["string", "null"]
+    },
+    "baseline_arm": {
+      "type": ["string", "null"]
+    },
+    "arms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "product", "query", "references"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "product": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path"],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "lines": {
+                  "type": ["array", "null"],
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task", "arm", "citations", "score"],
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "arm": {
+            "type": "string"
+          },
+          "model": {
+            "type": ["string", "null"]
+          },
+          "final_answer": {
+            "type": "string"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path"],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": ["integer", "null"]
+                },
+                "end": {
+                  "type": ["integer", "null"]
+                }
+              }
+            }
+          },
+          "score": {
+            "type": "object",
+            "required": [
+              "citation_validity_rate",
+              "file_f1",
+              "line_f1"
+            ],
+            "properties": {
+              "citation_validity_rate": {
+                "type": "number"
+              },
+              "file_precision": {
+                "type": "number"
+              },
+              "file_recall": {
+                "type": "number"
+              },
+              "file_f1": {
+                "type": "number"
+              },
+              "line_precision": {
+                "type": "number"
+              },
+              "line_recall": {
+                "type": "number"
+              },
+              "line_f1": {
+                "type": "number"
+              },
+              "citation_compactness": {
+                "type": ["number", "null"]
+              }
+            },
+            "additionalProperties": true
+          },
+          "elapsed_sec": {
+            "type": "number"
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["per_arm", "comparisons"],
+      "properties": {
+        "per_arm": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "n",
+              "avg_file_f1",
+              "avg_line_f1",
+              "avg_citation_validity_rate"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "avg_file_f1": {
+                "type": ["number", "null"]
+              },
+              "avg_line_f1": {
+                "type": ["number", "null"]
+              },
+              "avg_citation_validity_rate": {
+                "type": ["number", "null"]
+              },
+              "avg_citation_compactness": {
+                "type": ["number", "null"]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "comparisons": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["baseline_arm", "file_f1_delta", "line_f1_delta"],
+            "properties": {
+              "baseline_arm": {
+                "type": "string"
+              },
+              "file_f1_delta": {
+                "type": ["number", "null"]
+              },
+              "line_f1_delta": {
+                "type": ["number", "null"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

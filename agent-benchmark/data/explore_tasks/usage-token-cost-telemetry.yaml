@@ -1,0 +1,8 @@
+id: usage-token-cost-telemetry
+product: agent-benchmark
+query: >
+  Find the normalized per-call telemetry record that carries tokens, cache,
+  cost, and latency, and the helper that rolls usage up into main-agent vs
+  subagent buckets.
+references:
+  - path: agent_benchmarks/metrics/usage.py

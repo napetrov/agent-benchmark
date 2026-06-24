@@ -141,12 +141,14 @@ def test_line_partial_overlap():
 
 
 def test_whole_file_citation_scores_file_only_no_lines():
-    # A whole-file citation gets file credit but contributes no predicted lines.
+    # A whole-file citation gets file credit but contributes no predicted lines,
+    # and must not score as maximally compact (0.0) — compactness is undefined.
     pred = parse_final_answer("<final_answer>\nsrc/a.py\n</final_answer>")
     score = score_localization(pred, _ref({"src/a.py": ((10, 20),)}))
     assert score.file_f1 == 1.0
     assert score.line_precision == 0.0
     assert score.line_recall == 0.0
+    assert score.citation_compactness is None
 
 
 def test_overbroad_citation_compactness_above_one():
@@ -258,6 +260,35 @@ def test_prose_query_not_inferred_broad():
     ops = [_op("search", "grep", query="find Foo in src/bar.py")]
     m = summarize_exploration(ops)
     assert m["broad_search_count"] == 0
+
+
+def test_unscoped_ripgrep_is_broad_but_scoped_is_not():
+    ops = [
+        _op("search", "rg", command="rg symbol"),                 # no path → broad
+        _op("search", "rg", command="rg symbol src/module.py"),   # scoped → not broad
+        _op("search", "rg", command="/usr/bin/rg pattern"),       # binary path → broad
+    ]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 2
+    assert m["broad_search_inferred_count"] == 2
+
+
+def test_nested_metadata_tokens_and_citations_are_read():
+    # The documented AGENT_BENCHMARK_OP shape nests fields under `metadata`;
+    # load_operations preserves that as op.metadata["metadata"].
+    ops = [
+        OperationRecord(
+            type="subagent",
+            name="fastcontext",
+            metadata={"metadata": {"total_tokens": 2000,
+                                   "citation_paths": ["a.py"]}},
+        ),
+        OperationRecord(type="read", name="read", metadata={"metadata": {"path": "a.py"}}),
+    ]
+    m = summarize_exploration(ops, main_tokens=10_000)
+    assert m["subagent_tokens"] == 2000
+    assert m["full_system_tokens"] == 12_000
+    assert m["main_reads_overlap_with_citations"] == 1.0  # read a.py matches citation
 
 
 def test_harness_seed_op_not_classified_as_exploration():

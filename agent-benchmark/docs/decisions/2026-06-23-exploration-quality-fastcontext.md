@@ -329,26 +329,35 @@ reduction, pass-rate improvement, and quality-per-token.
    documented in `task_runs.v1.json` under `metrics` (additive — `metrics`
    already allows `additionalProperties`, so no `v2` bump was needed). Tested
    with synthetic operation streams.
-3. Token attribution: add `role` to `UsageRecord` accumulation; emit
-   `main/subagent/full_system` token + cost rollups; dashboard columns.
-   (Slice 2 already splits tokens from subagent **operation** metadata; this
-   task extends the split into the LLM-call `UsageRecord` path.)
+3. **[DONE]** Token attribution: `role` field on `UsageRecord` and a
+   `roll_up_by_role` helper (`metrics/usage.py`) emitting `main/subagent/
+   full_system` token + cost rollups (cost stays `None` when a bucket is
+   unpriced, so an unpriced subagent never zeroes the system cost). Slice 2
+   already splits tokens from subagent **operation** metadata; this is the
+   LLM-call-path complement.
 4. **[DONE]** `data/skills/fastcontext/SKILL.md` fixture; loads via
    `skill:` / `skill-agent:` factory paths (verified by test — no code change
    needed).
-5. Command-wrapper harness that runs an exploration step, captures its
-   trajectory, parses citations, and emits the `AGENT_BENCHMARK_OP` subagent
-   event (§3.3).
-6. ExploreBench: `explore_runs.v1` schema, a runner under
-   `agent_benchmarks/explore/` (or `eval/`), and 5–10 seed tasks on
-   oneTBB + Intel perf reusing oracle-derived references.
-7. Dashboard panels (§3.6) + `docs/` page documenting the exploration track and
-   its fair-comparison rules.
+5. **[DONE]** Explorer wrapper + subagent telemetry: `explore/explorer.py`
+   (`CommandExplorer` runs a CLI explorer and ingests its telemetry;
+   `build_subagent_op` / `op_marker_line` emit the §3.3 `AGENT_BENCHMARK_OP`
+   subagent event that `summarize_exploration` consumes).
+6. **[DONE]** ExploreBench: `explore_runs.v1` schema (registered in
+   `artifacts.py`), an `ExploreRunner` under `agent_benchmarks/explore/`, an
+   `explore` CLI command group, and 6 seed tasks under `data/explore_tasks/`
+   (dogfooding this repo with real-file references; Intel/oneAPI tasks plug in
+   with the same schema via oracle-derived references).
+7. **[DONE]** Report panels: `report/exploration_report.py` renders the
+   ExploreBench leaderboard (file/line F1, validity, compactness, baseline
+   deltas) and the trajectory/token panel from a `task_runs` artifact;
+   `data/explore_tasks/README.md` documents the track and its fair-comparison
+   rules.
 
-Slices 1–4 are additive and low-risk; 5–7 are the new track and ship after.
-**Tasks 1, 2, and 4 landed together as the foundation** (citation scoring,
-operation-stream metrics, FastContext skill fixture); tasks 3, 5, 6, 7 remain
-open.
+All seven slices have landed. Slices 1–4 were additive and low-risk; 5–7 added
+the ExploreBench track. Remaining future work is breadth, not new mechanism:
+real curated Intel/oneAPI exploration tasks with oracle-derived line ranges, an
+LLM-backed explorer arm, and wiring the role-tagged `UsageRecord` rollup into a
+subagent-spawning answering arm once one exists.
 
 ## 6. Caveats
 

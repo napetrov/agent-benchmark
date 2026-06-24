@@ -14,7 +14,7 @@ defaults to ``0`` / ``None`` rather than raising. ``cost_usd`` is ``None`` (not
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,7 @@ class UsageRecord:
     # provenance / accumulation
     model: str = ""
     provider: str = ""
+    role: str = "main"                 # "main" | "subagent" — see roll_up_by_role
     n_calls: int = 1
     cost_known_calls: int = 0
 
@@ -69,6 +70,7 @@ class UsageRecord:
             ttft_sec=ttft,
             model=self.model or other.model,
             provider=self.provider or other.provider,
+            role=self.role or other.role,
             n_calls=self.n_calls + other.n_calls,
             cost_known_calls=_known_cost_calls(self) + _known_cost_calls(other),
         )
@@ -153,12 +155,42 @@ def to_record(
             ttft_sec=obj.get("ttft_sec"),
             model=obj.get("model", model) or model,
             provider=obj.get("provider", provider) or provider,
+            role=str(obj.get("role") or "main"),
             # Preserve an explicit n_calls=0; only default to 1 when absent/None.
             n_calls=(int(obj["n_calls"])
                      if obj.get("n_calls") is not None else 1),
             cost_known_calls=int(obj.get("cost_known_calls", 0) or 0),
         )
     raise TypeError(f"Cannot coerce {type(obj).__name__} into UsageRecord")
+
+
+def roll_up_by_role(records: "Iterable[UsageRecord]") -> dict:
+    """Split usage into main-agent vs subagent buckets (telemetry ADR + #60).
+
+    Groups records by ``role`` (anything other than ``"subagent"`` counts as
+    main) and reports tokens and cost for each bucket plus the full-system
+    total. Cost stays ``None`` when a bucket has no priced calls; the
+    full-system cost is the sum of whichever buckets are priced (``None`` only
+    when *both* are unpriced) — so an unpriced subagent never silently zeroes
+    the system cost.
+    """
+    records = list(records)
+    main = sum((r for r in records if r.role != "subagent"), UsageRecord(n_calls=0))
+    sub = sum((r for r in records if r.role == "subagent"), UsageRecord(n_calls=0))
+    return {
+        "main_agent_tokens": main.total_tokens,
+        "subagent_tokens": sub.total_tokens,
+        "full_system_tokens": main.total_tokens + sub.total_tokens,
+        "main_agent_cost": main.cost_usd,
+        "subagent_cost": sub.cost_usd,
+        "full_system_cost": _add_optional_costs(main.cost_usd, sub.cost_usd),
+    }
+
+
+def _add_optional_costs(a: Optional[float], b: Optional[float]) -> Optional[float]:
+    if a is None and b is None:
+        return None
+    return round((a or 0.0) + (b or 0.0), 6)
 
 
 def _known_cost_calls(rec: UsageRecord) -> int:

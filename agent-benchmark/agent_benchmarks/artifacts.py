@@ -1,10 +1,11 @@
 """Versioned, schema-validated I/O for produced artifacts.
 
-The benchmark produces four long-lived JSON artifact kinds: ``questions``,
-``answers``, ``eval`` (LLM-judge scores), and ``arms`` (treatment-arm
-comparisons). This module stamps each with a ``schema_version`` and validates it
-against the JSON Schema in ``agent_benchmarks/schemas/`` on save and load, so
-fixtures and baselines stay forward-compatible and self-describing.
+The benchmark produces long-lived JSON artifact kinds: ``questions``,
+``answers``, ``eval`` (LLM-judge scores), ``arms`` (treatment-arm comparisons),
+``task_runs`` (executable task results), and ``explore_runs`` (ExploreBench
+localization results). This module stamps each with a ``schema_version`` and
+validates it against the JSON Schema in ``agent_benchmarks/schemas/`` on save
+and load, so fixtures and baselines stay forward-compatible and self-describing.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ SCHEMA_VERSIONS: dict[str, str] = {
     "eval": "eval.v1",
     "arms": "arms.v1",
     "task_runs": "task_runs.v1",
+    "explore_runs": "explore_runs.v1",
 }
 
 

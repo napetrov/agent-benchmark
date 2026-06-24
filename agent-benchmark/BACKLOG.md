@@ -6,13 +6,18 @@
 
 ### #60 — Exploration quality as a measurable layer (FastContext-informed)
 **Scope:** Evaluation architecture / telemetry
-**Status:** IN PROGRESS — design in
-`docs/decisions/2026-06-23-exploration-quality-fastcontext.md`. Foundation
-landed: `metrics/exploration.py` (citation parser + localization F1),
-`harnesses/exploration.py` (`exploration_metrics` block on `task_runs`), and
-the `data/skills/fastcontext` skill fixture. Open: UsageRecord token-role
-attribution, the exploration command-wrapper harness, the standalone
-ExploreBench track, and dashboard panels.
+**Status:** LANDED (all 7 slices) — design in
+`docs/decisions/2026-06-23-exploration-quality-fastcontext.md`. Delivered:
+`metrics/exploration.py` (citation parser + localization F1),
+`harnesses/exploration.py` (`exploration_metrics` on `task_runs`),
+`metrics/usage.py` `roll_up_by_role` (main/subagent/full-system tokens+cost),
+the `data/skills/fastcontext` skill fixture, the **ExploreBench** track
+(`explore_runs.v1` + `agent_benchmarks/explore/` + `explore` CLI + 6 seed
+tasks), and `report/exploration_report.py` panels.
+
+Future work is breadth, not mechanism: curated Intel/oneAPI exploration tasks
+with oracle-derived line ranges, an LLM-backed explorer arm, and wiring the
+role-tagged `UsageRecord` rollup into a subagent-spawning answering arm.
 
 Measure whether an agent finds the right context *efficiently* before it
 answers/edits/solves — not just whether context exists. Additive slices on top

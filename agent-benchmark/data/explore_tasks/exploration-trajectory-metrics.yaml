@@ -1,0 +1,9 @@
+id: exploration-trajectory-metrics
+product: agent-benchmark
+query: >
+  Find where the exploration_metrics block (pre-edit tool calls, repeated-read
+  ratio, broad-search-after-subagent, main-vs-subagent tokens) is derived from a
+  harness operation stream, and where it is attached to a task-run result row.
+references:
+  - path: agent_benchmarks/harnesses/exploration.py
+  - path: agent_benchmarks/harnesses/models.py

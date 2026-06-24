@@ -292,7 +292,12 @@ def score_localization(
         tp=overlap_lines, pred_total=pred_lines, ref_total=ref_lines
     )
 
-    compactness = pred_lines / ref_lines if ref_lines else None
+    # Compactness compares cited lines to reference lines. It is undefined
+    # (``None``) when there are no predicted lines — a whole-file-only or empty
+    # prediction has nothing to measure tightness on, and must NOT score as a
+    # maximally compact ``0.0`` (which would rank over-broad whole-file answers
+    # above tight range citations).
+    compactness = pred_lines / ref_lines if (pred_lines and ref_lines) else None
 
     return LocalizationScore(
         citation_validity_rate=pred.validity_rate,

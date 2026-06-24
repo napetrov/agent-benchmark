@@ -22,6 +22,7 @@ with a recorded reason, never fabricated.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any, Optional, Sequence
 
 from agent_benchmarks.metrics.exploration import citation_path, normalize_path
@@ -41,11 +42,8 @@ _SUBAGENT_WORDS = ("subagent",)
 # emits). Skipped outright so non-exploring runs emit no exploration block.
 _IGNORED_TYPES = frozenset({"harness", "log", "log_parse_error"})
 
-# Markers that make a search "broad" when no explicit ``metadata.broad`` flag is
-# set. Inference is deliberately conservative — only unambiguously recursive /
-# unbounded commands — so a *scoped* search (``rg sym src/mod.py``) is not
-# counted. Authoritative broadness should be set via ``metadata.broad``.
-_BROAD_MARKERS = ("grep -r", "grep -R", "grep -rn", "--recursive", "find ")
+# Recursive-search flags that make any grep/rg invocation broad.
+_RECURSIVE_FLAGS = frozenset({"-r", "-R", "--recursive"})
 
 
 def _word_match(words: Sequence[str], text: str) -> bool:
@@ -79,9 +77,24 @@ def _classify(op: OperationRecord) -> Optional[str]:
     return None
 
 
+def _meta(op: OperationRecord) -> dict[str, Any]:
+    """Operation metadata, lifting a nested ``metadata`` object to the top level.
+
+    ``load_operations`` preserves the documented ``AGENT_BENCHMARK_OP`` shape's
+    nested ``metadata`` object as ``op.metadata["metadata"]``. Merge it so token,
+    path, and citation lookups see those fields (top-level keys win on conflict).
+    """
+    m = dict(op.metadata)
+    nested = m.pop("metadata", None)
+    if isinstance(nested, dict):
+        return {**nested, **m}
+    return m
+
+
 def _op_path(op: OperationRecord) -> Optional[str]:
+    meta = _meta(op)
     for key in ("path", "file", "target", "filename"):
-        value = op.metadata.get(key)
+        value = meta.get(key)
         if value:
             return normalize_path(str(value))
     return None
@@ -96,19 +109,49 @@ def _is_broad(op: OperationRecord) -> tuple[bool, bool]:
     shell-command fields (``command``/``args``); a human-readable ``query`` like
     ``"find Foo in src/bar.py"`` is intent, not an unbounded ``find`` shell run.
     """
-    flag = op.metadata.get("broad")
+    meta = _meta(op)
+    flag = meta.get("broad")
     if isinstance(flag, bool):
         return flag, False
-    text = " ".join(str(op.metadata.get(k, "")) for k in ("command", "args")).lower()
-    return any(m.lower() in text for m in _BROAD_MARKERS), True
+    command = meta.get("command")
+    if command is None:
+        args = meta.get("args")
+        command = " ".join(map(str, args)) if isinstance(args, (list, tuple)) else args
+    return _infer_broad(str(command or "")), True
+
+
+def _infer_broad(command: str) -> bool:
+    """Heuristic: is ``command`` an unbounded/recursive tree search?
+
+    Broad when it carries a recursive flag (``grep -r``), is a ``find`` tree
+    walk, or is a ripgrep search with no path argument (``rg`` recurses the cwd
+    by default). A *scoped* search (``rg sym src/mod.py``) is not broad.
+    """
+    tokens = command.lower().split()
+    if not tokens:
+        return False
+    if any(t in _RECURSIVE_FLAGS for t in tokens):
+        return True
+    # combined short flags like ``-rn`` / ``-rl``
+    if any(t.startswith("-") and not t.startswith("--") and ("r" in t) for t in tokens):
+        return True
+    binary = Path(tokens[0]).name
+    if binary == "find":
+        return True
+    if binary in ("rg", "ripgrep"):
+        # Recurses the cwd unless a path argument follows the pattern.
+        non_flags = [t for t in tokens[1:] if not t.startswith("-")]
+        return len(non_flags) < 2
+    return False
 
 
 def _subagent_cited_paths(op: OperationRecord) -> set[str]:
     # Entries may be bare paths or full ``<final_answer>`` citations
     # (``path:start-end``); ``citation_path`` strips any range so they compare
     # equal to the plain paths recorded on main read ops.
+    meta = _meta(op)
     for key in ("citation_paths", "citations", "cited_paths", "citation_files_list"):
-        value = op.metadata.get(key)
+        value = meta.get(key)
         if isinstance(value, (list, tuple)):
             return {citation_path(str(v)) for v in value if v}
     return set()
@@ -248,11 +291,12 @@ def _op_token_count(op: OperationRecord) -> Optional[int]:
     ``prompt_tokens + completion_tokens``. An explicit ``total_tokens: 0`` is a
     known zero, distinct from "no token metadata at all" (``None``).
     """
-    total = op.metadata.get("total_tokens")
+    meta = _meta(op)
+    total = meta.get("total_tokens")
     if total is not None:
         return int(total)
-    prompt = op.metadata.get("prompt_tokens")
-    completion = op.metadata.get("completion_tokens")
+    prompt = meta.get("prompt_tokens")
+    completion = meta.get("completion_tokens")
     if prompt is None and completion is None:
         return None
     return int(prompt or 0) + int(completion or 0)

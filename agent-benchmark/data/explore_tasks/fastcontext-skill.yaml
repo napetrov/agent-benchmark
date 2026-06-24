@@ -1,0 +1,7 @@
+id: fastcontext-skill
+product: agent-benchmark
+query: >
+  Where is the FastContext skill that tells an agent to explore and commit to a
+  compact citation block before acting?
+references:
+  - path: data/skills/fastcontext/SKILL.md
