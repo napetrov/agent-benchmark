@@ -227,6 +227,38 @@ def test_broad_search_after_subagent_and_inference():
     assert m["broad_search_after_subagent_count"] == 2
 
 
+def test_scoped_search_not_inferred_broad():
+    # A scoped ripgrep (path argument present) is targeted, not broad; only the
+    # recursive grep should count.
+    ops = [
+        _op("search", "rg", command="rg symbol src/module.py"),
+        _op("search", "grep", command="grep -R foo ."),
+    ]
+    m = summarize_exploration(ops)
+    assert m["search_count"] == 2
+    assert m["broad_search_count"] == 1
+    assert m["broad_search_inferred_count"] == 1
+
+
+def test_harness_seed_op_not_classified_as_exploration():
+    # A harness id containing "review" (substring "view") must not be read-
+    # classified; a non-exploring run emits no exploration block.
+    seed = OperationRecord(type="harness", name="code-review")
+    assert summarize_exploration([seed]) is None
+    result = HarnessResult(
+        harness="code-review",
+        task="t",
+        command=["run"],
+        returncode=0,
+        elapsed_sec=1.0,
+        reward=None,
+        passed=False,
+        operations=[seed],
+        metrics={},
+    )
+    assert "exploration_metrics" not in result.as_dict()["metrics"]
+
+
 def test_main_reads_overlap_with_citations():
     ops = [
         _op("subagent", "fastcontext", citation_paths=["a.py", "b.py"]),

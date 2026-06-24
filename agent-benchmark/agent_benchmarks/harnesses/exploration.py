@@ -21,27 +21,45 @@ with a recorded reason, never fabricated.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional, Sequence
 
 from agent_benchmarks.metrics.exploration import citation_path, normalize_path
 
 from .models import OperationRecord
 
-# Operation classification. Matched against ``type`` first, then ``name``.
+# Operation classification. Matched against ``type`` then ``name`` using
+# word-boundary matching, so a harness id like ``code-review`` is not mistaken
+# for a "view"/read op.
 _READ_WORDS = ("read", "view", "cat", "open_file")
 _SEARCH_WORDS = ("search", "grep", "glob", "find", "ripgrep", "rg")
 _EDIT_WORDS = ("edit", "write", "apply_patch", "str_replace", "patch", "create_file")
 _SUBAGENT_WORDS = ("subagent",)
 
-# Markers that make a search "broad" when no explicit metadata.broad flag is set.
-_BROAD_MARKERS = ("grep -r", "grep -R", "rg ", "find ", "-r ", "-R ", " -rn", "--recursive")
+# Bookkeeping op types that are never exploration (e.g. the per-run seed op
+# ``OperationRecord(type="harness", name=<harness_id>)`` that CommandHarness
+# emits). Skipped outright so non-exploring runs emit no exploration block.
+_IGNORED_TYPES = frozenset({"harness", "log", "log_parse_error"})
+
+# Markers that make a search "broad" when no explicit ``metadata.broad`` flag is
+# set. Inference is deliberately conservative — only unambiguously recursive /
+# unbounded commands — so a *scoped* search (``rg sym src/mod.py``) is not
+# counted. Authoritative broadness should be set via ``metadata.broad``.
+_BROAD_MARKERS = ("grep -r", "grep -R", "grep -rn", "--recursive", "find ")
+
+
+def _word_match(words: Sequence[str], text: str) -> bool:
+    return any(re.search(rf"\b{re.escape(w)}\b", text) for w in words)
 
 
 def _classify(op: OperationRecord) -> Optional[str]:
-    haystacks = (str(op.type).lower(), str(op.name).lower())
+    op_type = str(op.type).lower()
+    if op_type in _IGNORED_TYPES:
+        return None
+    haystacks = (op_type, str(op.name).lower())
 
     def _hit(words: Sequence[str]) -> bool:
-        return any(any(w in h for w in words) for h in haystacks)
+        return any(_word_match(words, h) for h in haystacks)
 
     # Subagent and edit take precedence over read/search (an edit op may also
     # mention "file"; a subagent op may mention "search" in its query name).
