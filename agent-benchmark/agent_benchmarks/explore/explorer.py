@@ -111,7 +111,12 @@ class CommandExplorer:
             "repo_root": str(repo_root),
             "output_dir": str(output_dir or ""),
         }
-        command = shlex.split(_render(self.command_template, context))
+        try:
+            command = shlex.split(_render(self.command_template, context))
+        except ValueError:
+            # A query with unbalanced quotes (e.g. an apostrophe inside a quoted
+            # {query}) breaks shlex; fail this row, not the whole run.
+            return ExplorerResult(final_answer="", operations=(), returncode=127)
         if not command:
             # An empty rendered template would make subprocess.run raise; record
             # a failed row instead.

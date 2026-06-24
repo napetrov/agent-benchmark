@@ -23,6 +23,7 @@ from agent_benchmarks.explore import (
     load_explore_task,
 )
 from agent_benchmarks.explore.explorer import (
+    ExplorerResult,
     build_subagent_op,
     op_marker_line,
     subagent_op_from_answer,
@@ -184,6 +185,37 @@ def test_command_explorer_empty_command_returns_error(tmp_path):
     result = CommandExplorer("   ").explore("q", repo_root=tmp_path)
     assert result.returncode == 127
     assert result.final_answer == ""
+
+
+def test_command_explorer_quoting_error_returns_error(tmp_path):
+    from agent_benchmarks.explore import CommandExplorer
+
+    # An apostrophe in the query inside a quoted {query} template renders an
+    # unbalanced shell string; fail this row, not the whole run.
+    explorer = CommandExplorer("sh -c 'echo {query}'")
+    result = explorer.explore("the explorer's answer", repo_root=tmp_path)
+    assert result.returncode == 127
+
+
+def test_runner_does_not_score_failed_partial_answer(tmp_path):
+    # A failed explorer that wrote a perfect-looking partial answer must score 0.
+    class _Failing:
+        name = "failing"
+
+        def explore(self, query, *, repo_root):
+            return ExplorerResult(
+                final_answer="<final_answer>\na.py:10-20\n</final_answer>",
+                returncode=1,
+            )
+
+    task = _task(tmp_path, (ExploreReference("a.py", (10, 20)),))
+    output = ExploreRunner(
+        tasks=[task], arms={"failing": lambda t: _Failing()}, output_root=tmp_path / "o"
+    ).run()
+    row = output["results"][0]
+    assert row["metrics"]["failed"] is True
+    assert row["score"]["file_f1"] == 0.0       # partial answer not credited
+    assert output["summary"]["per_arm"]["failing"]["avg_file_f1"] == 0.0
 
 
 def test_command_explorer_resolves_relative_output_dir(tmp_path, monkeypatch):

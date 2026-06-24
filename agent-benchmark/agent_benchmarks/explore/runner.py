@@ -76,13 +76,18 @@ class ExploreRunner:
         reference,
         elapsed: float,
     ) -> dict[str, Any]:
-        cset = parse_final_answer(result.final_answer)
+        # A failed/timed-out explorer (returncode != 0) may have written a
+        # partial <final_answer>; do NOT score it, or a hung explorer could
+        # rank well. Score an empty answer so the failure reads as a 0, and flag
+        # the row.
+        failed = result.returncode != 0
+        cset = parse_final_answer("" if failed else result.final_answer)
         score = score_localization(cset, reference)
         subagent_op = build_subagent_op(
             arm,
             cset,
             elapsed_sec=elapsed,
-            status="ok" if result.returncode == 0 else "error",
+            status="error" if failed else "ok",
         )
         operations = [op.as_dict() for op in (*result.operations, subagent_op)]
         return {
@@ -100,6 +105,7 @@ class ExploreRunner:
                 "malformed_count": len(cset.malformed),
                 "overlapping_citations": cset.overlapping,
                 "returncode": result.returncode,
+                "failed": failed,
             },
             "operations": operations,
         }
