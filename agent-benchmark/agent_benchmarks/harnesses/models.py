@@ -53,6 +53,9 @@ class HarnessResult:
         metrics = dict(self.metrics)
         metrics.setdefault("operation_count", len(operations))
         metrics.setdefault("operations_by_type", operations_by_type(operations))
+        exploration = _exploration_metrics(self.operations, metrics)
+        if exploration is not None:
+            metrics.setdefault("exploration_metrics", exploration)
         return {
             "task": self.task,
             "harness": self.harness,
@@ -90,3 +93,19 @@ def operations_by_type(operations: list[dict[str, Any]]) -> dict[str, int]:
         op_type = str(op.get("type") or "unknown")
         counts[op_type] = counts.get(op_type, 0) + 1
     return counts
+
+
+def _exploration_metrics(
+    operations: list[OperationRecord], metrics: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Derive the optional ``exploration_metrics`` block (BACKLOG #60).
+
+    Imported lazily to keep this lightweight model module free of a hard
+    dependency on the exploration summarizer.
+    """
+    from .exploration import summarize_exploration
+
+    main_tokens = metrics.get("total_tokens")
+    return summarize_exploration(
+        operations, main_tokens=int(main_tokens) if main_tokens else None
+    )

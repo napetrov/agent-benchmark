@@ -318,17 +318,24 @@ reduction, pass-rate improvement, and quality-per-token.
 
 ## 5. Implementation tasks (sliced so each lands independently)
 
-1. `metrics/exploration.py`: `parse_final_answer`, `score_localization`,
-   dataclasses; `tests/test_exploration_metrics.py` (malformed lines,
-   whole-file citations, overlapping ranges, P/R/F1 fixtures, compactness).
-2. `harnesses/exploration.py`: derive `exploration_metrics` from
-   `list[OperationRecord]` + token split; wire into `HarnessResult.as_dict`;
-   document the block in `task_runs.v2.json` (additive). Test with a synthetic
-   operation stream.
+1. **[DONE]** `metrics/exploration.py`: `parse_final_answer`,
+   `score_localization`, dataclasses; `tests/test_exploration_metrics.py`
+   (malformed lines, whole-file citations, overlapping ranges, P/R/F1 fixtures,
+   compactness). Line scoring uses interval arithmetic (no per-line set
+   materialization), so a thousand-line citation is free.
+2. **[DONE]** `harnesses/exploration.py`: derive `exploration_metrics` from
+   `list[OperationRecord]` + token split; wired into `HarnessResult.as_dict`
+   (emitted only when the stream has exploration signal); the block is
+   documented in `task_runs.v1.json` under `metrics` (additive — `metrics`
+   already allows `additionalProperties`, so no `v2` bump was needed). Tested
+   with synthetic operation streams.
 3. Token attribution: add `role` to `UsageRecord` accumulation; emit
    `main/subagent/full_system` token + cost rollups; dashboard columns.
-4. `data/skills/fastcontext/SKILL.md` fixture; verify it loads via
-   `skill:` / `skill-agent:` factory paths (no code change expected).
+   (Slice 2 already splits tokens from subagent **operation** metadata; this
+   task extends the split into the LLM-call `UsageRecord` path.)
+4. **[DONE]** `data/skills/fastcontext/SKILL.md` fixture; loads via
+   `skill:` / `skill-agent:` factory paths (verified by test — no code change
+   needed).
 5. Command-wrapper harness that runs an exploration step, captures its
    trajectory, parses citations, and emits the `AGENT_BENCHMARK_OP` subagent
    event (§3.3).
@@ -339,6 +346,9 @@ reduction, pass-rate improvement, and quality-per-token.
    its fair-comparison rules.
 
 Slices 1–4 are additive and low-risk; 5–7 are the new track and ship after.
+**Tasks 1, 2, and 4 landed together as the foundation** (citation scoring,
+operation-stream metrics, FastContext skill fixture); tasks 3, 5, 6, 7 remain
+open.
 
 ## 6. Caveats
 

@@ -6,8 +6,13 @@
 
 ### #60 — Exploration quality as a measurable layer (FastContext-informed)
 **Scope:** Evaluation architecture / telemetry
-**Status:** PROPOSED — design in
-`docs/decisions/2026-06-23-exploration-quality-fastcontext.md`.
+**Status:** IN PROGRESS — design in
+`docs/decisions/2026-06-23-exploration-quality-fastcontext.md`. Foundation
+landed: `metrics/exploration.py` (citation parser + localization F1),
+`harnesses/exploration.py` (`exploration_metrics` block on `task_runs`), and
+the `data/skills/fastcontext` skill fixture. Open: UsageRecord token-role
+attribution, the exploration command-wrapper harness, the standalone
+ExploreBench track, and dashboard panels.
 
 Measure whether an agent finds the right context *efficiently* before it
 answers/edits/solves — not just whether context exists. Additive slices on top
