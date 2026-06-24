@@ -125,15 +125,27 @@ def _is_broad(op: OperationRecord) -> tuple[bool, bool]:
     flag = meta.get("broad")
     if isinstance(flag, bool):
         return flag, False
-    command = meta.get("command")
-    if command is None:
-        args = meta.get("args")
-        command = " ".join(map(str, args)) if isinstance(args, (list, tuple)) else args
-    return _infer_broad(str(command or "")), True
+    args = meta.get("args")
+    if isinstance(args, (list, tuple)):
+        # An argv list already has the right boundaries — don't re-join/re-split
+        # (that would turn ["rg", "error message"] into a spurious 2nd token).
+        tokens = [str(a).lower() for a in args]
+    else:
+        command = meta.get("command")
+        tokens = _tokenize(str(command or ""))
+    return _infer_broad(tokens), True
 
 
-def _infer_broad(command: str) -> bool:
-    """Heuristic: is ``command`` an unbounded/recursive tree search?
+def _tokenize(command: str) -> list[str]:
+    try:
+        return [t.lower() for t in shlex.split(command)]
+    except ValueError:
+        # Unbalanced quotes etc. — fall back to naive splitting.
+        return command.lower().split()
+
+
+def _infer_broad(tokens: list[str]) -> bool:
+    """Heuristic: is ``tokens`` an unbounded/recursive tree-search argv?
 
     Broad when it is a ``find`` tree walk, a recursive grep (``grep -r``), or a
     ripgrep search with no PATH argument (``rg`` recurses the cwd by default). A
@@ -141,11 +153,6 @@ def _infer_broad(command: str) -> bool:
     (``-g '*.py'``, ``--type py``) are not mistaken for a PATH, and a quoted
     multi-word pattern (``rg "error message"``) is a single token.
     """
-    try:
-        tokens = [t.lower() for t in shlex.split(command)]
-    except ValueError:
-        # Unbalanced quotes etc. — fall back to naive splitting.
-        tokens = command.lower().split()
     if not tokens:
         return False
     binary = Path(tokens[0]).name

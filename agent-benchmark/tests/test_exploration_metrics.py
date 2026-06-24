@@ -322,6 +322,17 @@ def test_rg_pattern_option_makes_positionals_paths():
     assert m["broad_search_count"] == 2
 
 
+def test_argv_list_preserves_boundaries():
+    # metadata.args as an argv list must not be re-joined: ["rg", "error
+    # message"] has no PATH and is broad, but a naive join would mis-split it.
+    ops = [
+        _op("search", "rg", args=["rg", "error message"]),       # no path → broad
+        _op("search", "rg", args=["rg", "error message", "src/"]),  # scoped → not broad
+    ]
+    m = summarize_exploration(ops)
+    assert m["broad_search_count"] == 1
+
+
 def test_quoted_multiword_pattern_is_broad():
     # shlex parsing keeps "error message" as one token, so no PATH was supplied.
     ops = [
