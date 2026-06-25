@@ -79,12 +79,12 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
 
     out_json = Path(args.out_json) if args.out_json else Path(f"results/arms/{args.product}.json")
     runner.save(output, out_json)
-    print(f"✓ Saved arms comparison: {out_json}")
+    print(f"OK Saved arms comparison: {out_json}")
 
     out_md = Path(args.out_md) if args.out_md else Path(f"results/arms/{args.product}.md")
     out_md.parent.mkdir(parents=True, exist_ok=True)
     out_md.write_text(render_arms_report(output), encoding="utf-8")
-    print(f"✓ Saved arms report:     {out_md}")
+    print(f"OK Saved arms report:     {out_md}")
 
     if output.get("summary", {}).get("per_arm"):
         print("\nSummary (avg aggregate):")
@@ -92,7 +92,7 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
             avg = stats.get("avg_aggregate")
             delta = stats.get("delta_vs_baseline")
             avg_s = "n/a" if avg is None else f"{avg:.1f}"
-            delta_s = "" if (delta is None or arm == args.baseline_arm) else f" (Δ {delta:+.1f})"
+            delta_s = "" if (delta is None or arm == args.baseline_arm) else f" (delta {delta:+.1f})"
             print(f"  {arm:<24} {avg_s}{delta_s}")
 
 

@@ -170,9 +170,13 @@ def extract_scores(
                 continue
 
             baseline_data = eval_scores.get(baseline_arm, {})
-            if not isinstance(baseline_data, dict):
-                continue
-            baseline_score = baseline_data.get("aggregate")
+            # Handle both dict (normal) and None (model failed)
+            if isinstance(baseline_data, dict):
+                baseline_score = baseline_data.get("aggregate")
+            elif baseline_data is None:
+                baseline_score = None  # Model failed to answer
+            else:
+                continue  # Unexpected format
 
             non_baseline_arms = [
                 arm for arm in eval_scores
@@ -201,20 +205,21 @@ def extract_scores(
                 treatment_score = None
                 treatment_arm = None
 
-            if baseline_score is not None and treatment_score is not None:
-                scores.append(
-                    {
-                        "question_id": qid,
-                        "question_text": evaluation.get("question_text", ""),
-                        "category": evaluation.get("category", ""),
-                        "difficulty": normalize_difficulty(evaluation.get("difficulty", "unknown")),
-                        "persona": evaluation.get("persona", ""),
-                        "without_docs": baseline_score,
-                        "with_docs": treatment_score,
-                        "delta": treatment_score - baseline_score,
-                        "treatment_arm": treatment_arm,
-                    }
-                )
+            # Include score even for single-arm runs (baseline-only)
+            # If baseline_score is None (model failed to answer), use 0.0 to keep question in common set
+            scores.append(
+                {
+                    "question_id": qid,
+                    "question_text": evaluation.get("question_text", ""),
+                    "category": evaluation.get("category", ""),
+                    "difficulty": normalize_difficulty(evaluation.get("difficulty", "unknown")),
+                    "persona": evaluation.get("persona", ""),
+                    "without_docs": baseline_score if baseline_score is not None else 0.0,
+                    "with_docs": treatment_score if treatment_score is not None else None,
+                    "delta": treatment_score - baseline_score if (treatment_score is not None and baseline_score is not None) else None,
+                    "treatment_arm": treatment_arm,
+                }
+            )
 
     # Legacy format: scores live inside per-answer "arms"
     else:
@@ -391,7 +396,7 @@ def generate_combined_report(
     output = "\n".join(lines)
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     Path(out_path).write_text(output, encoding="utf-8")
-    print(f"✅ Report written to {out_path}")
+    print(f"OK Report written to {out_path}")
 
 
 def generate_section_report(
@@ -448,6 +453,89 @@ def generate_section_report(
         "",
     ]
 
+    # Detect report limitations (single-arm vs multi-arm)
+    has_treatment = any(
+        s.get("with_docs") is not None and s.get("delta") is not None
+        for scores in all_run_scores.values()
+        for s in scores
+    )
+
+    if not has_treatment:
+        lines += [
+            "> **⚠️ Report Limitation:** These runs contain only **baseline arm** (no treatment comparison).",
+            "> ",
+            "> **Missing from this report:**",
+            "> - Context-arm vs Baseline delta analysis",
+            "> - Statistical significance tests",
+            "> - Head-to-head winner comparisons",
+            "> ",
+            "> **Available in this report:**",
+            "> - Absolute baseline quality scores per model",
+            "> - Resource usage metrics (cost, tokens, latency)",
+            "> - Model ranking by absolute baseline quality",
+            "> ",
+            "> **To generate full comparison with delta analysis, add a treatment arm:**",
+            "> ```bash",
+            "> python cli.py arms run \\",
+            ">   --arms \"baseline,docs\" \\",
+            ">   --judge \\",
+            ">   --judge-model claude-sonnet-4-6 \\",
+            ">   [other parameters]",
+            "> ```",
+            "> ",
+            "> Treatment arm options: `docs` (Context7 documentation), `skill:<path>` (local skill), `agent` (agentic doc retrieval).",
+            "> ",
+            "> See: `docs/benchmarking-and-comparison.md#treatment-arm-comparison`",
+            "",
+        ]
+
+    # --- Resource Usage ---
+    # Extract cost_summary from each run (baseline arm only for now)
+    cost_data_available = any(
+        run_data.get("cost_summary") for _, run_data in runs
+    )
+    if cost_data_available:
+        lines += [
+            "## Resource Usage (baseline arm)",
+            "| Run | Total Cost | Prompt tok | Completion tok | Total tok | Avg latency/Q | Cache hit |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        ]
+        for run_id, run_data in runs:
+            cost_summary = run_data.get("cost_summary", {})
+            baseline_arm = run_data.get("baseline_arm", "baseline")
+            cs = cost_summary.get(baseline_arm, {})
+
+            # Extract metrics
+            cost_usd = cs.get("total_cost_usd")
+            cost_str = f"${cost_usd:.4f}" if cost_usd is not None else "—"
+            if cost_usd is not None:
+                cost_known = cs.get("cost_known_n")
+                total_calls = cs.get("total_llm_calls", cs.get("n"))
+                if cost_known is not None and total_calls is not None and cost_known < total_calls:
+                    cost_str += f" ({cost_known}/{total_calls})"
+
+            prompt_tok = cs.get("prompt_tokens")
+            prompt_str = f"{prompt_tok:,}" if prompt_tok is not None else "—"
+
+            completion_tok = cs.get("completion_tokens")
+            completion_str = f"{completion_tok:,}" if completion_tok is not None else "—"
+
+            total_tok = cs.get("total_tokens")
+            total_str = f"{total_tok:,}" if total_tok is not None else "—"
+
+            latency = cs.get("mean_latency_sec")
+            latency_str = f"{latency:.2f}s" if latency is not None else "—"
+
+            cache_ratio = cs.get("cache_hit_ratio")
+            cache_str = f"{cache_ratio:.1%}" if cache_ratio is not None else "—"
+
+            lines.append(
+                f"| **{run_id}** | {cost_str} | {prompt_str} | {completion_str} | "
+                f"{total_str} | {latency_str} | {cache_str} |"
+            )
+
+        lines += [""]
+
     # --- Overall Summary ---
     lines += [
         "## Overall Summary",
@@ -458,11 +546,25 @@ def generate_section_report(
     summary_stats: dict[str, dict] = {}
     for run_id in run_ids:
         scores = all_run_scores[run_id]
-        with_avg = _avg([s["with_docs"] for s in scores])
-        without_avg = _avg([s["without_docs"] for s in scores])
-        delta_avg = round(with_avg - without_avg, 1)
-        improved = sum(1 for s in scores if s["delta"] > 0)
-        degraded = sum(1 for s in scores if s["delta"] < 0)
+
+        # Handle both single-arm (baseline-only) and multi-arm runs
+        with_docs_scores = [s["with_docs"] for s in scores if s["with_docs"] is not None]
+        without_docs_scores = [s["without_docs"] for s in scores if s["without_docs"] is not None]
+
+        has_treatment = bool(with_docs_scores)
+        with_avg = _avg(with_docs_scores) if has_treatment else 0.0
+        without_avg = _avg(without_docs_scores) if without_docs_scores else 0.0
+
+        # Only compute delta if treatment arm exists
+        if has_treatment:
+            delta_avg = round(with_avg - without_avg, 1)
+            improved = sum(1 for s in scores if s.get("delta") and s["delta"] > 0)
+            degraded = sum(1 for s in scores if s.get("delta") and s["delta"] < 0)
+        else:
+            delta_avg = None
+            improved = None
+            degraded = None
+
         summary_stats[run_id] = {
             "n": len(scores),
             "with_avg": with_avg,
@@ -471,9 +573,16 @@ def generate_section_report(
             "improved": improved,
             "degraded": degraded,
         }
+
+        # Format treatment-only columns as "—" when absent
+        with_avg_str = str(with_avg) if has_treatment else "—"
+        delta_str = f"**{_fmt_delta(delta_avg)}**" if has_treatment else "—"
+        improved_str = str(improved) if has_treatment else "—"
+        degraded_str = str(degraded) if has_treatment else "—"
+
         lines.append(
-            f"| **{run_id}** | {len(scores)} | {with_avg} | {without_avg} | "
-            f"**{_fmt_delta(delta_avg)}** | {improved} | {degraded} |"
+            f"| **{run_id}** | {len(scores)} | {with_avg_str} | {without_avg} | "
+            f"{delta_str} | {improved_str} | {degraded_str} |"
         )
 
     lines += [""]
@@ -482,25 +591,40 @@ def generate_section_report(
     if HAS_SCIPY:
         lines += [
             "## Statistical Significance of Delta (α = 0.05)",
-            "_p-values are unadjusted; treat many pairwise comparisons as exploratory. "
-            "Significant = t-test < 0.05 and Wilcoxon < 0.05 (or unavailable)._",
-            "",
-            "| Run | Delta | p (t-test) | p (Wilcoxon) | Cohen's d_z | Effect | Significant? |",
-            "|---|---:|---:|---:|---:|---|---|",
         ]
-        for run_id in run_ids:
-            scores = all_run_scores[run_id]
-            sig = significance_test(
-                [s["with_docs"] for s in scores],
-                [s["without_docs"] for s in scores],
-            )
-            if sig:
-                sig_mark = "✅ Yes" if sig["significant"] else "❌ No"
-                p_wilcox = sig["p_wilcoxon"] if sig["p_wilcoxon"] is not None else "N/A"
-                lines.append(
-                    f"| **{run_id}** | {_fmt_delta(sig['delta_mean'])} | {sig['p_ttest']} | "
-                    f"{p_wilcox} | {_fmt_delta(sig['cohens_d'])} | {sig['effect']} | {sig_mark} |"
-                )
+
+        if not has_treatment:
+            lines += [
+                "",
+                "> **⚠️ Skipped:** Statistical tests require treatment arm (e.g., docs, skills).",
+                "> Add `--arms \"baseline,docs\"` to enable delta analysis.",
+                "",
+            ]
+        else:
+            lines += [
+                "_p-values are unadjusted; treat many pairwise comparisons as exploratory. "
+                "Significant = t-test < 0.05 and Wilcoxon < 0.05 (or unavailable)._",
+                "",
+                "| Run | Delta | p (t-test) | p (Wilcoxon) | Cohen's d_z | Effect | Significant? |",
+                "|---|---:|---:|---:|---:|---|---|",
+            ]
+            for run_id in run_ids:
+                scores = all_run_scores[run_id]
+                # Filter for paired scores: both baseline and treatment must be non-None
+                paired = [(s["with_docs"], s["without_docs"]) for s in scores
+                          if s["with_docs"] is not None and s["without_docs"] is not None]
+                if paired:
+                    with_scores, without_scores = zip(*paired, strict=True)
+                    sig = significance_test(list(with_scores), list(without_scores))
+                else:
+                    sig = None
+                if sig:
+                    sig_mark = "OK Yes" if sig["significant"] else "No"
+                    p_wilcox = sig["p_wilcoxon"] if sig["p_wilcoxon"] is not None else "N/A"
+                    lines.append(
+                        f"| **{run_id}** | {_fmt_delta(sig['delta_mean'])} | {sig['p_ttest']} | "
+                        f"{p_wilcox} | {_fmt_delta(sig['cohens_d'])} | {sig['effect']} | {sig_mark} |"
+                    )
         lines += [""]
 
     # --- By Difficulty ---
@@ -510,10 +634,18 @@ def generate_section_report(
             difficulty_groups[s["difficulty"]][run_id].append(s)
 
     if difficulty_groups:
-        header = "| Difficulty | N | " + " | ".join(
-            f"{rid} context | {rid} Δ" for rid in run_ids
-        ) + " |"
-        separator = "|---|---:|" + "|".join([" :---: | :---: "] * len(run_ids)) + "|"
+        # Adapt header to single-arm vs multi-arm scenario
+        if has_treatment:
+            header = "| Difficulty | N | " + " | ".join(
+                f"{rid} context | {rid} Δ" for rid in run_ids
+            ) + " |"
+            separator = "|---|---:|" + "|".join([" :---: | :---: "] * len(run_ids)) + "|"
+        else:
+            header = "| Difficulty | N | " + " | ".join(
+                f"{rid} baseline" for rid in run_ids
+            ) + " |"
+            separator = "|---|---:|" + "| :---: " * len(run_ids) + "|"
+
         lines += [
             "## By Difficulty (common questions only)",
             header,
@@ -528,87 +660,143 @@ def generate_section_report(
             for run_id in run_ids:
                 sc = run_data.get(run_id, [])
                 if sc:
-                    wa = _avg([s["with_docs"] for s in sc])
-                    wo = _avg([s["without_docs"] for s in sc])
-                    row += f" {wa} | {_fmt_delta(round(wa - wo, 1))} |"
+                    with_scores = [s["with_docs"] for s in sc if s["with_docs"] is not None]
+                    without_scores = [s["without_docs"] for s in sc if s["without_docs"] is not None]
+                    if with_scores:
+                        wa = _avg(with_scores)
+                        wo = _avg(without_scores)
+                        row += f" {wa} | {_fmt_delta(round(wa - wo, 1))} |"
+                    else:
+                        # Single-arm run - show baseline only
+                        wo = _avg(without_scores) if without_scores else 0.0
+                        if has_treatment:
+                            row += f" — | {wo} (baseline) |"
+                        else:
+                            row += f" {wo} |"
                 else:
-                    row += " — | — |"
+                    if has_treatment:
+                        row += " — | — |"
+                    else:
+                        row += " — |"
             lines.append(row)
         lines += [""]
 
     # --- Head-to-Head ---
     lines += [
         "## Head-to-Head (context arm, common questions)",
-        "| Winner | Count | % |",
-        "|---|---:|---:|",
     ]
-    winner_counts: dict[str, int] = defaultdict(int)
-    for qid in common_questions:
-        question_scores = {}
-        for run_id in run_ids:
-            for s in all_run_scores[run_id]:
-                if s["question_id"] == qid:
-                    question_scores[run_id] = s["with_docs"]
-                    break
-        if question_scores:
-            max_score = max(question_scores.values())
-            winners = [rid for rid, score in question_scores.items() if score == max_score]
-            if len(winners) == 1:
-                winner_counts[winners[0]] += 1
-            else:
-                winner_counts["tie"] += 1
 
-    total = len(common_questions)
-    for run_id in run_ids:
-        count = winner_counts.get(run_id, 0)
-        pct = round(100 * count / total) if total > 0 else 0
-        lines.append(f"| **{run_id}** | {count} | {pct}% |")
-    tie_count = winner_counts.get("tie", 0)
-    lines.append(f"| tie | {tie_count} | {round(100 * tie_count / total) if total > 0 else 0}% |")
-    lines += [""]
+    if not has_treatment:
+        lines += [
+            "",
+            "> **⚠️ Skipped:** Head-to-head requires treatment arm scores.",
+            "> Single-arm runs only have baseline scores.",
+            "",
+        ]
+    else:
+        lines += [
+            "| Winner | Count | % |",
+            "|---|---:|---:|",
+        ]
+        winner_counts: dict[str, int] = defaultdict(int)
+        for qid in common_questions:
+            question_scores = {}
+            for run_id in run_ids:
+                for s in all_run_scores[run_id]:
+                    if s["question_id"] == qid and s["with_docs"] is not None:
+                        question_scores[run_id] = s["with_docs"]
+                        break
+            if question_scores:
+                max_score = max(question_scores.values())
+                winners = [rid for rid, score in question_scores.items() if score == max_score]
+                if len(winners) == 1:
+                    winner_counts[winners[0]] += 1
+                else:
+                    winner_counts["tie"] += 1
+
+        total = len(common_questions)
+        for run_id in run_ids:
+            count = winner_counts.get(run_id, 0)
+            pct = round(100 * count / total) if total > 0 else 0
+            lines.append(f"| **{run_id}** | {count} | {pct}% |")
+        tie_count = winner_counts.get("tie", 0)
+        lines.append(f"| tie | {tie_count} | {round(100 * tie_count / total) if total > 0 else 0}% |")
+        lines += [""]
 
     # --- Context-Arm Benefit ---
     lines += [
         "## Context-Arm Benefit — Delta Comparison",
-        "_Which model benefits more from the non-baseline treatment arm?_",
-        "",
-        "| Run | Avg Delta | Questions context helped | Questions context hurt |",
-        "|---|---:|---:|---:|",
     ]
-    for run_id in run_ids:
-        st = summary_stats[run_id]
-        n = st["n"]
-        helped_pct = round(100 * st["improved"] / n) if n > 0 else 0
-        hurt_pct = round(100 * st["degraded"] / n) if n > 0 else 0
-        lines.append(
-            f"| **{run_id}** | **{_fmt_delta(st['delta_avg'])}** | "
-            f"{st['improved']} ({helped_pct}%) | {st['degraded']} ({hurt_pct}%) |"
-        )
-    lines += [""]
+
+    if not has_treatment:
+        lines += [
+            "",
+            "> **⚠️ Skipped:** Delta comparison requires treatment arm.",
+            "> Single-arm runs cannot compute context benefit.",
+            "",
+        ]
+    else:
+        lines += [
+            "_Which model benefits more from the non-baseline treatment arm?_",
+            "",
+            "| Run | Avg Delta | Questions context helped | Questions context hurt |",
+            "|---|---:|---:|---:|",
+        ]
+        for run_id in run_ids:
+            st = summary_stats[run_id]
+            n = st["n"]
+            helped_pct = round(100 * st["improved"] / n) if n > 0 else 0
+            hurt_pct = round(100 * st["degraded"] / n) if n > 0 else 0
+            lines.append(
+                f"| **{run_id}** | **{_fmt_delta(st['delta_avg'])}** | "
+                f"{st['improved']} ({helped_pct}%) | {st['degraded']} ({hurt_pct}%) |"
+            )
+        lines += [""]
 
     # --- Model Ranking ---
     lines += [
         "## Model Ranking",
         "",
-        "### By absolute quality (context arm)",
-        "| Rank | Run | Context-arm avg |",
-        "|---:|---|---:|",
     ]
-    for rank, (run_id, st) in enumerate(
-        sorted(summary_stats.items(), key=lambda x: x[1]["with_avg"], reverse=True), 1
-    ):
-        lines.append(f"| {rank} | **{run_id}** | {st['with_avg']} |")
 
-    lines += [
-        "",
-        "### By treatment utilisation (Delta)",
-        "| Rank | Run | Delta |",
-        "|---:|---|---:|",
-    ]
-    for rank, (run_id, st) in enumerate(
-        sorted(summary_stats.items(), key=lambda x: x[1]["delta_avg"], reverse=True), 1
-    ):
-        lines.append(f"| {rank} | **{run_id}** | {_fmt_delta(st['delta_avg'])} |")
+    if has_treatment:
+        lines += [
+            "### By absolute quality (context arm)",
+            "| Rank | Run | Context-arm avg |",
+            "|---:|---|---:|",
+        ]
+        for rank, (run_id, st) in enumerate(
+            sorted(summary_stats.items(), key=lambda x: x[1]["with_avg"], reverse=True), 1
+        ):
+            lines.append(f"| {rank} | **{run_id}** | {st['with_avg']} |")
+    else:
+        lines += [
+            "### By absolute quality (baseline)",
+            "| Rank | Run | Baseline avg |",
+            "|---:|---|---:|",
+        ]
+        for rank, (run_id, st) in enumerate(
+            sorted(summary_stats.items(), key=lambda x: x[1]["without_avg"], reverse=True), 1
+        ):
+            lines.append(f"| {rank} | **{run_id}** | {st['without_avg']} |")
+
+    if has_treatment:
+        lines += [
+            "",
+            "### By treatment utilisation (Delta)",
+            "| Rank | Run | Delta |",
+            "|---:|---|---:|",
+        ]
+        for rank, (run_id, st) in enumerate(
+            sorted(summary_stats.items(), key=lambda x: x[1]["delta_avg"], reverse=True), 1
+        ):
+            lines.append(f"| {rank} | **{run_id}** | {_fmt_delta(st['delta_avg'])} |")
+    else:
+        lines += [
+            "",
+            "> **Note:** Treatment utilization ranking requires treatment arm.",
+            "",
+        ]
 
     lines += [""]
     return lines

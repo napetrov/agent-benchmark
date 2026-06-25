@@ -228,6 +228,8 @@ and/or golden questions. The report extracts the `baseline_arm` score as the
 baseline and the treatment arm as the context arm, then computes:
 
 - overall context-arm, baseline, and delta per run,
+- resource usage metrics (cost, tokens, latency, cache hit ratio) from the
+  baseline arm when available,
 - statistical significance of context-arm minus baseline (paired t-test,
   Wilcoxon, Cohen\u2019s d_z) when scipy is installed,
 - difficulty breakdown on common question IDs,
@@ -236,6 +238,11 @@ baseline and the treatment arm as the context arm, then computes:
 
 **All summary, significance, difficulty, and head-to-head metrics use only the
 common question set** (intersection of question IDs across all runs).
+
+**Note:** The report works with both single-arm (baseline-only) and multi-arm
+runs. Single-arm runs show absolute baseline scores and resource usage but
+cannot compute delta analysis or statistical significance. The report
+automatically detects the scenario and displays appropriate warnings.
 
 ```bash
 python cli.py report model-compare \
@@ -270,6 +277,15 @@ python cli.py report model-compare \
   --treatment-arm with-skill \
   --out compare.md
 ```
+
+The report includes a **Resource Usage** section when cost and telemetry data
+are available in the input JSON files. This section shows baseline-arm metrics
+for cost-per-run (in USD), token counts (prompt, completion, total), average
+latency per question, and cache hit ratio. Use this section to compare
+cost-effectiveness and performance characteristics across models. When a metric
+is unavailable for a particular run, the table displays a placeholder (—) rather
+than zero.
+
 
 Consistency is validated before the report is written:
 

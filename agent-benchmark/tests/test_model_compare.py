@@ -122,15 +122,23 @@ def test_consistency_ok_different_models():
 
 
 def test_extract_scores_skips_missing_aggregate():
-    """Questions where aggregate is None/absent should be silently skipped."""
+    """Questions are now included even with missing aggregate - supports single-arm reports."""
     run = _eval_run([
         {"id": "Q1", "scores": {"baseline": {"aggregate": 60}, "with-ctx": {"aggregate": 80}}},
-        {"id": "Q2", "scores": {"baseline": {}, "with-ctx": {"aggregate": 70}}},  # baseline missing
-        {"id": "Q3", "scores": {"baseline": {"aggregate": 50}, "with-ctx": {}}},  # treatment missing
+        {"id": "Q2", "scores": {"baseline": {}, "with-ctx": {"aggregate": 70}}},  # baseline missing -> 0.0
+        {"id": "Q3", "scores": {"baseline": {"aggregate": 50}, "with-ctx": {}}},  # treatment missing -> None
     ])
     scores = extract_scores(run)
-    assert len(scores) == 1
+    assert len(scores) == 3
     assert scores[0]["question_id"] == "Q1"
+    assert scores[0]["without_docs"] == 60
+    assert scores[0]["with_docs"] == 80
+    assert scores[1]["question_id"] == "Q2"
+    assert scores[1]["without_docs"] == 0.0  # Missing baseline becomes 0.0
+    assert scores[1]["with_docs"] == 70
+    assert scores[2]["question_id"] == "Q3"
+    assert scores[2]["without_docs"] == 50
+    assert scores[2]["with_docs"] is None  # Missing treatment stays None
 
 
 def test_extract_scores_skips_missing_question_id():
@@ -166,12 +174,18 @@ def test_extract_scores_skips_question_where_baseline_absent_from_scores():
 
 
 def test_extract_scores_all_failed_returns_empty():
-    """All questions missing aggregate should return empty list, not crash."""
+    """Questions with None baseline are included as 0.0 for single-arm support."""
     run = _eval_run([
         {"id": "Q1", "scores": {"baseline": {"aggregate": None}, "arm": {"aggregate": None}}},
         {"id": "Q2", "scores": {"baseline": {}, "arm": {}}},
     ])
-    assert extract_scores(run) == []
+    scores = extract_scores(run)
+    assert len(scores) == 2
+    # None baseline becomes 0.0, None treatment stays None
+    assert scores[0]["without_docs"] == 0.0
+    assert scores[0]["with_docs"] is None
+    assert scores[1]["without_docs"] == 0.0
+    assert scores[1]["with_docs"] is None
 
 
 def test_extract_scores_partial_coverage_diagnostic(capsys):
