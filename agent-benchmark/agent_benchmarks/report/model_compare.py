@@ -477,13 +477,13 @@ def generate_section_report(
             "> **To generate full comparison with delta analysis, add a treatment arm:**",
             "> ```bash",
             "> python cli.py arms run \\",
-            ">   --arms \"baseline,docs\" \\          # Context7 documentation",
-            ">   --arms \"baseline,skill:<path>\" \\  # Or: local skill",
-            ">   --arms \"baseline,agent\" \\         # Or: agentic doc retrieval",
+            ">   --arms \"baseline,docs\" \\",
             ">   --judge \\",
             ">   --judge-model claude-sonnet-4-6 \\",
             ">   [other parameters]",
             "> ```",
+            "> ",
+            "> Treatment arm options: `docs` (Context7 documentation), `skill:<path>` (local skill), `agent` (agentic doc retrieval).",
             "> ",
             "> See: `docs/benchmarking-and-comparison.md#treatment-arm-comparison`",
             "",
@@ -551,18 +551,19 @@ def generate_section_report(
         with_docs_scores = [s["with_docs"] for s in scores if s["with_docs"] is not None]
         without_docs_scores = [s["without_docs"] for s in scores if s["without_docs"] is not None]
 
-        with_avg = _avg(with_docs_scores) if with_docs_scores else 0.0
+        has_treatment = bool(with_docs_scores)
+        with_avg = _avg(with_docs_scores) if has_treatment else 0.0
         without_avg = _avg(without_docs_scores) if without_docs_scores else 0.0
 
         # Only compute delta if treatment arm exists
-        if with_docs_scores:
+        if has_treatment:
             delta_avg = round(with_avg - without_avg, 1)
             improved = sum(1 for s in scores if s.get("delta") and s["delta"] > 0)
             degraded = sum(1 for s in scores if s.get("delta") and s["delta"] < 0)
         else:
-            delta_avg = 0.0
-            improved = 0
-            degraded = 0
+            delta_avg = None
+            improved = None
+            degraded = None
 
         summary_stats[run_id] = {
             "n": len(scores),
@@ -572,9 +573,16 @@ def generate_section_report(
             "improved": improved,
             "degraded": degraded,
         }
+
+        # Format treatment-only columns as "—" when absent
+        with_avg_str = str(with_avg) if has_treatment else "—"
+        delta_str = f"**{_fmt_delta(delta_avg)}**" if has_treatment else "—"
+        improved_str = str(improved) if has_treatment else "—"
+        degraded_str = str(degraded) if has_treatment else "—"
+
         lines.append(
-            f"| **{run_id}** | {len(scores)} | {with_avg} | {without_avg} | "
-            f"**{_fmt_delta(delta_avg)}** | {improved} | {degraded} |"
+            f"| **{run_id}** | {len(scores)} | {with_avg_str} | {without_avg} | "
+            f"{delta_str} | {improved_str} | {degraded_str} |"
         )
 
     lines += [""]
@@ -606,12 +614,12 @@ def generate_section_report(
                 paired = [(s["with_docs"], s["without_docs"]) for s in scores
                           if s["with_docs"] is not None and s["without_docs"] is not None]
                 if paired:
-                    with_scores, without_scores = zip(*paired)
+                    with_scores, without_scores = zip(*paired, strict=True)
                     sig = significance_test(list(with_scores), list(without_scores))
                 else:
                     sig = None
                 if sig:
-                    sig_mark = "OK Yes" if sig["significant"] else "No No"
+                    sig_mark = "OK Yes" if sig["significant"] else "No"
                     p_wilcox = sig["p_wilcoxon"] if sig["p_wilcoxon"] is not None else "N/A"
                     lines.append(
                         f"| **{run_id}** | {_fmt_delta(sig['delta_mean'])} | {sig['p_ttest']} | "
@@ -626,10 +634,18 @@ def generate_section_report(
             difficulty_groups[s["difficulty"]][run_id].append(s)
 
     if difficulty_groups:
-        header = "| Difficulty | N | " + " | ".join(
-            f"{rid} context | {rid} Δ" for rid in run_ids
-        ) + " |"
-        separator = "|---|---:|" + "|".join([" :---: | :---: "] * len(run_ids)) + "|"
+        # Adapt header to single-arm vs multi-arm scenario
+        if has_treatment:
+            header = "| Difficulty | N | " + " | ".join(
+                f"{rid} context | {rid} Δ" for rid in run_ids
+            ) + " |"
+            separator = "|---|---:|" + "|".join([" :---: | :---: "] * len(run_ids)) + "|"
+        else:
+            header = "| Difficulty | N | " + " | ".join(
+                f"{rid} baseline" for rid in run_ids
+            ) + " |"
+            separator = "|---|---:|" + "| :---: " * len(run_ids) + "|"
+
         lines += [
             "## By Difficulty (common questions only)",
             header,
@@ -653,9 +669,15 @@ def generate_section_report(
                     else:
                         # Single-arm run - show baseline only
                         wo = _avg(without_scores) if without_scores else 0.0
-                        row += f" — | {wo} (baseline) |"
+                        if has_treatment:
+                            row += f" — | {wo} (baseline) |"
+                        else:
+                            row += f" {wo} |"
                 else:
-                    row += " — | — |"
+                    if has_treatment:
+                        row += " — | — |"
+                    else:
+                        row += " — |"
             lines.append(row)
         lines += [""]
 
