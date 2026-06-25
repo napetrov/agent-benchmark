@@ -473,9 +473,14 @@ def generate_section_report(
                 if cost_known is not None and total_calls is not None and cost_known < total_calls:
                     cost_str += f" ({cost_known}/{total_calls})"
 
-            prompt_tok = cs.get("prompt_tokens", 0)
-            completion_tok = cs.get("completion_tokens", 0)
-            total_tok = cs.get("total_tokens", 0)
+            prompt_tok = cs.get("prompt_tokens")
+            prompt_str = f"{prompt_tok:,}" if prompt_tok is not None else "—"
+
+            completion_tok = cs.get("completion_tokens")
+            completion_str = f"{completion_tok:,}" if completion_tok is not None else "—"
+
+            total_tok = cs.get("total_tokens")
+            total_str = f"{total_tok:,}" if total_tok is not None else "—"
 
             latency = cs.get("mean_latency_sec")
             latency_str = f"{latency:.2f}s" if latency is not None else "—"
@@ -484,8 +489,8 @@ def generate_section_report(
             cache_str = f"{cache_ratio:.1%}" if cache_ratio is not None else "—"
 
             lines.append(
-                f"| **{run_id}** | {cost_str} | {prompt_tok:,} | {completion_tok:,} | "
-                f"{total_tok:,} | {latency_str} | {cache_str} |"
+                f"| **{run_id}** | {cost_str} | {prompt_str} | {completion_str} | "
+                f"{total_str} | {latency_str} | {cache_str} |"
             )
 
         lines += [""]
