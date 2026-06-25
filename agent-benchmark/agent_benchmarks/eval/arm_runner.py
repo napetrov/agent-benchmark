@@ -92,7 +92,7 @@ class ArmRunner:
             with lock:
                 results[idx] = rec
                 done[0] += 1
-                print(f"[{done[0]}/{n}] {rec['question_id']} ✓", flush=True)
+                print(f"[{done[0]}/{n}] {rec['question_id']} OK", flush=True)
 
         print(f"Running {len(self.treatments)} arms over {n} questions "
               f"(arms: {', '.join(self.arm_names)})", flush=True)

@@ -79,12 +79,12 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
 
     out_json = Path(args.out_json) if args.out_json else Path(f"results/arms/{args.product}.json")
     runner.save(output, out_json)
-    print(f"✓ Saved arms comparison: {out_json}")
+    print(f"OK Saved arms comparison: {out_json}")
 
     out_md = Path(args.out_md) if args.out_md else Path(f"results/arms/{args.product}.md")
     out_md.parent.mkdir(parents=True, exist_ok=True)
     out_md.write_text(render_arms_report(output), encoding="utf-8")
-    print(f"✓ Saved arms report:     {out_md}")
+    print(f"OK Saved arms report:     {out_md}")
 
     if output.get("summary", {}).get("per_arm"):
         print("\nSummary (avg aggregate):")

@@ -448,6 +448,48 @@ def generate_section_report(
         "",
     ]
 
+    # --- Resource Usage ---
+    # Extract cost_summary from each run (baseline arm only for now)
+    cost_data_available = any(
+        run_data.get("cost_summary") for _, run_data in runs
+    )
+    if cost_data_available:
+        lines += [
+            "## Resource Usage (baseline arm)",
+            "| Run | Total Cost | Prompt tok | Completion tok | Total tok | Avg latency/Q | Cache hit |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        ]
+        for run_id, run_data in runs:
+            cost_summary = run_data.get("cost_summary", {})
+            baseline_arm = run_data.get("baseline_arm", "baseline")
+            cs = cost_summary.get(baseline_arm, {})
+
+            # Extract metrics
+            cost_usd = cs.get("total_cost_usd")
+            cost_str = f"${cost_usd:.4f}" if cost_usd is not None else "—"
+            if cost_usd is not None:
+                cost_known = cs.get("cost_known_n")
+                total_calls = cs.get("total_llm_calls", cs.get("n"))
+                if cost_known is not None and total_calls is not None and cost_known < total_calls:
+                    cost_str += f" ({cost_known}/{total_calls})"
+
+            prompt_tok = cs.get("prompt_tokens", 0)
+            completion_tok = cs.get("completion_tokens", 0)
+            total_tok = cs.get("total_tokens", 0)
+
+            latency = cs.get("mean_latency_sec")
+            latency_str = f"{latency:.2f}s" if latency is not None else "—"
+
+            cache_ratio = cs.get("cache_hit_ratio")
+            cache_str = f"{cache_ratio:.1%}" if cache_ratio is not None else "—"
+
+            lines.append(
+                f"| **{run_id}** | {cost_str} | {prompt_tok:,} | {completion_tok:,} | "
+                f"{total_tok:,} | {latency_str} | {cache_str} |"
+            )
+
+        lines += [""]
+
     # --- Overall Summary ---
     lines += [
         "## Overall Summary",
