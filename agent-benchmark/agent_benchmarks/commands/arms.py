@@ -92,7 +92,7 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
             avg = stats.get("avg_aggregate")
             delta = stats.get("delta_vs_baseline")
             avg_s = "n/a" if avg is None else f"{avg:.1f}"
-            delta_s = "" if (delta is None or arm == args.baseline_arm) else f" (Δ {delta:+.1f})"
+            delta_s = "" if (delta is None or arm == args.baseline_arm) else f" (delta {delta:+.1f})"
             print(f"  {arm:<24} {avg_s}{delta_s}")
 
 

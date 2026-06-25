@@ -239,6 +239,11 @@ baseline and the treatment arm as the context arm, then computes:
 **All summary, significance, difficulty, and head-to-head metrics use only the
 common question set** (intersection of question IDs across all runs).
 
+**Note:** The report works with both single-arm (baseline-only) and multi-arm
+runs. Single-arm runs show absolute baseline scores and resource usage but
+cannot compute delta analysis or statistical significance. The report
+automatically detects the scenario and displays appropriate warnings.
+
 ```bash
 python cli.py report model-compare \
   --regular-runs results/arms/dpnp_regular_sonnet46.json results/arms/dpnp_regular_opus48.json \
