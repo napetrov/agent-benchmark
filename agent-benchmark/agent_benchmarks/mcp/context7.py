@@ -120,11 +120,22 @@ class Context7Client(MCPClient):
                 }]
         
         # Fetch from Context7
-        url = (
-            f"{self.endpoint}/{library_id}/llms.txt"
-            f"?tokens={max_tokens}"
-            f"&topic={urllib.parse.quote(query)}"
-        )
+        # Support both GitHub repos (uxlfoundation/oneTBB) and websites (intelpython_github_io_dpnp)
+        # Website IDs typically contain underscores or 'github_io' pattern
+        if "_" in library_id or "github_io" in library_id:
+            # Website format: websites/intelpython_github_io_dpnp
+            url = (
+                f"{self.endpoint}/websites/{library_id}/llms.txt"
+                f"?tokens={max_tokens}"
+                f"&topic={urllib.parse.quote(query)}"
+            )
+        else:
+            # GitHub repo format: uxlfoundation/oneTBB
+            url = (
+                f"{self.endpoint}/{library_id}/llms.txt"
+                f"?tokens={max_tokens}"
+                f"&topic={urllib.parse.quote(query)}"
+            )
         
         logger.info(f"Fetching from Context7: {library_id} query={query[:50]}...")
         
