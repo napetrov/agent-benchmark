@@ -20,7 +20,8 @@
         "persona": "performance_triage_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A to Flow B escalation",
-        "why_it_matters": "Tests whether the agent interprets counters as diagnostic signals instead of matching keywords to generic optimization advice."
+        "why_it_matters": "Tests whether the agent interprets counters as diagnostic signals instead of matching keywords to generic optimization advice.",
+        "trigger": "counter"
       }
     },
     {
@@ -38,7 +39,8 @@
         "persona": "systems_maintainer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Ensure debug symbols before annotate",
-        "why_it_matters": "Prevents plausible but unusable reports that contain addresses with no actionable source mapping."
+        "why_it_matters": "Prevents plausible but unusable reports that contain addresses with no actionable source mapping.",
+        "trigger": "counter"
       }
     },
     {
@@ -56,7 +58,8 @@
         "persona": "c_cpp_optimizer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "from-source trigger to parallel-accumulator pattern",
-        "why_it_matters": "Checks whether the skill helps identify practical opportunities before over-spending on profiling."
+        "why_it_matters": "Checks whether the skill helps identify practical opportunities before over-spending on profiling.",
+        "trigger": "source"
       }
     },
     {
@@ -74,7 +77,8 @@
         "persona": "performance_triage_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A interpretation",
-        "why_it_matters": "Separates evidence-driven diagnosis from generic 'make it vectorized' advice."
+        "why_it_matters": "Separates evidence-driven diagnosis from generic 'make it vectorized' advice.",
+        "trigger": "counter"
       }
     },
     {
@@ -92,7 +96,8 @@
         "persona": "benchmark_engineer",
         "skill_under_test": "phoronix-test-suite",
         "expected_workflow": "PTS trigger before linux-perf",
-        "why_it_matters": "Tests cross-skill routing and prevents invalid benchmark modifications."
+        "why_it_matters": "Tests cross-skill routing and prevents invalid benchmark modifications.",
+        "trigger": "counter"
       }
     },
     {
@@ -110,7 +115,8 @@
         "persona": "backend_performance_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D",
-        "why_it_matters": "Scaling problems need comparative evidence, not a single high-core profile."
+        "why_it_matters": "Scaling problems need comparative evidence, not a single high-core profile.",
+        "trigger": "counter"
       }
     },
     {
@@ -128,7 +134,8 @@
         "persona": "multicore_performance_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "false-sharing pattern from c2c evidence",
-        "why_it_matters": "Checks true cache-line reasoning rather than treating all HITM as generic lock contention."
+        "why_it_matters": "Checks true cache-line reasoning rather than treating all HITM as generic lock contention.",
+        "trigger": "counter"
       }
     },
     {
@@ -146,7 +153,8 @@
         "persona": "simd_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "narrow SIMD pattern with CPU capability check",
-        "why_it_matters": "Tests whether optimization advice is hardware-aware and dispatch-safe."
+        "why_it_matters": "Tests whether optimization advice is hardware-aware and dispatch-safe.",
+        "trigger": "counter"
       }
     },
     {
@@ -164,7 +172,8 @@
         "persona": "low_level_performance_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "missing-vzeroupper pattern",
-        "why_it_matters": "Catches a specialized but costly x86 transition issue that generic profilers often miss."
+        "why_it_matters": "Catches a specialized but costly x86 transition issue that generic profilers often miss.",
+        "trigger": "counter"
       }
     },
     {
@@ -182,7 +191,8 @@
         "persona": "c_maintainer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "missing-restrict pattern",
-        "why_it_matters": "Checks whether the agent can improve vectorization without introducing undefined behavior."
+        "why_it_matters": "Checks whether the agent can improve vectorization without introducing undefined behavior.",
+        "trigger": "counter"
       }
     },
     {
@@ -200,7 +210,8 @@
         "persona": "concurrency_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "TTAS pattern",
-        "why_it_matters": "Distinguishes CAS-line contention from sleep/wakeup mutex behavior."
+        "why_it_matters": "Distinguishes CAS-line contention from sleep/wakeup mutex behavior.",
+        "trigger": "source"
       }
     },
     {
@@ -218,7 +229,8 @@
         "persona": "network_service_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "per-cpu-stats pattern",
-        "why_it_matters": "Prevents misclassification of cache-line contention patterns."
+        "why_it_matters": "Prevents misclassification of cache-line contention patterns.",
+        "trigger": "counter"
       }
     },
     {
@@ -236,7 +248,8 @@
         "persona": "runtime_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "cv-thundering-herd pattern",
-        "why_it_matters": "Tests whether the agent can separate scheduler overhead from application lock contention."
+        "why_it_matters": "Tests whether the agent can separate scheduler overhead from application lock contention.",
+        "trigger": "counter"
       }
     },
     {
@@ -255,7 +268,8 @@
         "skill_under_test": "performance-patterns",
         "expected_workflow": "mutex-to-rwlock pattern",
         "why_it_matters": "Avoids a common but unsafe blanket recommendation to replace every mutex with an rwlock.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -273,7 +287,8 @@
         "persona": "storage_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "fast-crc32c pattern",
-        "why_it_matters": "Checks practical use of known optimized algorithm replacements with correctness guardrails."
+        "why_it_matters": "Checks practical use of known optimized algorithm replacements with correctness guardrails.",
+        "trigger": "counter"
       }
     },
     {
@@ -291,7 +306,8 @@
         "persona": "performance_consultant",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow E",
-        "why_it_matters": "Evaluates deliverable quality, not just diagnosis snippets."
+        "why_it_matters": "Evaluates deliverable quality, not just diagnosis snippets.",
+        "trigger": "counter"
       }
     },
     {
@@ -309,7 +325,8 @@
         "persona": "benchmark_owner",
         "skill_under_test": "phoronix-test-suite",
         "expected_workflow": "PTS Flow B with linux-perf and performance-patterns handoff",
-        "why_it_matters": "Tests benchmark rigor and cross-skill orchestration."
+        "why_it_matters": "Tests benchmark rigor and cross-skill orchestration.",
+        "trigger": "counter"
       }
     },
     {
@@ -327,7 +344,8 @@
         "persona": "hpc_scaling_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D iterative scaling diagnosis",
-        "why_it_matters": "Checks that the agent treats scaling as an iterative evidence loop."
+        "why_it_matters": "Checks that the agent treats scaling as an iterative evidence loop.",
+        "trigger": "counter"
       }
     },
     {
@@ -345,7 +363,8 @@
         "persona": "platform_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "library-version-upgrade pattern",
-        "why_it_matters": "Tests whether the agent can solve performance by changing the right layer."
+        "why_it_matters": "Tests whether the agent can solve performance by changing the right layer.",
+        "trigger": "counter"
       }
     },
     {
@@ -363,7 +382,8 @@
         "persona": "analytics_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "simd-sort pattern",
-        "why_it_matters": "Ensures the agent can identify broader algorithmic opportunities while respecting semantic constraints."
+        "why_it_matters": "Ensures the agent can identify broader algorithmic opportunities while respecting semantic constraints.",
+        "trigger": "source"
       }
     },
     {
@@ -381,7 +401,8 @@
         "persona": "compiler_performance_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A to branch probability/cold-path analysis",
-        "why_it_matters": "Adds branch-centric coverage beyond cache and SIMD scenarios."
+        "why_it_matters": "Adds branch-centric coverage beyond cache and SIMD scenarios.",
+        "trigger": "counter"
       }
     },
     {
@@ -399,7 +420,8 @@
         "persona": "benchmark_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "perf stat building block with repeats",
-        "why_it_matters": "Measures benchmark discipline, not just command recall."
+        "why_it_matters": "Measures benchmark discipline, not just command recall.",
+        "trigger": "counter"
       }
     },
     {
@@ -418,7 +440,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "perf setup permission check",
         "why_it_matters": "Checks safe operational behavior around privileged profiling.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -436,7 +459,8 @@
         "persona": "systems_maintainer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D source collection and inlining check",
-        "why_it_matters": "Prevents local fixes to the wrong function boundary."
+        "why_it_matters": "Prevents local fixes to the wrong function boundary.",
+        "trigger": "counter"
       }
     },
     {
@@ -454,7 +478,8 @@
         "persona": "performance_consultant",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow E long-run handling",
-        "why_it_matters": "Tests cost-aware profiling workflow."
+        "why_it_matters": "Tests cost-aware profiling workflow.",
+        "trigger": "counter"
       }
     },
     {
@@ -472,7 +497,8 @@
         "persona": "vector_search_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "known-algorithms pattern",
-        "why_it_matters": "Covers practical vector-search workloads beyond toy loops."
+        "why_it_matters": "Covers practical vector-search workloads beyond toy loops.",
+        "trigger": "counter"
       }
     },
     {
@@ -490,7 +516,8 @@
         "persona": "search_infrastructure_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "known-algorithms plus cpu-dispatch module",
-        "why_it_matters": "Tests new-code generation, not only diagnosis of existing code."
+        "why_it_matters": "Tests new-code generation, not only diagnosis of existing code.",
+        "trigger": "new_code"
       }
     },
     {
@@ -508,7 +535,8 @@
         "persona": "library_maintainer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "simd-upconversion plus cpu-dispatch",
-        "why_it_matters": "Forces production-safe SIMD advice across a heterogeneous fleet."
+        "why_it_matters": "Forces production-safe SIMD advice across a heterogeneous fleet.",
+        "trigger": "counter"
       }
     },
     {
@@ -527,7 +555,8 @@
         "skill_under_test": "phoronix-test-suite",
         "expected_workflow": "PTS source preparation guardrail",
         "why_it_matters": "Prevents fake optimization claims on non-editable benchmark artifacts.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -545,7 +574,8 @@
         "persona": "benchmark_engineer",
         "skill_under_test": "phoronix-test-suite",
         "expected_workflow": "Evaluate test scores",
-        "why_it_matters": "Checks benchmark semantics and prevents inverted conclusions."
+        "why_it_matters": "Checks benchmark semantics and prevents inverted conclusions.",
+        "trigger": "counter"
       }
     },
     {
@@ -563,7 +593,8 @@
         "persona": "compiler_performance_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "cold-path-annotation pattern",
-        "why_it_matters": "Covers instruction-cache/code-layout improvements."
+        "why_it_matters": "Covers instruction-cache/code-layout improvements.",
+        "trigger": "counter"
       }
     },
     {
@@ -582,7 +613,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "perf.data reuse guardrails",
         "why_it_matters": "Tests practical handling of partial artifacts.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -600,7 +632,8 @@
         "persona": "hpc_scaling_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D midpoint refinement",
-        "why_it_matters": "Tests whether the agent can refine ambiguous scaling evidence."
+        "why_it_matters": "Tests whether the agent can refine ambiguous scaling evidence.",
+        "trigger": "counter"
       }
     },
     {
@@ -619,7 +652,8 @@
         "skill_under_test": "performance-patterns",
         "expected_workflow": "false-sharing presentation protocol",
         "why_it_matters": "Performance fixes can change ABI/layout; this tests safe edit discipline.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -637,7 +671,8 @@
         "persona": "systems_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A system-level interpretation",
-        "why_it_matters": "Expands coverage to non-compute bottlenecks."
+        "why_it_matters": "Expands coverage to non-compute bottlenecks.",
+        "trigger": "counter"
       }
     },
     {
@@ -655,7 +690,8 @@
         "persona": "library_author",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "fast-crc32c implementation module",
-        "why_it_matters": "Evaluates production-ready code generation from skill guidance."
+        "why_it_matters": "Evaluates production-ready code generation from skill guidance.",
+        "trigger": "new_code"
       }
     },
     {
@@ -673,7 +709,8 @@
         "persona": "benchmark_owner",
         "skill_under_test": "linux-perf",
         "expected_workflow": "perf evidence versus benchmark outcome",
-        "why_it_matters": "Prevents counter-optimized but product-regressing changes."
+        "why_it_matters": "Prevents counter-optimized but product-regressing changes.",
+        "trigger": "counter"
       }
     },
     {
@@ -692,7 +729,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "black-box profiling with limits",
         "why_it_matters": "Tests honest boundary setting under incomplete access.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -710,7 +748,8 @@
         "persona": "hpc_scaling_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D iteration",
-        "why_it_matters": "Checks that the agent does not stop after one attractive fix."
+        "why_it_matters": "Checks that the agent does not stop after one attractive fix.",
+        "trigger": "counter"
       }
     },
     {
@@ -728,7 +767,8 @@
         "persona": "evaluation_designer",
         "skill_under_test": "all",
         "expected_workflow": "benchmark rubric design",
-        "why_it_matters": "Makes the benchmark evaluate skill application quality rather than memorized skill contents."
+        "why_it_matters": "Makes the benchmark evaluate skill application quality rather than memorized skill contents.",
+        "trigger": "counter"
       }
     },
     {
@@ -747,7 +787,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A escalation with ambiguous counters",
         "why_it_matters": "Tests whether the agent resists committing to one regime when signals conflict.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -766,12 +807,13 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A with roofline-aware interpretation",
         "why_it_matters": "Adversarial: low IPC is treated as universally bad, but it is expected for bandwidth-bound code.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
       "id": "intel-performance-skills-Q043",
-      "text": "Scenario: A job is wall-clock slow, but `perf stat` shows moderate IPC, low cache misses, low branch misses, and low kernel time \u2014 nothing dominates. CPU utilization during the run is only ~30%. What should the agent investigate?",
+      "text": "Scenario: A job is wall-clock slow, but `perf stat` shows moderate IPC, low cache misses, low branch misses, and low kernel time — nothing dominates. CPU utilization during the run is only ~30%. What should the agent investigate?",
       "category": "triage",
       "difficulty": "hard",
       "level": "triage",
@@ -785,7 +827,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A to off-CPU analysis",
         "why_it_matters": "Negative/hard triage: the correct move is to widen evidence, not to invent an on-CPU pattern.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -804,7 +847,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "counter semantics validation before diagnosis",
         "why_it_matters": "Hard triage trap: a counter is read at face value while its meaning is microarchitecture- and SMT-dependent.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -823,7 +867,8 @@
         "skill_under_test": "performance-patterns",
         "expected_workflow": "true-sharing vs false-sharing disambiguation",
         "why_it_matters": "Adversarial: HITM on one line tempts a padding fix, but true sharing needs aggregation, not separation.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -842,7 +887,8 @@
         "skill_under_test": "performance-patterns",
         "expected_workflow": "serial-accumulator pattern with FP-reproducibility guardrail",
         "why_it_matters": "Negative/safety: the standard speedup is unsafe under a bit-reproducibility contract.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "source"
       }
     },
     {
@@ -861,7 +907,8 @@
         "skill_under_test": "performance-patterns",
         "expected_workflow": "missing-restrict pattern with caller-contract audit",
         "why_it_matters": "Negative/UB: the obvious vectorization fix is incorrect because a real caller aliases the buffers.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -880,7 +927,8 @@
         "skill_under_test": "performance-patterns",
         "expected_workflow": "scheduler-overhead disambiguation before cv-thundering-herd",
         "why_it_matters": "Adversarial: futex/context-switch symptoms match two causes; oversubscription must be ruled out first.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -899,7 +947,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D caller attribution for hot library symbol",
         "why_it_matters": "Adversarial: optimizing the hot symbol is wrong when it is a symptom of upstream copying.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -917,7 +966,8 @@
         "persona": "c_cpp_optimizer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "apply-rebuild-verify-report on a pre-diagnosed fix",
-        "why_it_matters": "Procedural end-to-end at medium difficulty: tests disciplined execution of an unambiguous change."
+        "why_it_matters": "Procedural end-to-end at medium difficulty: tests disciplined execution of an unambiguous change.",
+        "trigger": "counter"
       }
     },
     {
@@ -936,7 +986,8 @@
         "skill_under_test": "phoronix-test-suite",
         "expected_workflow": "PTS evaluate-scores with variance-aware verdict",
         "why_it_matters": "Negative end-to-end: the honest verdict is 'no significant change', not a claimed gain.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -955,7 +1006,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "boundary-setting under missing source/symbols",
         "why_it_matters": "Negative triage: the correct response sets a hard boundary instead of fabricating a line-level fix.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -973,7 +1025,8 @@
         "persona": "multicore_performance_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "false-sharing pattern",
-        "why_it_matters": "Baseline single-pattern detection with no competing signal."
+        "why_it_matters": "Baseline single-pattern detection with no competing signal.",
+        "trigger": "counter"
       }
     },
     {
@@ -991,7 +1044,8 @@
         "persona": "c_cpp_optimizer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "parallel-accumulator pattern",
-        "why_it_matters": "Clean diagnosis case; reproducibility constraint explicitly absent."
+        "why_it_matters": "Clean diagnosis case; reproducibility constraint explicitly absent.",
+        "trigger": "counter"
       }
     },
     {
@@ -1009,7 +1063,8 @@
         "persona": "simd_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "simd-upconversion pattern",
-        "why_it_matters": "Single clear SIMD-width signal, capability already known."
+        "why_it_matters": "Single clear SIMD-width signal, capability already known.",
+        "trigger": "counter"
       }
     },
     {
@@ -1027,7 +1082,8 @@
         "persona": "concurrency_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "shared-counter / lock-elision pattern",
-        "why_it_matters": "Unambiguous mutex-around-counter detection."
+        "why_it_matters": "Unambiguous mutex-around-counter detection.",
+        "trigger": "counter"
       }
     },
     {
@@ -1046,7 +1102,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow A frontend-bound interpretation",
         "why_it_matters": "Tests top-down regime separation, not generic 'low IPC -> vectorize'.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -1065,7 +1122,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "tail-latency triage with time-resolved evidence",
         "why_it_matters": "Hard triage: averages mislead; correct move is targeted evidence, not a fix.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -1084,7 +1142,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "NUMA-aware triage before cache-blocking",
         "why_it_matters": "Hard: remote-memory cost is misread as a generic cache problem.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -1103,7 +1162,8 @@
         "skill_under_test": "linux-perf",
         "expected_workflow": "environment control before comparison",
         "why_it_matters": "Hard triage: confounded environment, not a code change.",
-        "negative_case": true
+        "negative_case": true,
+        "trigger": "counter"
       }
     },
     {
@@ -1121,7 +1181,8 @@
         "persona": "performance_consultant",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow E short-run report",
-        "why_it_matters": "Procedural end-to-end with no diagnostic ambiguity."
+        "why_it_matters": "Procedural end-to-end with no diagnostic ambiguity.",
+        "trigger": "counter"
       }
     },
     {
@@ -1139,7 +1200,8 @@
         "persona": "benchmark_engineer",
         "skill_under_test": "phoronix-test-suite",
         "expected_workflow": "PTS baseline lifecycle",
-        "why_it_matters": "Clean PTS lifecycle without diagnosis."
+        "why_it_matters": "Clean PTS lifecycle without diagnosis.",
+        "trigger": "counter"
       }
     },
     {
@@ -1157,7 +1219,8 @@
         "persona": "library_maintainer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "verify-and-report a written fix",
-        "why_it_matters": "Procedural verification of an already-applied change."
+        "why_it_matters": "Procedural verification of an already-applied change.",
+        "trigger": "counter"
       }
     },
     {
@@ -1175,7 +1238,8 @@
         "persona": "benchmark_owner",
         "skill_under_test": "linux-perf",
         "expected_workflow": "before/after perf stat comparison",
-        "why_it_matters": "Straightforward comparison-artifact production."
+        "why_it_matters": "Straightforward comparison-artifact production.",
+        "trigger": "counter"
       }
     },
     {
@@ -1193,7 +1257,8 @@
         "persona": "hpc_scaling_engineer",
         "skill_under_test": "linux-perf",
         "expected_workflow": "Flow D iteration loop",
-        "why_it_matters": "Multi-cycle lifecycle with an explicit stopping rule."
+        "why_it_matters": "Multi-cycle lifecycle with an explicit stopping rule.",
+        "trigger": "counter"
       }
     },
     {
@@ -1211,7 +1276,8 @@
         "persona": "c_maintainer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "missing-restrict apply-rebuild-verify with caller audit",
-        "why_it_matters": "End-to-end execution gated on a safety precondition."
+        "why_it_matters": "End-to-end execution gated on a safety precondition.",
+        "trigger": "counter"
       }
     },
     {
@@ -1229,7 +1295,278 @@
         "persona": "analytics_engineer",
         "skill_under_test": "performance-patterns",
         "expected_workflow": "simd-sort ship lifecycle with compatibility gates",
-        "why_it_matters": "End-to-end with go/no-go gates rather than pure diagnosis."
+        "why_it_matters": "End-to-end with go/no-go gates rather than pure diagnosis.",
+        "trigger": "counter"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q068",
+      "text": "Scenario: While reviewing a C file the agent reads `float dot(const float *src1, const float *src2, int nr) { float s = 0.0; for (i=0;i<nr;i++) s += src1[i]*src2[i]; return s; }`. No profile has been collected. Should the agent gather a `perf` profile first, or can it route from the source alone? State the regime call and next step.",
+      "category": "source_triage",
+      "difficulty": "easy",
+      "level": "triage",
+      "expected_topics": [
+        "The single-accumulator reduction is itself the trigger; per vector-sequential.md a reviewer should flag the simple pattern as a high-priority optimization note without waiting for a profile.",
+        "Route to the vector-sequential / parallel-accumulator pattern; a profile is confirmation, not a precondition to identify the opportunity.",
+        "Name the regime as a dependency-chain-bound reduction, not memory or branch bound, from the source shape alone."
+      ],
+      "metadata": {
+        "persona": "c_cpp_optimizer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "source-pattern trigger without profile",
+        "why_it_matters": "Tests that the agent treats a source pattern as a first-class triage entry point, not only counters.",
+        "trigger": "source"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q069",
+      "text": "Scenario: The agent is reading a hot path and finds three loops in one file: a dot product, an array average, and an in-place scale (`for(i..) src[i]=src[i]*factor;`). No profile exists yet. Which of these should it route to a pattern now, and which needs profile evidence before acting?",
+      "category": "source_triage",
+      "difficulty": "medium",
+      "level": "triage",
+      "expected_topics": [
+        "The dot product and average are vector-sequential reductions with a dependency chain: route both to the parallel-accumulator/SIMD pattern now.",
+        "The scale loop is an embarrassingly parallel map with no cross-iteration dependency; it is already auto-vectorizable, so the right move is to check compiler flags/`restrict` rather than hand-optimize, and to confirm it is actually hot before spending effort.",
+        "Distinguish reduction patterns (act on source) from map patterns (lower priority, verify hotness/flags first) instead of treating every loop identically."
+      ],
+      "metadata": {
+        "persona": "c_cpp_optimizer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "source-pattern routing across multiple loops",
+        "why_it_matters": "Checks the agent discriminates which source patterns justify action vs. which need profile/flags evidence first.",
+        "trigger": "source"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q070",
+      "text": "Scenario: Reviewing existing code the agent finds a hand-written AVX2 routine whose inline `asm` block ends with `vzeroupper` and clobbers `ymm0`-`ymm15` plus `memory`, though only `ymm0` is used. No profile is in hand. What source-level optimization should it flag, and what must it not claim without measurement?",
+      "category": "source_triage",
+      "difficulty": "medium",
+      "level": "triage",
+      "expected_topics": [
+        "Per optimize.md, move `vzeroupper` out of the asm block by using `_mm256_zeroupper()` after it (or `vpxor` on the single register), then recompute the clobber list, which is dominated by the removed `vzeroupper`.",
+        "This is a source-level review finding flagged at low severity in an Optimization Notes section; it does not require a profile to identify.",
+        "Do not claim a specific speedup without a before/after measurement; the change reduces clobbers and improves codegen, but the magnitude must be measured."
+      ],
+      "metadata": {
+        "persona": "low_level_performance_engineer",
+        "skill_under_test": "vector-x86",
+        "expected_workflow": "vzeroupper clobber reduction from source review",
+        "why_it_matters": "Tests source-review triage of an asm anti-pattern and honest bounding of unmeasured gains.",
+        "trigger": "source"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q071",
+      "text": "Task: An agent with the performance skill loaded is writing a new dense-layer forward pass: `for each neuron i: sum=bias[i]; for j in inputs: sum += input[j]*weights[i][j]`. Optimization was not explicitly requested. What should the agent generate, and how should it cheaply confirm the choice?",
+      "category": "proactive_new_code",
+      "difficulty": "easy",
+      "level": "end_to_end",
+      "expected_topics": [
+        "Because optimize.md applies even when optimization is not requested, generate the inner reduction with the optimized pattern from the start: multiple parallel accumulators (e.g. s0..s3) combined as (s0+s1)+(s2+s3), with a scalar tail.",
+        "Do not emit the naive single-accumulator loop; vector-sequential.md says to always use an optimized pattern when generating new code.",
+        "Confirm cheaply with a small before/after microbenchmark; full profiling is optional at this scale."
+      ],
+      "metadata": {
+        "persona": "c_cpp_optimizer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "proactive parallel-accumulator generation",
+        "why_it_matters": "Tests the fast-from-the-start use case: optimized code emitted unprompted while writing.",
+        "trigger": "new_code"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q072",
+      "text": "Scenario: An agent is implementing an array sum over `float` data as part of a larger feature, no one asked for tuning, and the vector length is expected to exceed 1024 elements. Which pattern from the skill should it apply, and what unroll factor?",
+      "category": "proactive_new_code",
+      "difficulty": "easy",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Apply Optimization 3 from vector-sequential.md: SIMD intrinsics inside an unrolled loop (SSE2 or AVX2 per the CPU baseline), not the naive scalar sum.",
+        "For vectors of 1024+ elements the guidance is an unroll factor of at least 4 independent accumulator streams.",
+        "Keep a scalar tail for the remainder and choose vector width from the build's CPU baseline."
+      ],
+      "metadata": {
+        "persona": "simd_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "proactive SIMD-unrolled reduction",
+        "why_it_matters": "Tests that the agent picks the right proactive pattern and unroll factor for a large reduction without being asked.",
+        "trigger": "new_code"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q073",
+      "text": "Task: A coding agent just wrote `void add(float *a, float *b, float *out, int n){ for(i..) out[i]=a[i]+b[i]; }` for buffers it controls and knows never overlap. No profiling was requested. What should it proactively do to make this vectorize, and what caveat applies?",
+      "category": "proactive_new_code",
+      "difficulty": "easy",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Proactively add `restrict` (C99) / `__restrict__` (C++) to the pointer parameters so the compiler need not emit an alias-check preamble or scalar fallback, per autovectorize.md.",
+        "Consider `-ftree-vectorize` since GCC vectorizes little at -O2; this is a map (no dependency chain), so flags plus `restrict` suffice without hand-SIMD.",
+        "Caveat: only assert `restrict` when the non-overlap contract is genuinely true for all callers; it is undefined behavior otherwise."
+      ],
+      "metadata": {
+        "persona": "c_cpp_optimizer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "proactive restrict + autovectorize",
+        "why_it_matters": "Tests proactive vectorization-enabling on freshly written code with the aliasing safety caveat.",
+        "trigger": "new_code"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q074",
+      "text": "Scenario: An agent is writing a new elementwise float multiply and the build targets an AVX2 baseline. It is tempted to ship a quick SSE (`xmm`, 128-bit) intrinsic version. What does the skill say it should do instead, proactively?",
+      "category": "proactive_new_code",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "optimize.md says SSE-only paths should be upgraded to AVX2 (256-bit) since modern OSes assume an AVX2 baseline; generate the AVX2 width directly rather than SSE.",
+        "If runtime CPU detection is present, add both AVX2 and AVX512 paths (see builtin_cpu_supports.md / target_clones); without detection, target the AVX2 baseline directly.",
+        "Note that `target_clones` does not upgrade intrinsic width, so the intrinsic version must be written at the intended width."
+      ],
+      "metadata": {
+        "persona": "simd_engineer",
+        "skill_under_test": "vector-x86",
+        "expected_workflow": "proactive SSE-to-AVX2 width selection",
+        "why_it_matters": "Tests that proactive new code matches the CPU baseline instead of defaulting to narrow SSE.",
+        "trigger": "new_code"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q075",
+      "text": "Scenario: A dense-layer reduction already uses four scalar parallel accumulators (s0..s3). The agent collects `perf` on that exact code and sees the loop still bottlenecked on FP add throughput with scalar `xmm` ops on an SSE2+ host. The code is in hand and editable. What is the evidence-driven next step?",
+      "category": "code_drives_decision",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The profile on the actual code justifies escalating from C-level parallel accumulators (Optimization 1) to SIMD intrinsics in an unrolled loop (Optimization 3): four `__m128` accumulators processing 16 elements per iteration.",
+        "The decision is driven by perf measured on the present code, not by generic advice; the existing accumulator structure maps directly onto the SSE registers.",
+        "Verify with before/after timing and a horizontal reduction that preserves correctness; keep the scalar tail."
+      ],
+      "metadata": {
+        "persona": "simd_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "measured escalation accumulator->SSE on real code",
+        "why_it_matters": "Tests the code-first loop: perf on the actual code drives the next optimization, mirroring a real escalation.",
+        "trigger": "source"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q076",
+      "text": "Scenario: The agent has the source for a hot reduction and two candidate rewrites (C parallel accumulators vs. SSE intrinsics). It benchmarks both against the original on the target host. SSE measures ~4x and unrolled-SSE ~8x over scalar. How should the agent let the code-plus-measurement drive the shipped choice?",
+      "category": "code_drives_decision",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Pick the variant by measured speedup on the real code, not by which sounds fastest in the abstract; vector-sequential.md's quoted multipliers are expectations to confirm, not guarantees.",
+        "Prefer the unrolled-SIMD (Optimization 3) variant when its measured gain holds and complexity is acceptable; record the measured numbers.",
+        "Keep correctness checks (tail handling, horizontal reduction) and document the build's CPU baseline that the chosen width assumes."
+      ],
+      "metadata": {
+        "persona": "c_cpp_optimizer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "measurement-selected variant on real code",
+        "why_it_matters": "Tests that concrete measurement on the code, not high-level claims, selects the shipped optimization.",
+        "trigger": "source"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q077",
+      "text": "Scenario: An agent optimized a reduction and `perf stat` on the new code shows IPC improved markedly, but the surrounding feature's end-to-end benchmark is unchanged. The code for both the hot loop and its callers is available. Which signal should drive the decision and what should the agent inspect next?",
+      "category": "code_drives_decision",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The end-to-end benchmark outcome on the real code is the source of truth; a local IPC win that does not move the workload means the optimized loop is not the dominant cost at the application level.",
+        "Re-profile to find where time actually goes (caller attribution / a now-dominant different hotspot) before claiming success; the micro-improvement may be real but irrelevant.",
+        "Do not report the IPC gain as a workload speedup; bound the claim to the loop and let the measured workload result drive whether to continue."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "trust workload outcome over local counter on real code",
+        "why_it_matters": "Tests that measured workload results on the actual code, not an isolated counter, drive the verdict.",
+        "trigger": "counter"
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q078",
+      "text": "Scenario: A user pastes only a `perf report` excerpt showing 60% of samples in `evaluate_dense_layer` and demands the agent rewrite the function for speed. No source, build files, or repo access are provided. What is the correct response?",
+      "category": "perf_without_source",
+      "difficulty": "medium",
+      "level": "triage",
+      "expected_topics": [
+        "A code change requires source the agent can read and modify; an aggregate `perf report` excerpt alone is not sufficient license to rewrite a function.",
+        "Ask for source and build access (and confirm the function is editable, not a third-party binary) before proposing any code edit.",
+        "It is legitimate to describe likely pattern hypotheses from the symbol name, but bound them as unverified until source is seen."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "obtain source before code change",
+        "why_it_matters": "Negative: enforces the ordering principle that perf data alone cannot drive a code edit.",
+        "trigger": "counter",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q079",
+      "text": "Scenario: The agent is given a `perf stat` table (low IPC, low cache/branch/kernel) and asked to 'just apply the parallel-accumulator fix.' The relevant source file is not provided and the binary is a stripped third-party `.so`. What must the agent refuse to do, and what remains in bounds?",
+      "category": "perf_without_source",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "Refuse to apply or claim a specific code rewrite: there is no editable source, and the counters alone do not even confirm the loop is a single-accumulator reduction.",
+        "In bounds: state the regime hypothesis from the counters, request source/symbols, and note what evidence (annotated source) would be needed to confirm the parallel-accumulator pattern applies.",
+        "Surface that a stripped third-party `.so` is not an editable artifact, so the fix cannot target it directly."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "boundary-setting without source on stripped binary",
+        "why_it_matters": "Negative: counters plus a pattern name still do not license a code change without source.",
+        "trigger": "counter",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q080",
+      "text": "Scenario: Only a `perf.data` file and a flamegraph image are provided, no command line, no source tree. The user wants the agent to 'optimize the top function.' What can the agent legitimately produce, and what is out of bounds?",
+      "category": "perf_without_source",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "In bounds: read the profile, identify and rank hotspots, and state pattern hypotheses and what to measure; this is profile interpretation, not a code change.",
+        "Out of bounds: editing or rewriting code, since no source is available and a flamegraph/`perf.data` cannot be turned into a safe diff.",
+        "Recommend obtaining the source and build, and (for `perf.data` reuse) note the limits of analyzing a profile detached from its binary/command."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "profile-only analysis with stated limits",
+        "why_it_matters": "Negative: distinguishes legitimate profile interpretation from an unjustified code edit.",
+        "trigger": "counter",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q081",
+      "text": "Scenario: A teammate shares a dashboard of high-level perf KPIs (throughput down 8%, CPU up) for a service and says 'the skill should tell us which code to change.' No profile, no source, no hotspot attribution yet. How should a skill-aware agent respond?",
+      "category": "perf_without_source",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "High-level aggregate KPIs do not localize a bottleneck to code; per the ordering principle, code drives changes and these metrics cannot justify a specific edit.",
+        "Route to evidence collection first: capture a profile (`perf record`/`stat`) to attribute the regression to functions, then obtain the source for the implicated code.",
+        "Do not propose code changes from the KPI movement alone; name it a triage starting point, not a diagnosis."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "KPI dashboard to profiling before code",
+        "why_it_matters": "Negative: top-level perf data without code/profile attribution cannot drive a code change.",
+        "trigger": "counter",
+        "negative_case": true
       }
     }
   ]
