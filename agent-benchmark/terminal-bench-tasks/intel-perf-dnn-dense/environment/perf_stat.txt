@@ -1,0 +1,12 @@
+Performance counter stats for './dense_serial 240':
+
+     4,180,000,000      cycles
+     2,560,000,000      instructions              #    0.61  insn per cycle
+            58,000      cache-misses              #    0.12% of all cache refs
+            96,000      branch-misses             #    0.30% of all branches
+
+The forward pass is CPU-bound with low IPC and low cache/branch miss rates.
+The dense-layer inner product (`sum += input[j] * w_row[j]`) is a vector-
+sequential reduction whose single accumulator creates a loop-carried
+dependency, leaving most FP execution slots idle. This is a source-level
+trigger for the parallel-accumulator / SIMD reduction pattern.
