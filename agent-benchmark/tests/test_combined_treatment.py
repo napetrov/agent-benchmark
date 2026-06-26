@@ -1,6 +1,5 @@
 """Tests for combined treatment feature."""
 
-import pytest
 from agent_benchmarks.treatments.factory import create_treatment, _parse_combined_spec
 from agent_benchmarks.treatments.arms import CombinedTreatment
 

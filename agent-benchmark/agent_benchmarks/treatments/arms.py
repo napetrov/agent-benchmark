@@ -250,7 +250,7 @@ class CombinedTreatment(Treatment):
             "combined_count": len(self.treatments),
             "treatments": [],
         }
-        for t, cfg in zip(self.treatments, configs):
+        for t, cfg in zip(self.treatments, configs, strict=True):
             merged_metadata["treatments"].append(
                 {"name": t.name, "arm_kind": cfg.metadata.get("arm_kind"), **cfg.metadata}
             )
