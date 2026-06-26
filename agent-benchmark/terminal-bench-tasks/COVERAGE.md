@@ -94,6 +94,7 @@ profile artifacts are shipped in the task environment.
 | Condition-variable thundering herd | `intel-perf-cv-herd` | diagnosis | implemented | Exact job count + checksum at several worker counts; termination (no deadlock/lost wakeup); per-job path uses `notify_one`, not broadcast |
 | Single-accumulator CRC32C | `intel-perf-crc32c` | diagnosis | implemented | CRC equality vs reference + known vector; >=4x throughput (measured ~14x); source marker for hardware CRC intrinsic + dispatch + scalar fallback |
 | `std::sort` on primitives (stable not required) | `intel-perf-simd-sort` | diagnosis | implemented | Sortedness + same multiset signature vs reference; >=1.8x speedup (measured ~4x); rejects `std::sort` on the hot path |
+| Dense-layer forward pass / serial reduction (source-first, proactive) | `intel-perf-dnn-dense` | end_to_end | implemented | Checksum equality vs serial reference within fp tolerance; >=1.8x speedup (measured ~4.5x); leaky-ReLU preserved; source marker for SIMD intrinsics or multiple partial accumulators |
 
 > Verifier-strategy note: the concurrency tasks (`ttas-spinlock`, `mutex-rwlock`,
 > `cv-herd`) gate on **correctness + structural source markers + termination**
