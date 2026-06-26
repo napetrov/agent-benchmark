@@ -121,8 +121,11 @@ class Context7Client(MCPClient):
         
         # Fetch from Context7
         # Support both GitHub repos (uxlfoundation/oneTBB) and websites (intelpython_github_io_dpnp)
-        # Website IDs typically contain underscores or 'github_io' pattern
-        if "_" in library_id or "github_io" in library_id:
+        # Website IDs: no slash + (underscore OR 'github_io' pattern)
+        # This avoids misclassifying GitHub repos with underscores (e.g., some_org/repo)
+        is_website = "/" not in library_id and ("_" in library_id or "github_io" in library_id)
+
+        if is_website:
             # Website format: websites/intelpython_github_io_dpnp
             url = (
                 f"{self.endpoint}/websites/{library_id}/llms.txt"
@@ -130,7 +133,7 @@ class Context7Client(MCPClient):
                 f"&topic={urllib.parse.quote(query)}"
             )
         else:
-            # GitHub repo format: uxlfoundation/oneTBB
+            # GitHub repo format: uxlfoundation/oneTBB (or some_org/repo)
             url = (
                 f"{self.endpoint}/{library_id}/llms.txt"
                 f"?tokens={max_tokens}"
