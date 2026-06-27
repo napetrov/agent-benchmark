@@ -1,0 +1,26 @@
+version = "1.0"
+
+[metadata]
+author_name = "Nikolay Petrov"
+author_email = "nikolay.a.petrov@intel.com"
+difficulty = "hard"
+difficulty_explanation = "Requires recognizing that a TTAS lock still suffers a release-time CAS storm (thundering herd) and adding bounded exponential backoff with a cap and a relax/pause body, without breaking mutual exclusion or introducing livelock via unbounded backoff"
+level = "diagnosis"
+trigger = "counter"
+category = "programming"
+tags = ["c++", "performance", "linux-perf", "spinlock", "backoff", "cas-storm", "contention", "intel-performance-skills"]
+
+[verifier]
+timeout_sec = 120.0
+
+[agent]
+timeout_sec = 300.0
+
+[environment]
+build_timeout_sec = 300.0
+docker_image = "intel-hpc-bench/intel-perf-spinlock-backoff:latest"
+cpus = 4
+memory_mb = 2048
+storage_mb = 5120
+gpus = 0
+allow_internet = false

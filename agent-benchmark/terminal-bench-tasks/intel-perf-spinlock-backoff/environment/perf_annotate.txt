@@ -1,0 +1,27 @@
+Samples: 71K of event 'cycles', annotating TtasLock::lock():
+
+       │    TtasLock::lock():
+       │      while (flag.load(relaxed) == 1) {
+  8.1% │ ┌──→ mov    (%rdi),%eax              ← read-only spin (line stays shared)
+       │ │    cmp    $0x1,%eax
+       │ └──── je     <read_spin>
+       │      if (flag.exchange(1, acquire) == 0) return;
+ 78.4% │      mov    $0x1,%eax
+       │      lock xchg %eax,(%rdi)           ← CAS storm right after unlock()
+       │      test   %eax,%eax
+       │      jne    <read_spin>
+       │      ret
+
+perf c2c summary (lock cache line):
+  The read-only spin (the .load loop) is cheap and keeps the line in shared
+  state while the lock is held -- this is already a test-and-test-and-set lock,
+  not a write-on-every-spin TAS lock. The hot cost is concentrated on the
+  `lock xchg` itself, and it spikes immediately after each unlock(): when the
+  flag is cleared, ALL waiting cores see the free flag in the same window and
+  fire the atomic exchange simultaneously. Only one wins; the rest re-read and
+  re-fire on the next release. HITM on the lock line correlates with release
+  events -> a release-time CAS storm (thundering herd), not a steady write storm.
+
+  This is the pattern that bounded exponential backoff in the spin loop targets
+  (cf. glibc nptl spinlock-loop backoff, oneTBB spin_mutex): spreading retry
+  attempts in time so waiters do not all collide on the exchange at release.

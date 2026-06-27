@@ -1,0 +1,26 @@
+Off-CPU / lock-wait profile (perf record -e sched:sched_switch + futex probes),
+aggregated over all worker threads:
+
+  92.4%  __lll_lock_wait                 (waiting on Accumulator::mtx_)
+           |
+           +-- Accumulator::tick
+                 |
+                 +-- std::mutex::lock
+
+On-CPU annotate of the lock holder, Accumulator::tick():
+
+  73.1%  Accumulator::compute(...)        <-- runs WHILE the lock is held
+   2.0%  total_ += v                      <-- the only state that needs the lock
+   ...    mutex lock/unlock bookkeeping
+
+Interpretation:
+  Threads spend almost all their time blocked in __lll_lock_wait, not doing
+  useful work. The lock holder spends ~73% of its locked window inside
+  compute(), which reads no shared state and writes no shared state -- it is a
+  pure function of the loop index. The actual protected operation (`total_ += v`)
+  is a single add. The critical section is dominated by lock-independent work,
+  so contention scales with the cost of compute(), not with the cost of the real
+  update. Moving compute() outside the lock (compute first, then take the lock
+  only for the add) collapses the critical section to the one operation that
+  needs it. (Same shape as the ClickHouse ThreadGroupStatus::mutex fix: do the
+  heavy/temporary work outside the critical section.)

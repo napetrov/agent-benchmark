@@ -21,7 +21,7 @@ honest effective state (`covered` needs both halves; `questions-only` and
 | `icx` | ⬜ | ⬜ 0 | planned |
 | `ifort` | ⬜ | ⬜ 0 | planned |
 | `inspector` | ⬜ | ⬜ 0 | planned |
-| `intel_performance_skills` | ✅ | ✅ 11 | covered |
+| `intel_performance_skills` | ✅ | ✅ 16 | covered |
 | `intelmpi` | ⬜ | ⬜ 0 | planned |
 | `ipp` | ⬜ | ✅ 1 | planned |
 | `numba_dpex` | ⬜ | ⬜ 0 | planned |
@@ -95,6 +95,10 @@ profile artifacts are shipped in the task environment.
 | Single-accumulator CRC32C | `intel-perf-crc32c` | diagnosis | implemented | CRC equality vs reference + known vector; >=4x throughput (measured ~14x); source marker for hardware CRC intrinsic + dispatch + scalar fallback |
 | `std::sort` on primitives (stable not required) | `intel-perf-simd-sort` | diagnosis | implemented | Sortedness + same multiset signature vs reference; >=1.8x speedup (measured ~4x); rejects `std::sort` on the hot path |
 | Dense-layer forward pass / serial reduction (source-first, proactive) | `intel-perf-dnn-dense` | end_to_end | implemented | Checksum equality vs serial reference within fp tolerance; >=1.8x speedup (measured ~4.5x); leaky-ReLU preserved; source marker for SIMD intrinsics or multiple partial accumulators |
+| TTAS spinlock release-time CAS storm | `intel-perf-spinlock-backoff` | diagnosis | implemented | Mutual exclusion (exact total at several thread counts); termination under high contention (no livelock / uncapped backoff); source markers for read-spin + capped exponential backoff + pause/relax body |
+| Lock-independent work inside critical section | `intel-perf-read-before-lock` | diagnosis | implemented | Result unchanged across thread counts; termination under high contention; source marker that the lock-independent computation is hoisted before lock acquisition (shared update still locked) |
+| `make_shared` control block false-shared with payload | `intel-perf-false-sharing-shared-ptr` | diagnosis | implemented | Total unchanged across thread counts; termination within time limit; source marker that the contended object is not `make_shared` (control block separated / payload cache-line-aligned) |
+| Redundant per-literal column materialization (memory-bound query) | `intel-perf-redundant-column` | end_to_end | implemented | Checksum equality vs serial reference; >=1.8x speedup (rewrite removes ~89/90 memory passes); source marker for `SUM(c)+k*COUNT(c)` closed form |
 
 > Verifier-strategy note: the concurrency tasks (`ttas-spinlock`, `mutex-rwlock`,
 > `cv-herd`) gate on **correctness + structural source markers + termination**

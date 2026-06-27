@@ -1,0 +1,24 @@
+perf stat / TMA top-down summary for q29_serial (single thread):
+
+  Retiring                12.1%
+  Frontend Bound           3.4%
+  Bad Speculation          1.0%
+  Backend Bound           83.5%
+     |- Core Bound          5.1%
+     |- Memory Bound       78.4%   <-- dominant
+          |- L1 Bound        4%
+          |- DRAM Bound     61%
+
+Interpretation:
+  The query is overwhelmingly memory bound. For each of the 90 literals it
+  builds a full N-element intermediate column `c + k` and scans it: ~90x the
+  memory traffic of a single pass over `c`. The arithmetic is trivial; the cost
+  is moving 90 materialized columns through the cache hierarchy.
+
+  Algebraic rewrite (the ClickBench Q29 fix):
+     SUM(c + k) == SUM(c) + k * COUNT(c)
+  So all 90 results can be derived from ONE pass over `c` (computing SUM(c) and
+  N = COUNT(c)) plus 90 cheap scalar corrections. Memory traffic drops from ~90
+  passes to 1; the work stops being memory bound. Expected large speedup that
+  grows as N exceeds cache. The reported checksum (sum of the 90 column sums)
+  must be identical.
