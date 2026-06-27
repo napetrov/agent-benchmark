@@ -14,6 +14,7 @@ measure the marginal value of any context-augmentation artifact:
 | `skill:<path>` | agent skill | injects a `SKILL.md` as context |
 | `agent[:source]` | **agentic** doc use | gives the model a doc-search tool; it decides when to call it |
 | `skill-agent:<path>` | **agentic** skill use | offers the skill via progressive disclosure |
+| `<spec1>+<spec2>[+...]` | **combined** treatment | merges multiple treatments into one arm (e.g., `docs+skill:path`) |
 
 The last two run through a tool-calling loop
 ([`eval/agent_runner.py`](../agent_benchmarks/eval/agent_runner.py)): the model
@@ -88,6 +89,10 @@ python cli.py arms run \
 - **`skill-agent:<path>`** — agentic skill use. The model sees only the skill's
   name + one-line description and calls a `view_skill_*` tool to load the full
   instructions on demand (progressive disclosure).
+- **`<spec1>+<spec2>`** — combined treatment. Merges multiple treatments into a
+  single arm by concatenating their contexts. Example: `docs+skill:data/skills/dpnp-quickstart`
+  retrieves docs AND injects the skill, allowing measurement of synergistic effects.
+  The `+` operator works between any treatment types except `baseline`.
 
 Example comparing injection vs agentic use of the same MCP server:
 
@@ -95,6 +100,49 @@ Example comparing injection vs agentic use of the same MCP server:
 python cli.py arms run --product oneTBB --questions data/questions/onetbb_golden.json \
   --arms "baseline,mcp:http=https://mcp.context7.com/mcp,agent:mcp:http=https://mcp.context7.com/mcp" \
   --judge --max-iterations 6
+```
+
+Example testing combined treatments (docs + skill together):
+
+```bash
+# 4-way comparison: baseline, docs-only, skill-only, and docs+skill combined
+python cli.py arms run --product dpnp --questions data/questions/dpnp.json \
+  --arms "baseline,docs,skill:data/skills/dpnp-quickstart,docs+skill:data/skills/dpnp-quickstart" \
+  --context7-id "intelpython_github_io_dpnp" \
+  --judge
+
+# Or just baseline vs combined (to test synergy hypothesis)
+python cli.py arms run --product dpnp --questions data/questions/dpnp.json \
+  --arms "baseline,docs+skill:data/skills/dpnp-quickstart" \
+  --context7-id "intelpython_github_io_dpnp" \
+  --judge
+```
+
+The combined treatment concatenates contexts from all sub-treatments. Use this to
+test whether treatments provide synergistic benefit (positive interaction effect)
+or interfere with each other (negative interaction effect). Calculate interaction
+as: `(docs+skill)_delta - docs_delta - skill_delta`. Positive = synergy, negative
+= interference, zero = independent effects.
+
+**More combined treatment examples:**
+
+```bash
+# Docs + profile (expert persona with comprehensive reference)
+python cli.py arms run --product dpnp --questions data/questions/dpnp.json \
+  --arms "baseline,docs+profile:data/agent_profiles/concise_expert.md" \
+  --context7-id "intelpython_github_io_dpnp" \
+  --judge
+
+# Triple combination (docs + profile + skill)
+python cli.py arms run --product dpnp --questions data/questions/dpnp.json \
+  --arms "baseline,docs+profile:data/agent_profiles/expert.md+skill:data/skills/dpnp-quickstart" \
+  --context7-id "intelpython_github_io_dpnp" \
+  --judge
+
+# Test if multiple skills complement each other
+python cli.py arms run --product dpnp --questions data/questions/dpnp.json \
+  --arms "baseline,skill:data/skills/dpnp-quickstart,skill:data/skills/dpnp-perf,skill:data/skills/dpnp-quickstart+skill:data/skills/dpnp-perf" \
+  --judge
 ```
 
 ## Authoring fixtures
@@ -136,3 +184,10 @@ description: One line that tells the agent when to use this skill.
   behavioral signal.
 - **Fair comparisons** hold the answer model, question set, and judge fixed
   across arms — only the treatment varies.
+- **Combined treatments concatenate contexts** in order: docs first, then profiles,
+  then skills. This ordering is consistent but may increase prompt token usage
+  significantly. Test combined treatments on a small question set first to estimate
+  cost impact before running full evaluations.
+- **Interaction effects may not be additive.** `(docs+skill)_delta` may differ from
+  `docs_delta + skill_delta` due to context interference, redundancy, or synergy.
+  Always measure the combined treatment directly rather than assuming linear effects.

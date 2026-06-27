@@ -11,7 +11,46 @@ from .arms import (
     SkillAgentTreatment,
     AgentProfileTreatment,
     SkillTreatment,
+    CombinedTreatment,
 )
+
+
+def _parse_combined_spec(spec: str) -> List[str]:
+    """Parse a combined spec like 'docs+skill:path' into parts.
+
+    Splits on '+' but only between treatment types, not within paths.
+    Example: 'docs+skill:data/skills/my+folder' → ['docs', 'skill:data/skills/my+folder']
+    """
+    TREATMENT_STARTS = [
+        "baseline",
+        "docs:",
+        "docs",
+        "skill:",
+        "skill-agent:",
+        "agent:",
+        "profile:",
+        "mcp:",
+    ]
+
+    parts = spec.split("+")
+    result = []
+
+    for part in parts:
+        part = part.strip()
+        # Check if this looks like a valid treatment start
+        is_treatment_start = any(
+            part == prefix.rstrip(":") or part.startswith(prefix)
+            for prefix in TREATMENT_STARTS
+        )
+
+        if is_treatment_start or not result:
+            # Start of a new treatment or first part
+            result.append(part)
+        else:
+            # '+' was part of a path, merge with previous
+            result[-1] += "+" + part
+
+    return result
 
 
 def create_treatment(
@@ -45,11 +84,27 @@ def create_treatment(
     ``skill-agent:<path>``
         Agentic skill use — the model is offered the skill via progressive
         disclosure and decides whether to load it.
+    ``<spec1>+<spec2>[+...]``
+        Combined treatment — merges multiple treatments into one arm.
+        Example: ``docs+skill:data/skills/dpnp-quickstart``
+        The contexts from all sub-treatments are concatenated.
 
     Raises:
         ValueError: If the spec is unrecognised or missing an argument.
     """
     spec = spec.strip()
+
+    # Check for combined treatment (e.g., 'docs+skill:path')
+    # Exclude mcp: URLs which may contain '+' in query params
+    if "+" in spec and not spec.startswith("mcp:"):
+        parts = _parse_combined_spec(spec)
+        if len(parts) > 1:
+            # Recursively create sub-treatments
+            sub_treatments = [
+                create_treatment(p, top_k=top_k, rerank_threshold=rerank_threshold, cache_dir=cache_dir)
+                for p in parts
+            ]
+            return CombinedTreatment(sub_treatments)
 
     if spec == "baseline":
         return BaselineTreatment()

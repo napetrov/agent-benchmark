@@ -684,6 +684,8 @@ def generate_section_report(
     # --- Head-to-Head ---
     lines += [
         "## Head-to-Head (context arm, common questions)",
+        "_On how many questions did each model achieve the highest absolute score (in the context arm)? This measures which model produces the best answers overall, not which benefits most from the treatment._",
+        "",
     ]
 
     if not has_treatment:

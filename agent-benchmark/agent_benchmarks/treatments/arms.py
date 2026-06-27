@@ -1,7 +1,7 @@
 """Concrete treatment arms for each evaluation scenario."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from agent_benchmarks.agent_profiles import AgentProfile
 from agent_benchmarks.skills import Skill
@@ -205,4 +205,62 @@ class SkillTreatment(Treatment):
                 "skill_name": self.skill.name,
                 "skill_path": str(self.skill.path),
             },
+        )
+
+
+class CombinedTreatment(Treatment):
+    """Combine multiple treatments into a single arm (e.g., docs + skill).
+
+    This treatment merges the contexts, tools, and metadata from multiple
+    sub-treatments, allowing evaluation of combined approaches (e.g., "does
+    docs + skill together outperform skill alone?").
+
+    The sub-treatments are prepared independently, then their outputs are merged:
+    - injected_context: concatenated (docs first, then skills)
+    - tools: concatenated (for agentic arms)
+    - system_prompt: first non-None value wins
+    - metadata: tracks all sub-treatment metadata
+
+    Example spec: ``docs+skill:data/skills/dpnp-quickstart``
+    """
+
+    def __init__(self, treatments: List[Treatment], name: Optional[str] = None):
+        self.treatments = treatments
+        self.name = name or "+".join(t.name for t in treatments)
+
+    def prepare(self, question_text, library_name, library_id=None) -> AgentConfig:
+        # Prepare all sub-treatments independently
+        configs = [
+            t.prepare(question_text, library_name, library_id) for t in self.treatments
+        ]
+
+        # Merge injected contexts (docs first, then skills, for consistency)
+        merged_context = []
+        for cfg in configs:
+            merged_context.extend(cfg.injected_context)
+
+        # Merge tools (for agentic arms - rare, but supported)
+        merged_tools = []
+        for cfg in configs:
+            merged_tools.extend(cfg.tools)
+
+        # Merge metadata - track each sub-treatment's contribution
+        merged_metadata = {
+            "arm_kind": "combined",
+            "combined_count": len(self.treatments),
+            "treatments": [],
+        }
+        for t, cfg in zip(self.treatments, configs, strict=True):
+            merged_metadata["treatments"].append(
+                {"name": t.name, "arm_kind": cfg.metadata.get("arm_kind"), **cfg.metadata}
+            )
+
+        # System prompt: first non-None wins (profiles rarely combined with docs/skills)
+        system_prompt = next((c.system_prompt for c in configs if c.system_prompt), None)
+
+        return AgentConfig(
+            system_prompt=system_prompt,
+            injected_context=merged_context,
+            tools=merged_tools,
+            metadata=merged_metadata,
         )
