@@ -96,6 +96,39 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
             print(f"  {arm:<24} {avg_s}{delta_s}")
 
 
+def cmd_arms_plugin_delta(args: argparse.Namespace) -> None:
+    """Compare paired no-plugin/plugin arms artifacts."""
+    from agent_benchmarks.artifacts import load_artifact, save_artifact
+    from agent_benchmarks.eval.plugin_delta import PluginDeltaError, compare_plugin_runs
+    from agent_benchmarks.report.plugin_delta_report import render_plugin_delta_report
+
+    try:
+        baseline = load_artifact("arms", Path(args.baseline_json))
+        plugin = load_artifact("arms", Path(args.plugin_json))
+        output = compare_plugin_runs(baseline, plugin)
+    except (PluginDeltaError, ValueError, FileNotFoundError) as exc:
+        print(f"Error computing plugin delta: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    out_json = Path(args.out_json) if args.out_json else Path("results/arms/plugin_delta.json")
+    save_artifact("plugin_delta", output, out_json)
+    print(f"OK Saved plugin delta: {out_json}")
+
+    out_md = Path(args.out_md) if args.out_md else out_json.with_suffix(".md")
+    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_md.write_text(render_plugin_delta_report(output), encoding="utf-8")
+    print(f"OK Saved plugin delta report: {out_md}")
+
+    print(
+        f"Plugin delta: {output['baseline_plugin_set']} -> {output['plugin_set']} "
+        f"({output['harness']}, {output['provider']}/{output['model']})"
+    )
+    for arm, row in output.get("score_deltas", {}).items():
+        delta = row.get("aggregate_delta")
+        delta_s = "n/a" if delta is None else f"{delta:+.1f}"
+        print(f"  {arm:<24} judge delta {delta_s}, n={row.get('n', 0)}")
+
+
 def register(sub, positive_int) -> None:
     """Add the `arms` subcommand group."""
     arms_p = sub.add_parser(
@@ -143,6 +176,22 @@ def register(sub, positive_int) -> None:
     arms_run_p.add_argument("--out-md", default=None, dest="out_md",
                             help="Output Markdown report path (default: results/arms/{product}.md)")
     arms_run_p.set_defaults(func=cmd_arms_run)
+
+    plugin_delta_p = arms_sub.add_parser(
+        "plugin-delta",
+        help="Compare paired arms artifacts that differ only by plugin set",
+    )
+    plugin_delta_p.add_argument(
+        "--baseline-json", required=True, dest="baseline_json",
+        help="arms.v1 artifact for the baseline/no-plugin cell",
+    )
+    plugin_delta_p.add_argument(
+        "--plugin-json", required=True, dest="plugin_json",
+        help="arms.v1 artifact for the plugin-enabled cell",
+    )
+    plugin_delta_p.add_argument("--out-json", default=None, dest="out_json")
+    plugin_delta_p.add_argument("--out-md", default=None, dest="out_md")
+    plugin_delta_p.set_defaults(func=cmd_arms_plugin_delta)
 
 
 def _resolve_doc_library_id(treatments, product: str, explicit_id=None):

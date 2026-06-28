@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/napetrov/agent-benchmark/schemas/plugin_delta.v1.json",
+  "title": "Plugin delta artifact v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "arms",
+    "score_deltas",
+    "cost_deltas",
+    "answer_text_deltas"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "plugin_delta.v1"
+    },
+    "library_name": {
+      "type": ["string", "null"]
+    },
+    "model": {
+      "type": ["string", "null"]
+    },
+    "provider": {
+      "type": ["string", "null"]
+    },
+    "harness": {
+      "type": ["string", "null"]
+    },
+    "baseline_plugin_set": {
+      "type": ["string", "null"]
+    },
+    "baseline_plugin_set_id": {
+      "type": ["string", "null"]
+    },
+    "plugin_set": {
+      "type": ["string", "null"]
+    },
+    "plugin_set_id": {
+      "type": ["string", "null"]
+    },
+    "arms": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "total_questions": {
+      "type": ["integer", "null"]
+    },
+    "score_deltas": {
+      "type": "object"
+    },
+    "cost_deltas": {
+      "type": "object"
+    },
+    "answer_text_deltas": {
+      "type": "object"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

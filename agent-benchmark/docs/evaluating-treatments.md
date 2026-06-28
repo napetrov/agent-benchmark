@@ -33,6 +33,23 @@ outputs stamp `harness`, `plugin_set`, `plugin_set_id`, and concrete plugin
 metadata. The initial supported plugin is `plugin:caveman[:lite|full|ultra]`,
 which adds a brevity system instruction before answer generation.
 
+Plugin effects are computed from paired runs, not from one artifact in
+isolation. Run the same product, questions, arms, model, provider, and harness
+once with no plugin and once with the plugin enabled, then compare the two
+`arms.v1` artifacts:
+
+```bash
+python cli.py arms plugin-delta \
+  --baseline-json results/arms/oneTBB-none.json \
+  --plugin-json results/arms/oneTBB-caveman.json \
+  --out-json results/arms/oneTBB-caveman-delta.json
+```
+
+The command writes a `plugin_delta.v1` artifact plus a Markdown report with
+judge-score deltas, token/cost deltas, and answer-length deltas. It refuses
+confounded comparisons where model, provider, harness, arms, baseline arm, or
+question count differ.
+
 > **Naming:** an *agent profile* (`profile:`) is the answering agent's system
 > prompt. It is **not** a `persona` — in this repo a persona is a synthetic
 > *user* who asks questions (`agent_benchmarks/personas`).
@@ -59,9 +76,23 @@ python cli.py arms run \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
   --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
+  --harness openclaw-agent \
+  --judge \
+  --out-json results/arms/oneTBB-none.json
+
+python cli.py arms run \
+  --product oneTBB \
+  --questions data/questions/onetbb_golden.json \
+  --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
   --plugins "plugin:caveman" \
   --harness openclaw-agent \
-  --judge
+  --judge \
+  --out-json results/arms/oneTBB-caveman.json
+
+python cli.py arms plugin-delta \
+  --baseline-json results/arms/oneTBB-none.json \
+  --plugin-json results/arms/oneTBB-caveman.json \
+  --out-json results/arms/oneTBB-caveman-delta.json
 ```
 
 ## Arm specs in detail
