@@ -26,6 +26,12 @@
     "harness": {
       "type": ["string", "null"]
     },
+    "judge_model": {
+      "type": ["string", "null"]
+    },
+    "judge_provider": {
+      "type": ["string", "null"]
+    },
     "baseline_plugin_set": {
       "type": ["string", "null"]
     },

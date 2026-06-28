@@ -32,6 +32,18 @@
         "null"
       ]
     },
+    "judge_model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "judge_provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "arms": {
       "type": "array",
       "items": {

@@ -48,7 +48,8 @@ python cli.py arms plugin-delta \
 The command writes a `plugin_delta.v1` artifact plus a Markdown report with
 judge-score deltas, token/cost deltas, and answer-length deltas. It refuses
 confounded comparisons where model, provider, harness, arms, baseline arm, or
-question count differ.
+question IDs/order differ. For judged artifacts it also requires both runs to
+carry the same stamped judge model and provider.
 
 > **Naming:** an *agent profile* (`profile:`) is the answering agent's system
 > prompt. It is **not** a `persona` — in this repo a persona is a synthetic
