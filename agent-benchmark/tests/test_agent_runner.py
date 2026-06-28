@@ -99,7 +99,10 @@ def test_agent_loop_calls_tool_then_answers(monkeypatch):
     assert result["stopped_reason"] == "answered"
     assert result["tool_call_count"] == 1
     assert result["transcript"][0]["tool"] == "search_documentation"
+    assert result["transcript"][0]["iteration"] == 1
     assert result["transcript"][0]["arguments"] == {"query": "reduce"}
+    assert result["tool_usage"]["used_any_tool"] is True
+    assert result["tool_usage"]["tool_call_count_by_name"]["search_documentation"] == 1
     assert result["token_usage"]["total_tokens"] == 16  # two rounds × 8
     # Telemetry: usage record, per-turn detail, per-tool timing.
     assert result["usage"]["total_tokens"] == 16
@@ -117,6 +120,28 @@ def test_agent_loop_answers_without_tools(monkeypatch):
     result = run_agent_loop("q", [tool], model="m")
     assert result["answer"] == "Direct answer."
     assert result["tool_call_count"] == 0
+    assert result["tool_usage"]["used_any_tool"] is False
+    assert result["tool_usage"]["called_tools"] == []
+
+
+def test_agent_loop_reports_skill_discoverability(monkeypatch):
+    skill = load_skill("data/skills/onetbb-quickstart")
+    tool = ViewSkillTool(skill)
+    steps = [
+        _FakeMessage(tool_calls=[_FakeToolCall("c1", tool.name, "{}")]),
+        _FakeMessage(content="Used skill."),
+    ]
+    fake, _ = _scripted_completion(steps)
+    monkeypatch.setattr(ar_mod, "chat_completion", fake)
+
+    result = run_agent_loop("q", [tool], model="m")
+
+    skill_usage = result["tool_usage"]["skill"]
+    assert skill_usage["offered"] is True
+    assert skill_usage["called"] is True
+    assert skill_usage["call_count"] == 1
+    assert skill_usage["first_call_iteration"] == 1
+    assert skill_usage["offered_tools"][0]["skill_name"] == "onetbb-quickstart"
 
 
 def test_agent_loop_hits_max_iterations(monkeypatch):

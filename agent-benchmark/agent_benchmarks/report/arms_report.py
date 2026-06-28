@@ -83,25 +83,39 @@ def render_arms_report(data: Dict[str, Any]) -> str:
             )
         lines.append("")
 
-    # Agentic-usage summary: how often each agentic arm actually used its tools.
-    answers = data.get("answers", [])
-    agentic_stats: Dict[str, Dict[str, Any]] = {}
-    for rec in answers:
-        for arm_name, arm in rec.get("arms", {}).items():
-            if isinstance(arm, dict) and arm.get("agentic"):
-                s = agentic_stats.setdefault(arm_name, {"calls": [], "iters": []})
-                s["calls"].append(arm.get("tool_call_count", 0))
-                s["iters"].append(arm.get("iterations", 0))
+    agentic_stats = data.get("agentic_usage_summary") or {}
+    if not agentic_stats:
+        # Backward-compatible fallback for older artifacts.
+        answers = data.get("answers", [])
+        fallback: Dict[str, Dict[str, Any]] = {}
+        for rec in answers:
+            for arm_name, arm in rec.get("arms", {}).items():
+                if isinstance(arm, dict) and arm.get("agentic"):
+                    s = fallback.setdefault(arm_name, {"calls": [], "iters": []})
+                    s["calls"].append(arm.get("tool_call_count", 0))
+                    s["iters"].append(arm.get("iterations", 0))
+        for arm_name, s in fallback.items():
+            n = len(s["calls"]) or 1
+            agentic_stats[arm_name] = {
+                "n": len(s["calls"]),
+                "avg_tool_calls": sum(s["calls"]) / n,
+                "tool_use_rate": sum(1 for c in s["calls"] if c > 0) / n,
+                "avg_iterations": sum(s["iters"]) / n,
+                "skill_load_rate": None,
+            }
     if agentic_stats:
         lines.append("## Agentic tool use")
         lines.append("")
-        lines.append("| Arm | Avg tool calls | Avg iterations | n |")
-        lines.append("| --- | ---: | ---: | ---: |")
+        lines.append("| Arm | Tool-use rate | Avg tool calls | Skill-load rate | Avg iterations | n |")
+        lines.append("| --- | ---: | ---: | ---: | ---: | ---: |")
         for arm_name, s in agentic_stats.items():
-            n = len(s["calls"]) or 1
-            avg_calls = sum(s["calls"]) / n
-            avg_iters = sum(s["iters"]) / n
-            lines.append(f"| `{arm_name}` | {avg_calls:.1f} | {avg_iters:.1f} | {len(s['calls'])} |")
+            skill_rate = s.get("skill_load_rate")
+            skill_s = "—" if skill_rate is None else f"{skill_rate * 100:.0f}%"
+            lines.append(
+                f"| `{arm_name}` | {s.get('tool_use_rate', 0) * 100:.0f}% | "
+                f"{s.get('avg_tool_calls', 0):.1f} | {skill_s} | "
+                f"{s.get('avg_iterations', 0):.1f} | {s.get('n', 0)} |"
+            )
         lines.append("")
 
     evaluations = data.get("evaluations")

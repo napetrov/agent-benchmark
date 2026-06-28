@@ -2,7 +2,7 @@
 
 import agent_benchmarks.eval.arm_runner as arm_runner_mod
 from agent_benchmarks.eval.arm_runner import ArmRunner
-from agent_benchmarks.treatments import BaselineTreatment, SkillTreatment
+from agent_benchmarks.treatments import BaselineTreatment, SkillAgentTreatment, SkillTreatment
 from agent_benchmarks.skills import load_skill
 from agent_benchmarks.plugins import create_plugins, plugin_set_metadata, wrap_treatments
 
@@ -84,6 +84,49 @@ def test_build_output_without_evaluations(monkeypatch):
     output = runner.build_output("oneTBB", records)
     assert "summary" not in output
     assert output["arms"] == ["baseline"]
+
+
+def test_build_output_summarizes_skill_agent_discoverability(monkeypatch):
+    import agent_benchmarks.eval.agent_runner as agent_runner_mod
+
+    def fake_agent_loop(**kwargs):
+        return {
+            "answer": "used skill",
+            "transcript": [{"iteration": 1, "tool": "view_skill_onetbb_quickstart"}],
+            "tool_call_count": 1,
+            "tool_usage": {
+                "used_any_tool": True,
+                "called_tools": ["view_skill_onetbb_quickstart"],
+                "tool_call_count_by_name": {"view_skill_onetbb_quickstart": 1},
+                "first_call_iteration_by_name": {"view_skill_onetbb_quickstart": 1},
+                "skill": {
+                    "offered": True,
+                    "called": True,
+                    "call_count": 1,
+                    "first_call_iteration": 1,
+                    "offered_tools": [{"name": "view_skill_onetbb_quickstart"}],
+                },
+            },
+            "iterations": 2,
+            "stopped_reason": "answered",
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "token_usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "per_turn": [],
+        }
+
+    monkeypatch.setattr(agent_runner_mod, "run_agent_loop", fake_agent_loop)
+
+    skill = load_skill("data/skills/onetbb-quickstart")
+    runner = ArmRunner([SkillAgentTreatment(skill)])
+    records = runner.run("oneTBB", QUESTIONS[:1], concurrency=1)
+    arm = records[0]["arms"]["skill_agent:onetbb-quickstart"]
+    assert arm["discoverability"]["called"] is True
+
+    output = runner.build_output("oneTBB", records)
+    usage = output["agentic_usage_summary"]["skill_agent:onetbb-quickstart"]
+    assert usage["tool_use_rate"] == 1.0
+    assert usage["skill_load_rate"] == 1.0
+    assert usage["avg_skill_calls"] == 1.0
 
 
 def test_arm_runner_emits_metrics_block_and_alias(monkeypatch):

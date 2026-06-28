@@ -36,6 +36,13 @@ class Tool(ABC):
             },
         }
 
+    def telemetry_metadata(self) -> Dict[str, Any]:
+        """Return stable, non-secret metadata for usage/discoverability reports."""
+        return {
+            "name": self.name,
+            "kind": getattr(self, "kind", "tool"),
+        }
+
 
 @dataclass
 class AgentConfig:
