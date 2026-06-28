@@ -102,7 +102,7 @@ def test_load_matrix_cells_accepts_matrix_block(tmp_path):
             "matrix": {
                 "cells": [
                     {
-                        "name": "agent-caveman",
+                        "id": "agent-caveman",
                         "model": "gpt-4o-mini",
                         "provider": "openai",
                         "harness": "agent",

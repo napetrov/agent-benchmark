@@ -186,9 +186,9 @@ def _extract_cells(raw: Any) -> list[Any]:
 def _parse_matrix_cell(raw: Any, idx: int) -> MatrixCellDescriptor:
     if not isinstance(raw, dict):
         raise ValueError(f"matrix cell #{idx + 1} must be an object")
-    name = str(raw.get("name") or "").strip()
+    name = str(raw.get("id") or raw.get("name") or "").strip()
     if not name:
-        raise ValueError(f"matrix cell #{idx + 1} is missing name")
+        raise ValueError(f"matrix cell #{idx + 1} is missing id/name")
     model = str(raw.get("model") or "").strip()
     provider = str(raw.get("provider") or "").strip()
     harness = str(raw.get("harness") or "").strip()

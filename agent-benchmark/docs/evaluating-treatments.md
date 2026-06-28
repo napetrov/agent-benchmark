@@ -78,14 +78,14 @@ cat > results/arms/matrix.json <<'JSON'
   "matrix": {
     "cells": [
       {
-        "name": "openclaw-no-plugin",
+        "id": "openclaw-no-plugin",
         "model": "gpt-4o-mini",
         "provider": "openai",
         "harness": "openclaw-agent",
         "plugins": []
       },
       {
-        "name": "openclaw-caveman",
+        "id": "openclaw-caveman",
         "model": "gpt-4o-mini",
         "provider": "openai",
         "harness": "openclaw-agent",
@@ -106,12 +106,13 @@ python cli.py arms matrix-run \
 ```
 
 `--matrix-cells` accepts JSON shaped as `{"matrix": {"cells": [...]}}`,
-`{"cells": [...]}`, or a top-level list. A selected cell controls `model`,
-`provider`, `harness`, and `plugins`, and the run refuses unsupported
-plugin/harness combinations before calling the model. `arms matrix-run` writes
-one `arms.v1` artifact per cell, a `matrix_rollup.v1` JSON/Markdown report, and
-paired `plugin_delta.v1` artifacts for no-plugin/plugin cells that only differ
-by `plugin_set`.
+`{"cells": [...]}`, or a top-level list. Each cell can use `id` (ADR-style) or
+`name` as its identifier. A selected cell controls `model`, `provider`,
+`harness`, and `plugins`, and the run refuses unsupported plugin/harness
+combinations before calling the model. `arms matrix-run` writes one `arms.v1`
+artifact per cell, a `matrix_rollup.v1` JSON/Markdown report, and paired
+`plugin_delta.v1` artifacts for no-plugin/plugin cells that only differ by
+`plugin_set`.
 
 ## Arm specs in detail
 
