@@ -32,6 +32,18 @@
         "null"
       ]
     },
+    "judge_model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "judge_provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "arms": {
       "type": "array",
       "items": {
@@ -78,5 +90,30 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "evaluations"
+        ]
+      },
+      "then": {
+        "required": [
+          "judge_model",
+          "judge_provider"
+        ],
+        "properties": {
+          "judge_model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "judge_provider": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
 }

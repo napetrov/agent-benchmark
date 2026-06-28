@@ -35,6 +35,8 @@ def compare_plugin_runs(control: Dict[str, Any], plugin: Dict[str, Any]) -> Dict
         "model": control.get("model"),
         "provider": control.get("provider"),
         "harness": control.get("harness"),
+        "judge_model": control.get("judge_model"),
+        "judge_provider": control.get("judge_provider"),
         "baseline_plugin_set": control.get("plugin_set", "none"),
         "baseline_plugin_set_id": control.get("plugin_set_id"),
         "plugin_set": plugin.get("plugin_set", "none"),
@@ -72,6 +74,20 @@ def _validate_pair(control: Dict[str, Any], plugin: Dict[str, Any]) -> None:
         raise PluginDeltaError("plugin artifact has no evaluations to pair with baseline")
     if "evaluations" in plugin and "evaluations" not in control:
         raise PluginDeltaError("baseline artifact has no evaluations to pair with plugin")
+    _validate_question_pair(control, plugin, "answers")
+    if "evaluations" in control:
+        _validate_question_pair(control, plugin, "evaluations")
+        for field in ("judge_model", "judge_provider"):
+            if not control.get(field) or not plugin.get(field):
+                raise PluginDeltaError(
+                    f"cannot compute judged plugin delta without stamped {field} "
+                    "in both artifacts"
+                )
+            if control.get(field) != plugin.get(field):
+                raise PluginDeltaError(
+                    f"cannot compute judged plugin delta across different {field}: "
+                    f"{control.get(field)!r} vs {plugin.get(field)!r}"
+                )
 
 
 def _warnings(control: Dict[str, Any], plugin: Dict[str, Any]) -> list[str]:
@@ -86,6 +102,20 @@ def _warnings(control: Dict[str, Any], plugin: Dict[str, Any]) -> list[str]:
     if bool(judge_a) != bool(judge_b):
         warnings.append("only one artifact carries judge_metrics")
     return warnings
+
+
+def _validate_question_pair(control: Dict[str, Any], plugin: Dict[str, Any], section: str) -> None:
+    control_ids = _ordered_question_ids(control, section)
+    plugin_ids = _ordered_question_ids(plugin, section)
+    if control_ids != plugin_ids:
+        raise PluginDeltaError(
+            f"cannot compute plugin delta across different {section} question IDs/order: "
+            f"{control_ids!r} vs {plugin_ids!r}"
+        )
+
+
+def _ordered_question_ids(artifact: Dict[str, Any], section: str) -> list[str]:
+    return [str(row.get("question_id")) for row in artifact.get(section, [])]
 
 
 def _score_deltas(control: Dict[str, Any], plugin: Dict[str, Any], arms: list[str]) -> dict[str, Any]:

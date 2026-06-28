@@ -326,6 +326,9 @@ class ArmRunner:
         if evaluations is not None:
             out["evaluations"] = evaluations
             out["summary"] = self._summarize(evaluations, baseline_arm)
+            if judge is not None:
+                out["judge_model"] = getattr(judge, "model", None)
+                out["judge_provider"] = getattr(judge, "provider", None)
         # Judge-side token/cost telemetry, when a judge ran (mirrors the answer
         # cost_summary so a full run's spend is auditable from one artifact).
         if judge is not None and hasattr(judge, "_usage_totals"):

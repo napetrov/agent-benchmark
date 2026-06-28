@@ -11,6 +11,8 @@ def render_plugin_delta_report(data: Dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"- Model: `{data.get('provider', '?')}/{data.get('model', '?')}`")
     lines.append(f"- Harness: `{data.get('harness', '?')}`")
+    if data.get("judge_model") or data.get("judge_provider"):
+        lines.append(f"- Judge: `{data.get('judge_provider', '?')}/{data.get('judge_model', '?')}`")
     lines.append(
         f"- Baseline plugins: `{data.get('baseline_plugin_set', 'none')}` "
         f"(`{data.get('baseline_plugin_set_id', '?')}`)"

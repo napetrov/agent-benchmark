@@ -50,6 +50,9 @@ def test_arm_runner_requires_at_least_one_arm():
 class _FakeJudge:
     """Scores by answer length so arms get distinct, deterministic numbers."""
 
+    model = "fake-judge"
+    provider = "fake-provider"
+
     def score_answer(self, library_name, question, answer, context="", ground_truth=None):
         agg = 80 if context.strip() and context != "(No documentation retrieved)" else 60
         return {"aggregate": agg, "correctness": agg}
@@ -70,10 +73,14 @@ def test_arm_runner_judge_computes_deltas(monkeypatch):
     assert ev["scores"]["skill:onetbb-quickstart"]["aggregate"] == 80
     assert ev["deltas_vs_baseline"]["skill:onetbb-quickstart"] == 20.0
 
-    output = runner.build_output("oneTBB", records, evaluations, baseline_arm="baseline")
+    output = runner.build_output(
+        "oneTBB", records, evaluations, baseline_arm="baseline", judge=_FakeJudge()
+    )
     summary = output["summary"]["per_arm"]
     assert summary["baseline"]["avg_aggregate"] == 60.0
     assert summary["skill:onetbb-quickstart"]["delta_vs_baseline"] == 20.0
+    assert output["judge_model"] == "fake-judge"
+    assert output["judge_provider"] == "fake-provider"
 
 
 def test_build_output_without_evaluations(monkeypatch):

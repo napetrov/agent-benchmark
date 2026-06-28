@@ -21,6 +21,8 @@ def _arms_artifact(plugin_set: str = "none") -> dict:
         "model": "m",
         "provider": "openai",
         "harness": "agent",
+        "judge_model": "judge-m",
+        "judge_provider": "openai",
         "plugin_set": plugin_set,
         "plugin_set_id": f"sha256:{plugin_id}",
         "plugins": [] if plugin_set == "none" else [{"id": "caveman"}],
@@ -125,6 +127,42 @@ def test_compare_plugin_runs_refuses_cross_harness():
     plugin["harness"] = "single-shot"
 
     with pytest.raises(PluginDeltaError, match="different harness"):
+        compare_plugin_runs(baseline, plugin)
+
+
+def test_compare_plugin_runs_refuses_mismatched_question_ids():
+    baseline = _arms_artifact()
+    plugin = _arms_artifact("caveman:full")
+    plugin["answers"][1]["question_id"] = "different-q"
+
+    with pytest.raises(PluginDeltaError, match="answers question IDs/order"):
+        compare_plugin_runs(baseline, plugin)
+
+
+def test_compare_plugin_runs_refuses_mismatched_evaluation_question_ids():
+    baseline = _arms_artifact()
+    plugin = _arms_artifact("caveman:full")
+    plugin["evaluations"][1]["question_id"] = "different-q"
+
+    with pytest.raises(PluginDeltaError, match="evaluations question IDs/order"):
+        compare_plugin_runs(baseline, plugin)
+
+
+def test_compare_plugin_runs_refuses_mismatched_judge_identity():
+    baseline = _arms_artifact()
+    plugin = _arms_artifact("caveman:full")
+    plugin["judge_model"] = "other-judge"
+
+    with pytest.raises(PluginDeltaError, match="different judge_model"):
+        compare_plugin_runs(baseline, plugin)
+
+
+def test_compare_plugin_runs_requires_judge_identity_for_scored_artifacts():
+    baseline = _arms_artifact()
+    plugin = _arms_artifact("caveman:full")
+    del baseline["judge_provider"]
+
+    with pytest.raises(PluginDeltaError, match="without stamped judge_provider"):
         compare_plugin_runs(baseline, plugin)
 
 
