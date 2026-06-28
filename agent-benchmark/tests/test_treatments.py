@@ -14,7 +14,13 @@ from agent_benchmarks.treatments import (
 )
 from agent_benchmarks.agent_profiles import load_agent_profile, AgentProfile
 from agent_benchmarks.skills import load_skill, Skill
-from agent_benchmarks.plugins import create_plugin, create_plugins, plugin_set_metadata, wrap_treatments
+from agent_benchmarks.plugins import (
+    create_plugin,
+    create_plugins,
+    plugin_set_metadata,
+    validate_plugins_for_harness,
+    wrap_treatments,
+)
 from agent_benchmarks.commands.arms import _resolve_doc_library_id
 
 
@@ -223,6 +229,17 @@ def test_plugin_set_metadata_empty_and_caveman():
     meta = plugin_set_metadata(create_plugins(["plugin:caveman"]))
     assert meta["plugin_set"] == "caveman:full"
     assert meta["plugin_set_id"].startswith("sha256:")
+
+
+def test_prompt_plugins_reject_terminal_bench_harness():
+    plugins = create_plugins(["plugin:caveman"])
+
+    with pytest.raises(ValueError, match="not supported by harness 'terminal-bench:terminus'"):
+        validate_plugins_for_harness(plugins, "terminal-bench:terminus")
+
+
+def test_prompt_plugins_accept_agent_harness():
+    validate_plugins_for_harness(create_plugins(["plugin:caveman"]), "agent")
 
 
 def test_create_plugin_rejects_unknown():

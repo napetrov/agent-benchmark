@@ -73,11 +73,35 @@ Outputs default to `results/arms/<product>.{json,md}` (ignored by git).
 Example Caveman plugin cell:
 
 ```bash
+cat > results/arms/matrix.json <<'JSON'
+{
+  "matrix": {
+    "cells": [
+      {
+        "name": "openclaw-no-plugin",
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "harness": "openclaw-agent",
+        "plugins": []
+      },
+      {
+        "name": "openclaw-caveman",
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "harness": "openclaw-agent",
+        "plugins": ["plugin:caveman"]
+      }
+    ]
+  }
+}
+JSON
+
 python cli.py arms run \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
   --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
-  --harness openclaw-agent \
+  --matrix-cells results/arms/matrix.json \
+  --matrix-cell openclaw-no-plugin \
   --judge \
   --out-json results/arms/oneTBB-none.json
 
@@ -85,8 +109,8 @@ python cli.py arms run \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
   --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
-  --plugins "plugin:caveman" \
-  --harness openclaw-agent \
+  --matrix-cells results/arms/matrix.json \
+  --matrix-cell openclaw-caveman \
   --judge \
   --out-json results/arms/oneTBB-caveman.json
 
@@ -95,6 +119,11 @@ python cli.py arms plugin-delta \
   --plugin-json results/arms/oneTBB-caveman.json \
   --out-json results/arms/oneTBB-caveman-delta.json
 ```
+
+`--matrix-cells` accepts JSON shaped as `{"matrix": {"cells": [...]}}`,
+`{"cells": [...]}`, or a top-level list. A selected cell controls `model`,
+`provider`, `harness`, and `plugins`, and the run refuses unsupported
+plugin/harness combinations before calling the model.
 
 ## Arm specs in detail
 

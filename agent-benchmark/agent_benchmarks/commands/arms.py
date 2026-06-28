@@ -12,8 +12,14 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
     """Run an N-arm treatment comparison and optionally judge it."""
     from agent_benchmarks.treatments import create_treatments
     from agent_benchmarks.eval.arm_runner import ArmRunner
+    from agent_benchmarks.eval.cells import load_matrix_cells, select_matrix_cell
     from agent_benchmarks.report.arms_report import render_arms_report
-    from agent_benchmarks.plugins import create_plugins, plugin_set_metadata, wrap_treatments
+    from agent_benchmarks.plugins import (
+        create_plugins,
+        plugin_set_metadata,
+        validate_plugins_for_harness,
+        wrap_treatments,
+    )
 
     specs = [s.strip() for s in args.arms.split(",") if s.strip()]
     if not specs:
@@ -31,12 +37,22 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
     print(f"Loaded {len(questions)} questions from {args.questions}")
 
     try:
+        if args.matrix_cells or args.matrix_cell:
+            if not args.matrix_cells or not args.matrix_cell:
+                raise ValueError("--matrix-cells and --matrix-cell must be passed together")
+            matrix_cell = select_matrix_cell(load_matrix_cells(args.matrix_cells), args.matrix_cell)
+            args.model = matrix_cell.model
+            args.provider = matrix_cell.provider
+            args.harness = matrix_cell.harness
+            args.plugins = ",".join(matrix_cell.plugin_specs)
+
         treatments = create_treatments(
             specs, top_k=args.top_k, rerank_threshold=args.rerank_threshold
         )
         library_id = _resolve_doc_library_id(treatments, args.product, args.context7_id)
         plugin_specs = [s.strip() for s in args.plugins.split(",") if s.strip()]
         plugins = create_plugins(plugin_specs)
+        validate_plugins_for_harness(plugins, args.harness)
         treatments = wrap_treatments(treatments, plugins)
         plugin_set = plugin_set_metadata(plugins)
     except (ValueError, FileNotFoundError) as exc:
@@ -53,6 +69,7 @@ def cmd_arms_run(args: argparse.Namespace) -> None:
         max_iterations=args.max_iterations,
         harness=args.harness,
         plugin_set=plugin_set,
+        matrix_cell=args.matrix_cell,
     )
     records = runner.run(
         library_name=args.product,
@@ -156,6 +173,10 @@ def register(sub, positive_int) -> None:
                             help="Execution harness label stamped into output (default: arms-runner)")
     arms_run_p.add_argument("--plugins", default="",
                             help="Comma-separated plugin refs, e.g. 'plugin:caveman' or 'plugin:caveman:ultra'")
+    arms_run_p.add_argument("--matrix-cells", default=None, dest="matrix_cells",
+                            help="JSON file containing matrix.cells descriptors")
+    arms_run_p.add_argument("--matrix-cell", default=None, dest="matrix_cell",
+                            help="Named matrix cell to run from --matrix-cells")
     arms_run_p.add_argument("--context7-id", default=None, dest="context7_id",
                             help="Explicit library id for doc/MCP arms (skips resolution)")
     arms_run_p.add_argument("--baseline-arm", default="baseline", dest="baseline_arm",

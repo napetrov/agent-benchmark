@@ -19,6 +19,8 @@ def render_arms_report(data: Dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"- Model: `{data.get('provider', '?')}/{data.get('model', '?')}`")
     lines.append(f"- Harness: `{data.get('harness', 'arms-runner')}`")
+    if data.get("matrix_cell"):
+        lines.append(f"- Matrix cell: `{data['matrix_cell']}`")
     lines.append(f"- Plugin set: `{data.get('plugin_set', 'none')}` (`{data.get('plugin_set_id', '?')}`)")
     lines.append(f"- Arms: {', '.join(f'`{a}`' for a in arms)}")
     lines.append(f"- Baseline arm: `{baseline}`")

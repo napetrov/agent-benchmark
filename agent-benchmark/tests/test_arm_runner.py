@@ -198,6 +198,7 @@ def test_arm_runner_stamps_plugin_set_and_harness(monkeypatch):
         treatments,
         harness="openclaw-agent",
         plugin_set=plugin_set,
+        matrix_cell="agent-caveman",
     )
     records = runner.run("oneTBB", QUESTIONS[:1], concurrency=1)
     output = runner.build_output("oneTBB", records)
@@ -207,3 +208,4 @@ def test_arm_runner_stamps_plugin_set_and_harness(monkeypatch):
     assert records[0]["arms"]["baseline"]["harness"] == "openclaw-agent"
     assert output["plugin_set"] == "caveman:full"
     assert output["harness"] == "openclaw-agent"
+    assert output["matrix_cell"] == "agent-caveman"

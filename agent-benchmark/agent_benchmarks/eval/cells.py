@@ -18,17 +18,24 @@ The harness taxonomy mirrors ADR §3.1.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 # Harness taxonomy (ADR §3.1). `terminal-bench:<agent>` is a family; a concrete
 # instance pins one Harbor agent (e.g. "terminal-bench:terminus").
 HARNESS_SINGLE_SHOT = "single-shot"   # one completion; judge score
 HARNESS_AGENT = "agent"               # bounded tool-calling loop; judge + tool_use_rate
 HARNESS_TERMINAL_BENCH = "terminal-bench"  # Harbor drives a coding agent; pass-rate
+HARNESS_ARMS_RUNNER = "arms-runner"  # local in-process arms runner
+HARNESS_OPENCLAW_AGENT = "openclaw-agent"  # OpenClaw runtime adapter
 _KNOWN_HARNESS_PREFIXES = (
     HARNESS_SINGLE_SHOT,
     HARNESS_AGENT,
     HARNESS_TERMINAL_BENCH,
+    HARNESS_ARMS_RUNNER,
+    HARNESS_OPENCLAW_AGENT,
 )
 
 # Canonical id of the empty plugin set (matches ArmRunner's default).
@@ -41,11 +48,15 @@ class CrossCellDeltaError(ValueError):
 
 def is_known_harness(harness: str) -> bool:
     """True for a recognized harness id or a ``terminal-bench:<agent>`` instance."""
-    if harness in (HARNESS_SINGLE_SHOT, HARNESS_AGENT):
+    if harness in (
+        HARNESS_SINGLE_SHOT,
+        HARNESS_AGENT,
+        HARNESS_TERMINAL_BENCH,
+        HARNESS_ARMS_RUNNER,
+        HARNESS_OPENCLAW_AGENT,
+    ):
         return True
-    return harness == HARNESS_TERMINAL_BENCH or harness.startswith(
-        HARNESS_TERMINAL_BENCH + ":"
-    )
+    return harness.startswith(HARNESS_TERMINAL_BENCH + ":")
 
 
 @dataclass(frozen=True)
@@ -120,3 +131,92 @@ def group_by_cell(rows: list[dict]) -> dict[str, list[dict]]:
     for row in rows:
         out.setdefault(Cell.from_row(row).key, []).append(row)
     return out
+
+
+@dataclass(frozen=True)
+class MatrixCellDescriptor:
+    """User-facing descriptor for one explicit benchmark matrix cell."""
+
+    name: str
+    model: str
+    provider: str
+    harness: str
+    plugin_specs: tuple[str, ...] = ()
+
+
+def load_matrix_cells(path: str | Path) -> list[MatrixCellDescriptor]:
+    """Load ``matrix.cells`` descriptors from JSON.
+
+    Accepted shapes are ``{"matrix": {"cells": [...]}}``, ``{"cells": [...]}``,
+    or a top-level list of cells.
+    """
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    cells = _extract_cells(raw)
+    out = [_parse_matrix_cell(item, idx) for idx, item in enumerate(cells)]
+    names = [c.name for c in out]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise ValueError(f"duplicate matrix cell names: {', '.join(duplicates)}")
+    return out
+
+
+def select_matrix_cell(cells: list[MatrixCellDescriptor], name: str) -> MatrixCellDescriptor:
+    """Return one named descriptor or raise a helpful error."""
+    for cell in cells:
+        if cell.name == name:
+            return cell
+    available = ", ".join(c.name for c in cells) or "(none)"
+    raise ValueError(f"matrix cell '{name}' not found; available cells: {available}")
+
+
+def _extract_cells(raw: Any) -> list[Any]:
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        matrix = raw.get("matrix")
+        if isinstance(matrix, dict) and "cells" in matrix:
+            cells = matrix["cells"]
+        else:
+            cells = raw.get("cells")
+        if isinstance(cells, list):
+            return cells
+    raise ValueError("matrix config must contain a cells list")
+
+
+def _parse_matrix_cell(raw: Any, idx: int) -> MatrixCellDescriptor:
+    if not isinstance(raw, dict):
+        raise ValueError(f"matrix cell #{idx + 1} must be an object")
+    name = str(raw.get("name") or "").strip()
+    if not name:
+        raise ValueError(f"matrix cell #{idx + 1} is missing name")
+    model = str(raw.get("model") or "").strip()
+    provider = str(raw.get("provider") or "").strip()
+    harness = str(raw.get("harness") or "").strip()
+    missing = [
+        field for field, value in (
+            ("model", model),
+            ("provider", provider),
+            ("harness", harness),
+        )
+        if not value
+    ]
+    if missing:
+        raise ValueError(f"matrix cell '{name}' is missing {', '.join(missing)}")
+    if not is_known_harness(harness):
+        raise ValueError(f"matrix cell '{name}' has unknown harness '{harness}'")
+
+    plugins = raw.get("plugins", [])
+    if isinstance(plugins, str):
+        plugin_specs = tuple(s.strip() for s in plugins.split(",") if s.strip())
+    elif isinstance(plugins, list) and all(isinstance(p, str) for p in plugins):
+        plugin_specs = tuple(p.strip() for p in plugins if p.strip())
+    else:
+        raise ValueError(f"matrix cell '{name}' plugins must be a string list")
+
+    return MatrixCellDescriptor(
+        name=name,
+        model=model,
+        provider=provider,
+        harness=harness,
+        plugin_specs=plugin_specs,
+    )

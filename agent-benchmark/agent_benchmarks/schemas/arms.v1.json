@@ -32,6 +32,9 @@
         "null"
       ]
     },
+    "matrix_cell": {
+      "type": "string"
+    },
     "judge_model": {
       "type": [
         "string",

@@ -90,9 +90,11 @@ working):
   and cost/length metrics; report plugin deltas separately from treatment deltas
   (for example Caveman: completion-token reduction vs quality/pass-rate tax).
   - **DONE slice:** paired plugin/no-plugin artifact comparison via
-    `arms plugin-delta` and `plugin_delta.v1` reports. Remaining Phase C work:
-    explicit `matrix.cells` descriptors and harness/plugin compatibility
-    validation before run.
+    `arms plugin-delta` and `plugin_delta.v1` reports.
+  - **DONE slice:** explicit `matrix.cells` descriptors for `arms run` plus
+    harness/plugin compatibility validation before run.
+  - Remaining Phase C work: multi-cell orchestration/report rollups and real
+    runner adapters for non-prompt plugins.
 - **Phase D — Subjects**
   ([ADR](docs/decisions/2026-06-10-artifacts-as-evaluation-subjects.md)).
   `subjects/` descriptor + loader, `cli.py subjects run` wrapping `arm_runner` +
