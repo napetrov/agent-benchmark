@@ -139,6 +139,15 @@ def test_compare_plugin_runs_refuses_mismatched_question_ids():
         compare_plugin_runs(baseline, plugin)
 
 
+def test_compare_plugin_runs_refuses_mismatched_evaluation_question_ids():
+    baseline = _arms_artifact()
+    plugin = _arms_artifact("caveman:full")
+    plugin["evaluations"][1]["question_id"] = "different-q"
+
+    with pytest.raises(PluginDeltaError, match="evaluations question IDs/order"):
+        compare_plugin_runs(baseline, plugin)
+
+
 def test_compare_plugin_runs_refuses_mismatched_judge_identity():
     baseline = _arms_artifact()
     plugin = _arms_artifact("caveman:full")
