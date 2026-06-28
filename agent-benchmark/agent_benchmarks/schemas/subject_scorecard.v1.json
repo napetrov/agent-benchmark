@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/napetrov/agent-benchmark/schemas/subject_scorecard.v1.json",
+  "title": "Subject scorecard artifact v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "suite",
+    "baseline",
+    "awareness",
+    "work",
+    "cells"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "subject_scorecard.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "subject": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": {"type": "string"},
+        "kind": {"type": "string"},
+        "ref": {"type": ["string", "null"]},
+        "ref_digest": {"type": ["string", "null"]},
+        "members": {"type": "array"}
+      },
+      "additionalProperties": true
+    },
+    "descriptor": {
+      "type": "string"
+    },
+    "suite": {
+      "type": "object",
+      "required": ["products", "questions"],
+      "properties": {
+        "products": {"type": "array", "items": {"type": "string"}},
+        "questions": {"type": "array", "items": {"type": "string"}},
+        "question_set_hash": {"type": "string"},
+        "tasks": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "baseline": {
+      "type": "string"
+    },
+    "awareness": {
+      "type": "object",
+      "required": ["arm_specs", "runs"],
+      "properties": {
+        "arm_specs": {"type": "array", "items": {"type": "string"}},
+        "runs": {"type": "array"}
+      },
+      "additionalProperties": true
+    },
+    "work": {
+      "type": "object"
+    },
+    "cells": {
+      "type": "array"
+    },
+    "plugin_deltas": {
+      "type": "array"
+    },
+    "run_manifest": {
+      "type": "object"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": true
+}

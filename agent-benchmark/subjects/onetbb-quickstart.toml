@@ -1,0 +1,18 @@
+[subject]
+id = "onetbb-quickstart-skill"
+kind = "skill"
+ref = "data/skills/onetbb-quickstart"
+
+[suite]
+products = ["oneTBB"]
+questions = ["data/questions/onetbb.json"]
+tasks = []
+
+baseline = "baseline"
+
+[[matrix.cells]]
+id = "arms-runner"
+model = "gpt-4o-mini"
+provider = "openai"
+harness = "arms-runner"
+plugins = []

@@ -98,9 +98,11 @@ working):
   - Remaining Phase C work: real runner adapters for non-prompt plugins.
 - **Phase D — Subjects**
   ([ADR](docs/decisions/2026-06-10-artifacts-as-evaluation-subjects.md)).
-  `subjects/` descriptor + loader, `cli.py subjects run` wrapping `arm_runner` +
-  the task adapter, `report/subject_report.py`, and a versioned per-subject
-  scorecard schema — the object #58d/#58i serialize/sign.
+  IN PROGRESS in PR #101 stack: `subjects/` descriptor + loader,
+  `cli.py subjects run` wrapping awareness `arm_runner` matrix cells,
+  `report/subject_report.py`, and a versioned per-subject scorecard schema.
+  Remaining: faithful executable task adapter for subject work suites — the
+  object #58d/#58i serialize/sign.
 
 Each ADR carries its own open questions (harness invocation boundary,
 subject-vs-package overlap, default matrix size, soft vs hard coverage
