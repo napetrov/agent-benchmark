@@ -40,7 +40,13 @@ def _best_time(cmd, rounds=3):
     value = None
     elapsed = []
     for _ in range(rounds):
-        value, seconds = _run(cmd)
+        current, seconds = _run(cmd)
+        if value is None:
+            value = current
+        else:
+            assert current == value, (
+                f"inconsistent q29 checksum across runs: expected {value}, got {current}"
+            )
         elapsed.append(seconds)
     return value, min(elapsed)
 
@@ -60,6 +66,27 @@ def test_checksum_matches_serial_and_is_faster():
     assert fast_time < serial_time / SPEEDUP_FLOOR, (
         f"expected at least {SPEEDUP_FLOOR}x speedup; "
         f"serial={serial_time:.4f}s fast={fast_time:.4f}s"
+    )
+
+
+def test_passes_argument_is_honored():
+    # the CLI must preserve <passes> semantics: the checksum scales with the
+    # pass count (each pass re-adds the same per-run sum). A solver that ignores
+    # the argument or hard-codes the checksum for the single timed value (6)
+    # would pass the speed test but fail here. No speed gate — correctness only.
+    serial_one, _ = _run([str(SERIAL), "1"])
+    fast_one, _ = _run([str(BINARY), "1"])
+    assert serial_one == fast_one, (
+        f"q29 checksum mismatch at passes=1: serial={serial_one} fast={fast_one}"
+    )
+    serial_three, _ = _run([str(SERIAL), "3"])
+    fast_three, _ = _run([str(BINARY), "3"])
+    assert serial_three == fast_three, (
+        f"q29 checksum mismatch at passes=3: serial={serial_three} fast={fast_three}"
+    )
+    # the value must actually depend on <passes>, not be a constant
+    assert fast_three != fast_one, (
+        f"q29 checksum ignores <passes> (same value {fast_one} at passes 1 and 3)"
     )
 
 

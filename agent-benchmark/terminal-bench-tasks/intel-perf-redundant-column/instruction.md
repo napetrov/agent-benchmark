@@ -15,7 +15,7 @@ program reports a checksum (the sum of all 90 column sums) as `q29=<value>`.
 
 The key observation is algebraic:
 
-```
+```text
 SUM(c + k) == SUM(c) + k * COUNT(c)
 ```
 

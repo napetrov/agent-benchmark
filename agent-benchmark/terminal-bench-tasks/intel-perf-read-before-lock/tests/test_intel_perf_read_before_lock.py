@@ -8,6 +8,25 @@ from pathlib import Path
 BINARY = Path("/app/crit_fixed")
 SOURCE = Path("/app/crit_fixed.cpp")
 TIMEOUT = 60.0
+MASK64 = (1 << 64) - 1
+
+
+def _compute(i):
+    # mirrors Accumulator::compute() in the reference: a pure function of the
+    # index, so the verifier can derive the expected total independently rather
+    # than trusting whatever the binary prints.
+    acc = i & MASK64
+    for _ in range(64):
+        acc = (acc * 6364136223846793005 + 1442695040888963407) & MASK64
+        acc ^= acc >> 29
+    return acc & MASK64
+
+
+def _expected_total(threads, iters):
+    total = 0
+    for i in range(threads * iters):
+        total = (total + _compute(i)) & MASK64
+    return total
 
 
 def _strip_comments(text):
@@ -50,14 +69,14 @@ def test_binary_exists():
 
 
 def test_result_unchanged_at_several_thread_counts():
-    # the fix must not change the computed total: the reference sum is the same
-    # regardless of how many threads fold it in (compute() is order-independent
-    # over a commutative add). Compare the fixed binary against the known total
-    # baked into the program itself (it self-checks against the reference sum).
-    results = {}
+    # the fix must not change the computed total. Compare each run against an
+    # independent Python reference (compute() is order-independent over a
+    # commutative add), so a stub that prints a constant total cannot pass.
     for threads, iters in [(2, 100000), (4, 100000), (8, 50000)]:
         total, _ = _run(threads, iters)
-        results[(threads, iters)] = total
+        assert total == _expected_total(threads, iters), (
+            f"wrong total at threads={threads} iters={iters}: got {total}"
+        )
     # at equal element counts (threads*iters), the total must match
     a, _ = _run(4, 100000)
     b, _ = _run(8, 50000)  # same 400000 elements
@@ -97,6 +116,10 @@ def test_compute_hoisted_out_of_critical_section():
     # and the shared update must still be inside a locked region: a '+=' after
     # the lock acquisition (explicit unlock or RAII scope both satisfy this).
     after_lock = body[lock_acq.start():]
+    assert not re.search(r"\bcompute\s*\(", after_lock), (
+        "compute() must not run after the lock is acquired: a dead pre-lock call "
+        "plus the real compute() inside the critical section defeats the hoist"
+    )
     assert re.search(r"\+=", after_lock), (
         "the shared update (total_ += v) must remain under the lock"
     )

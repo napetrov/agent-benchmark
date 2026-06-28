@@ -54,20 +54,26 @@ def test_terminates_within_time_limit():
 def test_source_does_not_make_shared_the_contended_object():
     src = _strip_comments(SOURCE.read_text(errors="replace"))
 
-    # must not allocate the contended Payload via make_shared (which co-locates
-    # the control block with the payload on one line).
-    assert not re.search(r"make_shared\s*<\s*Payload\b", src), (
-        "do not use make_shared<Payload>: it co-locates the control block with "
-        "the payload; allocate the object separately or align it"
+    # cache-line alignment/padding evidence: explicit alignas/aligned with any
+    # argument (incl. a named constant like CACHELINE), or the standard hint.
+    aligned = re.search(r"\balignas\s*\(", src) \
+        or re.search(r"\baligned\s*\(", src) \
+        or "hardware_destructive_interference_size" in src
+
+    # co-locating allocators (make_shared/allocate_shared) put the control block
+    # in the same heap block as the payload. instruction.md allows them ONLY if
+    # the payload is also cache-line-aligned/padded so the refcount and the hot
+    # read-only field still land on different lines; reject them otherwise.
+    co_located = re.search(r"(?:make_shared|allocate_shared)\s*<\s*Payload\b", src)
+    assert not (co_located and not aligned), (
+        "make_shared/allocate_shared<Payload> co-locates the control block with "
+        "the payload; allocate the object separately (shared_ptr<Payload>(new "
+        "Payload(...))) or cache-line-align/pad the payload"
     )
 
     # positive evidence of a fix: either a separate allocation (shared_ptr from
-    # new Payload) or explicit cache-line alignment/padding of the payload.
-    separate_alloc = re.search(r"shared_ptr\s*<\s*Payload\s*>\s*[\w]*\s*\(\s*new\s+Payload\b", src) \
-        or re.search(r"new\s+Payload\b", src)
-    aligned = re.search(r"alignas\s*\(\s*64\s*\)", src) \
-        or re.search(r"aligned\s*\(\s*64\s*\)", src) \
-        or "hardware_destructive_interference_size" in src
+    # new Payload, helper factory, allocator) or explicit cache-line alignment.
+    separate_alloc = re.search(r"new\s+Payload\b", src)
     assert separate_alloc or aligned, (
         "separate the control block from the payload (shared_ptr<Payload>(new "
         "Payload(...))) and/or cache-line-align the payload"

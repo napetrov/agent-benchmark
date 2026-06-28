@@ -87,13 +87,22 @@ def test_source_adds_capped_exponential_backoff():
         or re.search(r"<<=", body) or re.search(r"\*=\s*2\b", body)
     assert grows, "backoff must grow multiplicatively (e.g. backoff <<= 1 or backoff *= 2)"
 
-    # a cap that bounds the backoff (min/clamp/conditional against a max constant)
-    capped = re.search(r"\b(?:min|clamp)\b", body) \
-        or re.search(r"<\s*[A-Za-z0-9_]*[Mm][Aa][Xx]", body) \
-        or re.search(r"[Mm][Aa][Xx][A-Za-z0-9_]*\s*[<>]", body) \
-        or re.search(r"\?[^;]*:[^;]*;", body)  # ternary clamp like (b<CAP)?b<<1:CAP
-    assert capped, "backoff must be capped to bound worst-case delay (min/clamp/conditional max)"
+    # the delay loop must wait on the CURRENT backoff value (anchored to a loop
+    # whose header names `backoff`), not just contain a stray pause anywhere.
+    delay_loop = re.search(
+        r"for\s*\([^)]*\bbackoff\b[^)]*\)\s*(?:\{(?P<braced>.*?)\}|(?P<stmt>[^\n;]*;))",
+        body,
+        re.S,
+    )
+    assert delay_loop, "missing delay loop that waits on the current backoff value"
+    delay_body = delay_loop.group("braced") or delay_loop.group("stmt") or ""
+    assert re.search(
+        r"cpu_relax\s*\(|_mm_pause|__builtin_ia32_pause|\bpause\b|this_thread::yield",
+        delay_body,
+    ), "backoff delay loop must execute a relax/pause/yield call"
 
-    # a CPU-relax / pause / yield body for the delay
-    relax = re.search(r"_mm_pause|__builtin_ia32_pause|\bpause\b|this_thread::yield", src)
-    assert relax, "backoff should spin on a relax/pause body (_mm_pause/pause/yield)"
+    # the cap must clamp the SAME backoff variable used by the delay loop, not
+    # any unrelated max-named conditional.
+    capped = re.search(r"\bbackoff\b\s*=\s*(?:std::)?min\s*\(", body) \
+        or re.search(r"\bbackoff\b\s*=\s*\(?\s*backoff\s*<\s*[A-Za-z0-9_]*[Mm][Aa][Xx]", body)
+    assert capped, "backoff growth must clamp the same backoff variable used by the delay loop"
