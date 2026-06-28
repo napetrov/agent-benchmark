@@ -96,34 +96,22 @@ cat > results/arms/matrix.json <<'JSON'
 }
 JSON
 
-python cli.py arms run \
+python cli.py arms matrix-run \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
   --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
   --matrix-cells results/arms/matrix.json \
-  --matrix-cell openclaw-no-plugin \
   --judge \
-  --out-json results/arms/oneTBB-none.json
-
-python cli.py arms run \
-  --product oneTBB \
-  --questions data/questions/onetbb_golden.json \
-  --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
-  --matrix-cells results/arms/matrix.json \
-  --matrix-cell openclaw-caveman \
-  --judge \
-  --out-json results/arms/oneTBB-caveman.json
-
-python cli.py arms plugin-delta \
-  --baseline-json results/arms/oneTBB-none.json \
-  --plugin-json results/arms/oneTBB-caveman.json \
-  --out-json results/arms/oneTBB-caveman-delta.json
+  --out-dir results/arms/oneTBB-matrix
 ```
 
 `--matrix-cells` accepts JSON shaped as `{"matrix": {"cells": [...]}}`,
 `{"cells": [...]}`, or a top-level list. A selected cell controls `model`,
 `provider`, `harness`, and `plugins`, and the run refuses unsupported
-plugin/harness combinations before calling the model.
+plugin/harness combinations before calling the model. `arms matrix-run` writes
+one `arms.v1` artifact per cell, a `matrix_rollup.v1` JSON/Markdown report, and
+paired `plugin_delta.v1` artifacts for no-plugin/plugin cells that only differ
+by `plugin_set`.
 
 ## Arm specs in detail
 

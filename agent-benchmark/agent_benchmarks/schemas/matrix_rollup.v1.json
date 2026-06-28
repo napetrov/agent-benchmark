@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/napetrov/agent-benchmark/schemas/matrix_rollup.v1.json",
+  "title": "Matrix rollup artifact v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "library_name",
+    "cells"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "matrix_rollup.v1"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "library_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "total_cells": {
+      "type": "integer"
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "matrix_cell",
+          "artifact"
+        ],
+        "properties": {
+          "matrix_cell": {
+            "type": "string"
+          },
+          "artifact": {
+            "type": "string"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "harness": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plugin_set": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plugin_set_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "object"
+          },
+          "cost_summary": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "plugin_deltas": {
+      "type": "array"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

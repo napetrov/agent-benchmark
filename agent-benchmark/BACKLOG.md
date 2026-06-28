@@ -93,8 +93,9 @@ working):
     `arms plugin-delta` and `plugin_delta.v1` reports.
   - **DONE slice:** explicit `matrix.cells` descriptors for `arms run` plus
     harness/plugin compatibility validation before run.
-  - Remaining Phase C work: multi-cell orchestration/report rollups and real
-    runner adapters for non-prompt plugins.
+  - **DONE slice:** `arms matrix-run` multi-cell orchestration, `matrix_rollup.v1`
+    reports, and automatic paired `plugin_delta.v1` artifacts.
+  - Remaining Phase C work: real runner adapters for non-prompt plugins.
 - **Phase D — Subjects**
   ([ADR](docs/decisions/2026-06-10-artifacts-as-evaluation-subjects.md)).
   `subjects/` descriptor + loader, `cli.py subjects run` wrapping `arm_runner` +
