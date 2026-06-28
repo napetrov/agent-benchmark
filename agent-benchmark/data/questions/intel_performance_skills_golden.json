@@ -813,7 +813,7 @@
     },
     {
       "id": "intel-performance-skills-Q043",
-      "text": "Scenario: A job is wall-clock slow, but `perf stat` shows moderate IPC, low cache misses, low branch misses, and low kernel time — nothing dominates. CPU utilization during the run is only ~30%. What should the agent investigate?",
+      "text": "Scenario: A job is wall-clock slow, but `perf stat` shows moderate IPC, low cache misses, low branch misses, and low kernel time \u2014 nothing dominates. CPU utilization during the run is only ~30%. What should the agent investigate?",
       "category": "triage",
       "difficulty": "hard",
       "level": "triage",
@@ -1567,6 +1567,581 @@
         "why_it_matters": "Negative: top-level perf data without code/profile attribution cannot drive a code change.",
         "trigger": "counter",
         "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q082",
+      "text": "Scenario: `perf annotate` on a hot spin loop shows ~91% of cycles on a single `lock xchg` instruction that executes on every spin iteration. The flag is a `std::atomic<int>`. Name the lock design, the fix, and why it helps under contention.",
+      "category": "lock_contention",
+      "difficulty": "easy",
+      "level": "diagnosis",
+      "expected_topics": [
+        "This is a test-and-set (TAS) spinlock: every waiter writes the lock line with an atomic exchange on each spin, so the line bounces (remote HITM) between cores.",
+        "Convert to test-and-test-and-set (TTAS): spin on an ordinary atomic load and only attempt the exchange once the flag reads free.",
+        "The read-only spin keeps the line in shared state while the lock is held, so waiters stop invalidating each other; the atomic write happens only on a real acquire attempt."
+      ],
+      "metadata": {
+        "persona": "performance_triage_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "annotate hot lock -> TAS to TTAS",
+        "trigger": "counter",
+        "why_it_matters": "Distinguishes a write-on-every-spin TAS storm from a real critical-section cost."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q083",
+      "text": "Scenario: A spinlock is already test-and-test-and-set (it spins on a relaxed load before the exchange), yet `perf c2c` shows HITM on the lock line spiking precisely at each `unlock()`, and throughput stops scaling past ~16 cores. What is happening and what is the fix?",
+      "category": "lock_contention",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The read-spin removed the steady write storm, but at release every waiter observes the freed flag in the same window and fires the atomic exchange at once: a release-time CAS storm / thundering herd.",
+        "Add bounded exponential backoff (with optional jitter) to the spin loop so waiters retry at staggered times instead of colliding; cap the backoff so it cannot grow without bound.",
+        "This mirrors the glibc nptl spin-loop backoff and oneTBB spin_mutex change; it is a different fix from TTAS and complements it."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "TTAS but release-time CAS storm -> add capped backoff",
+        "trigger": "counter",
+        "why_it_matters": "Tests whether the agent recognizes that TTAS alone does not address the release thundering herd."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q084",
+      "text": "Task: A reviewer sees a caller written as `while (!mutex.try_lock()) { do_other_work(); }`. The library author fixed contention in `lock()` by adding a read-before-exchange there, but this loop still hammers the lock line. Why, and what must also change?",
+      "category": "lock_contention",
+      "difficulty": "medium",
+      "level": "end_to_end",
+      "expected_topics": [
+        "`try_lock()` here is invoked in a busy loop, so it behaves like a spin; if try_lock still does an unconditional atomic exchange, the loop reintroduces the write storm the lock() fix removed.",
+        "Apply the same test-before-exchange (read the flag, only attempt the atomic when it looks free) inside `try_lock()` as well.",
+        "This is exactly why oneTBB PR #1829 changed spin_mutex::try_lock (and queuing_mutex try_acquire), not just lock()."
+      ],
+      "metadata": {
+        "persona": "library_maintainer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "fix try_lock spin path too",
+        "trigger": "source",
+        "why_it_matters": "Catches the common omission of try_lock when hardening a spin mutex."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q085",
+      "text": "Scenario: A profile shows `native_queued_spin_lock_slowpath` consuming 60% of cycles for a workload, but the agent has only the perf report and no access to the source or build of the code that takes the lock. What should the agent do?",
+      "category": "perf_without_source",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "A high spinlock-slowpath share localizes contention but not a code change: which lock, which critical section, and whether the fix is layout, algorithm, or fewer lock acquisitions is unknown from the counter alone.",
+        "Per the ordering principle, obtain the source/build for the contended path (and ideally annotate/c2c to attribute the lock) before proposing any specific edit.",
+        "Do not prescribe 'add backoff' or 'convert to TTAS' purely from the slowpath percentage; name it a triage signal, not a diagnosis."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "spinlock slowpath % -> gather source before edit",
+        "trigger": "counter",
+        "why_it_matters": "Negative: spinlock-slowpath share alone cannot justify a specific lock rewrite.",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q086",
+      "text": "Scenario: A ray tracer's hot path uses a TBB `spin_mutex`. An engineer swapped it for a heavier `std::mutex` and then a `queuing_mutex`, and IPC got worse both times while context switches climbed. What does this rule out, and what is the likely real fix?",
+      "category": "lock_contention",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Swapping to heavier locks made it worse, which rules out 'the lock is too light' and points to contention on the lock line itself, not lock fairness or blocking semantics.",
+        "The fix is read-before-lock (check the value before attempting the atomic acquire), reducing line invalidations, rather than substituting a more expensive lock.",
+        "Confirm by re-profiling: fewer HITM on the lock line and lower context-switch count, with IPC recovering."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "rule out heavier lock -> read-before-lock",
+        "trigger": "counter",
+        "why_it_matters": "Tests ruling out a tempting wrong fix (heavier lock) with evidence."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q087",
+      "text": "Scenario: An engineer proposes adding exponential backoff to a spinlock that guards a long critical section (hundreds of microseconds of work under the lock). Is backoff the right call here?",
+      "category": "lock_contention",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "Backoff targets quick locks where the storm is the retry collision at release; with a long critical section the waiters are blocked on real work, not on retry collisions, so backoff adds latency without addressing the cause.",
+        "The real lever is shrinking the critical section (move lock-independent work out) or switching to a blocking/futex-style wait that parks waiters instead of spinning.",
+        "This matches the documented regression of spin backoff on large critical sections (it is aimed at 'quick' locks)."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "reject backoff for long critical sections",
+        "trigger": "source",
+        "why_it_matters": "Negative: backoff is wrong for long-held locks; the answer is to shrink the section or block.",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q088",
+      "text": "Scenario: An off-CPU / lock-wait profile shows ~92% of thread time in `__lll_lock_wait` on one mutex, while an on-CPU annotate of the lock holder shows ~73% of the locked window inside a pure helper that reads and writes no shared state. What is the diagnosis and fix?",
+      "category": "critical_section",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Lock-independent work is being done inside the critical section, so the effective critical section is far longer than the one operation that needs protection; every waiter is blocked for that helper's duration.",
+        "Hoist the lock-independent computation out of the lock (compute first, then take the lock only for the shared update); the critical section collapses to the protected operation.",
+        "Verify by re-profiling: __lll_lock_wait share drops sharply and the locked window shrinks to the shared update."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "off-CPU lock wait -> shrink critical section",
+        "trigger": "counter",
+        "why_it_matters": "Tests reading an off-CPU profile to find work that does not belong under the lock."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q089",
+      "text": "Scenario: A getter method on a hot, mutex-protected object returns a `std::vector` that most callers ignore. Profiling attributes lock-wait time to this getter's mutex. The method mutates no state. What is the subtle cost and the fix?",
+      "category": "critical_section",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The returned temporary's allocation/copy and especially its destruction happen while the mutex is held (the object is built and released inside the critical section), inflating lock-hold time even though nothing is mutated.",
+        "Treat read-only getters as such: move construction/destruction of the temporary outside the critical section (e.g. take the lock only to snapshot what is needed, release, then build/return), or avoid returning the unused container.",
+        "This is the ClickHouse ThreadGroupStatus::mutex pattern; verify with reduced lll_lock_wait and shorter held windows."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "release temporaries outside the lock",
+        "trigger": "source",
+        "why_it_matters": "Tests spotting that object lifetime (destruction) under a lock is part of the critical section."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q090",
+      "text": "Scenario: `perf c2c` shows remote-HITM concentrated on one 64-byte line; offset 0x00 is an atomic reference count that is written on every shared_ptr copy, and offset 0x10 is an object field that is only ever read. The object was created with `std::make_shared<T>()`. Diagnose and fix.",
+      "category": "false_sharing",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "make_shared co-locates the control block (atomic refcount) with the object in one allocation, so the constantly-written refcount and the read-only field share a cache line: false sharing between control block and payload.",
+        "Stop co-locating them: construct via `std::shared_ptr<T>(new T(...))` so the control block is allocated separately, and/or cache-line-align/pad the payload's hot read-only fields.",
+        "Note the refcount itself remains truly shared; the win is removing the coherence misses on the read-only field, not eliminating refcount traffic."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "c2c on refcount line -> avoid make_shared / pad",
+        "trigger": "counter",
+        "why_it_matters": "Tests the make_shared layout trap and that padding the field alone does not fix true refcount sharing."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q091",
+      "text": "Scenario: A multithreaded TX path is hot on a single memory read inside `ip6_mtu`, and `perf c2c` shows that read's field shares a cache line with a reference count (`__refcnt`) that every transmit atomically increments. The field itself is read-only on this path. What is the fix and what is its ceiling?",
+      "category": "false_sharing",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The read-only field is false-shared with the hot atomic __refcnt; pad/align so __refcnt sits on its own cache line and neighboring read-mostly fields stop bouncing.",
+        "The padding fix recovers the read-side misses but the refcount write traffic remains; a scalable refcount scheme (e.g. RCU-managed rcuref-style counters) is the deeper fix when the count itself is the bottleneck.",
+        "Verify with perf c2c showing the false-shared lines disappear at high thread counts (the memcached dst_entry case reached ~2.7x)."
+      ],
+      "metadata": {
+        "persona": "kernel_performance_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "c2c -> pad refcount line; consider scalable refcount",
+        "trigger": "counter",
+        "why_it_matters": "Tests separating false sharing (fixable by padding) from true refcount sharing (needs algorithm change)."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q092",
+      "text": "Scenario: Each worker updates only its own counter, yet `perf c2c` shows HITM at several byte offsets of the same line and throughput collapses with thread count. The counters are declared as adjacent elements of one array/struct. Diagnose and give the fix and a verification.",
+      "category": "false_sharing",
+      "difficulty": "easy",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Per-thread counters packed onto one cache line cause false sharing: each thread's write invalidates the line for all others though no data is logically shared.",
+        "Separate the counters onto independent cache lines via alignas(64), padding, or std::hardware_destructive_interference_size; or accumulate in a thread-local and write once at the end.",
+        "Verify with perf c2c (HITM on the line gone) and a faster, scaling run."
+      ],
+      "metadata": {
+        "persona": "performance_triage_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "c2c multi-offset HITM -> cache-line separation",
+        "trigger": "counter",
+        "why_it_matters": "Canonical false sharing read from c2c offsets."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q093",
+      "text": "Scenario: A kernel SysV-message microbench shows two global atomic counters being updated on every send/receive, and a third read-mostly config field on the same cache line. `perf c2c` confirms contention. Beyond padding, what scalable structure removes the atomic update bottleneck?",
+      "category": "atomic_update",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Padding the read-mostly field off the line fixes the false sharing, but the two counters are truly contended (every op updates them).",
+        "Replace the global atomics with per-CPU counters (percpu_counter-style): updates stay node-local and a summation reads the shards only when a total is needed.",
+        "Also move any aggregate read (the sum) out from under a shared read lock so the common path stays per-CPU."
+      ],
+      "metadata": {
+        "persona": "kernel_performance_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "true-shared atomics -> percpu_counter",
+        "trigger": "counter",
+        "why_it_matters": "Distinguishes false sharing (pad) from true sharing (shard the counter)."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q094",
+      "text": "Scenario: A read-heavy `pread`-bound benchmark on a high-core host is kernel-dominated; annotate shows the first cache line of `struct file` hot, where the atomic `f_count` sits next to `f_op`/`f_path` that every read dereferences. Diagnose and state the fix shape.",
+      "category": "false_sharing",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The atomic reference count f_count shares the first cache line with read-mostly fields (f_op, f_path) dereferenced by every read, so refcount inc/dec false-shares with the dereferenced metadata.",
+        "Lay out struct file so f_count is on a separate cache line from f_path/f_op (move the hot read-mostly fields and the written count apart).",
+        "Verify with c2c showing the first-line HITM gone; the RocksDB random-read case saw double-digit percent gains at high core counts."
+      ],
+      "metadata": {
+        "persona": "kernel_performance_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "annotate struct file -> split f_count from f_op/f_path",
+        "trigger": "counter",
+        "why_it_matters": "Tests struct-layout reasoning on a real kernel hot structure."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q095",
+      "text": "Scenario: A Fortran tool spends 72% of cycles in `native_queued_spin_lock_slowpath`; the contended lock is a mutex inside a unit lookup that protects four sections (cache search, red-black tree search, create-and-update, cache update), but the common path only reads. What is the fix and the risk to watch?",
+      "category": "lock_contention",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The mutex serializes readers even though most calls only look up (read) the structure; convert to a reader/writer lock and split the read-only sections from the create/update sections.",
+        "Take the read lock for the lookup fast path and the write lock only when creating/updating, so concurrent readers no longer serialize.",
+        "Risk: ensure the read path truly mutates nothing (including lazy cache updates); a hidden write under the read lock breaks correctness."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "mostly-read mutex -> rwlock + split sections",
+        "trigger": "counter",
+        "why_it_matters": "Tests recognizing a read-mostly critical section behind a mutex and the correctness caveat."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q096",
+      "text": "Scenario: On a database benchmark, replacing a spin-wait with a blocking `pthread_mutex` improved throughput +11% at 500 clients but regressed -3% at 100 clients. The team asks for one universally best lock. What should the agent advise?",
+      "category": "lock_contention",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "There is no single best lock here: at low contention the spin wins (acquire on first try, no kernel wait-queue cost), at high contention blocking wins (avoids burning cores spinning).",
+        "Recommend an adaptive strategy (spin briefly, then block) or contention-aware selection, and measure across the client-count range rather than optimizing one point.",
+        "Note adaptive mutexes can lag at 2-socket/high core counts; consider adding backoff to the adaptive spin or a lock-free path for the hottest queue."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "spin vs blocking tradeoff -> adaptive, measure range",
+        "trigger": "counter",
+        "why_it_matters": "Negative: rejects 'one best lock'; the right answer depends on the contention regime.",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q097",
+      "text": "Scenario: A WAL-style append path does not scale; off-CPU shows >60% of time in a futex wait under a fixed pool of 8 insertion locks. Raising the lock count just shifts contention to a space-reservation lock that protects two adjacent position fields together. What is the deeper fix?",
+      "category": "not_enough_parallelism",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "More locks only moves the bottleneck; the real serialization is the space reservation that locks two byte-position fields together.",
+        "Observe that the next record's previous-position equals the prior record's current-position, so only one 64-bit current-position needs protection; reduce the reservation to a single atomic add (lock-free reservation).",
+        "Verify scaling at full core count; the PostgreSQL WAL case reached ~2x and flipped a cross-platform deficit."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "shift-then-eliminate -> lock-free reservation",
+        "trigger": "counter",
+        "why_it_matters": "Tests recognizing that adding locks shifts rather than removes a serialization point."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q098",
+      "text": "Scenario: An aggregation query scales to ~24 cores then flatlines; the pre-aggregation is parallel but the merge of per-thread hash tables is serial because tables are converted single-level to two-level one at a time during the merge. What is the fix?",
+      "category": "not_enough_parallelism",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The serial merge (including on-the-fly single-level to two-level conversion) is the non-parallel tail capping scaling.",
+        "Convert all single-level hash tables to two-level in parallel before the merge, then parallel-merge the two-level tables by bucket.",
+        "Watch for engine thread-pool caps (e.g. a max_threads ceiling) that hide further scaling once the merge is parallel."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "serial merge -> parallel convert then merge",
+        "trigger": "source",
+        "why_it_matters": "Tests finding the serial tail (Amdahl) behind a partially parallel operator."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q099",
+      "text": "Scenario: A pipeline's central balancing node (a resize/fan-in operator) shows >60% of cycles in spinlock slowpath because every edge update must take that one node's status mutex. Removing the node entirely causes a large regression. What is the fix?",
+      "category": "not_enough_parallelism",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The balancing node is a necessary hub (it balances data flow), so deleting it regresses; the problem is that all edges contend its single status lock.",
+        "Split the resize/fan-in node into multiple nodes that keep the balancing role but spread edge updates across several locks, reducing per-lock contention.",
+        "Verify spinlock-slowpath share drops sharply with no throughput regression."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "hot hub lock -> split node, keep role",
+        "trigger": "counter",
+        "why_it_matters": "Tests that the fix preserves a needed component while splitting its lock."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q100",
+      "text": "Scenario: A query computes SUM(c), SUM(c+1), ..., SUM(c+89) and TMA shows ~78% memory bound on a single column. The implementation materializes each `c+k` column before summing. What rewrite removes the memory pressure, and what invariant must hold?",
+      "category": "memory_bound",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Materializing 90 intermediate columns multiplies memory traffic ~90x; the workload is memory bound, not compute bound.",
+        "Use SUM(c+k) = SUM(c) + k*COUNT(c): one pass over c yields SUM(c) and N, and the 90 results are scalar corrections, dropping traffic to a single pass.",
+        "Invariant: the rewrite must produce identical results (bit-identical sums); the speedup grows as the column exceeds cache."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "memory-bound TMA -> algebraic single-pass rewrite",
+        "trigger": "counter",
+        "why_it_matters": "Tests turning a memory-bound materialization into an algebraically equivalent single pass."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q101",
+      "text": "Scenario: A high-core run of an allocator-heavy service shows excessive page faults and repeated mmap; the allocator splits large extents on allocation but, on free, coalesces them into one larger extent that later requests cannot reuse. Diagnose and state the fix shape.",
+      "category": "memory_bound",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Asymmetric extent management: a max-active-fit boundary is applied when splitting on allocation but not when coalescing on free, so freed memory merges into sizes the workload no longer requests, forcing fresh mmap and page faults.",
+        "Apply the same active-fit boundary on coalescing/deallocation so freed extents stay in reusable size classes; tune the split threshold so reuse matches the request distribution.",
+        "Verify page-fault and mmap counts drop and RSS/cycles improve across the query suite."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "page-fault storm -> symmetric extent boundary",
+        "trigger": "counter",
+        "why_it_matters": "Tests reasoning about allocator reuse policy from a page-fault/mmap symptom."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q102",
+      "text": "Scenario: A multi-instance encode pinned at 4C/8T per instance scales 1.97x from 1 to 2 sockets on one platform but only 1.67x on a newer higher-core platform; `perf stat` shows kernel cycles ~10x and top kernel symbols are `cpupri_find_fitness`, `pull_rt_task`, `enqueue_pushable_task`. What is going on and what are the levers?",
+      "category": "kernel_scheduling",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The hot RT-scheduler functions and c2c on root_domain/cpupri indicate contention on RT scheduling data, amplified by more cores and higher core-to-core latency; the app is setting RT priority by default.",
+        "User-space lever: stop forcing RT priority by default (let the app opt in), which removes most of the RT-balancer traffic.",
+        "Kernel levers: re-layout/split cpupri and root_domain (separate counts from masks, per-node rto_count/cpumask) to cut true and false sharing; expect scaling to recover toward ~1.9x."
+      ],
+      "metadata": {
+        "persona": "kernel_performance_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "kernel RT-sched contention -> drop default RT prio + struct split",
+        "trigger": "counter",
+        "why_it_matters": "Tests attributing a gen-over-gen scaling loss to RT scheduler data contention plus user-space misuse."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q103",
+      "text": "Scenario: A Java benchmark does not scale from 1 to 2 sockets and kernel utilization grows oddly; the top deltas are `update_cfs_group` and `update_load_avg`, both touching the same address with high latency. What configuration changes should the agent try first?",
+      "category": "kernel_scheduling",
+      "difficulty": "medium",
+      "level": "triage",
+      "expected_topics": [
+        "update_cfs_group/update_load_avg contention on a shared task_group load_avg is the signature of autogroup/cgroup hierarchy overhead at high core counts.",
+        "Disable autogrouping (sched_autogroup_enabled=0) and place the processes at the root of the CPU cgroup so the per-group load_avg update is skipped/short-circuited.",
+        "These are config-level levers to try before any kernel struct re-layout; re-measure scaling and the two functions' cycle share."
+      ],
+      "metadata": {
+        "persona": "systems_maintainer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "cfs load_avg contention -> autogroup/cgroup config",
+        "trigger": "counter",
+        "why_it_matters": "Tests reaching for cheap config levers (autogroup/cgroup) before code/kernel changes."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q104",
+      "text": "Scenario: A benchmark phase that should take seconds blows past a 12-minute threshold on a high-core machine but passes on another vendor's CPU; `queued_spin_lock_slowpath` is ~98% of cycles and tracing shows heavy writes to `/dev/random`. What is the root cause and the fix?",
+      "category": "kernel_contention",
+      "difficulty": "medium",
+      "level": "diagnosis",
+      "expected_topics": [
+        "The JVM's default RNG seeds from /dev/random, whose input_pool.lock is a singleton; many threads contending it on a high-core host serialize on the spinlock.",
+        "Switch the JVM RNG source so it does not contend /dev/random (e.g. DRBG / -Djava.security.egd=file:/dev/./urandom), removing the singleton-lock contention.",
+        "Verify the spinlock-slowpath disappears and the phase completes in seconds."
+      ],
+      "metadata": {
+        "persona": "systems_maintainer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "/dev/random lock -> change RNG source",
+        "trigger": "counter",
+        "why_it_matters": "Tests tracing a spinlock storm to a singleton kernel lock reached via an RNG seeding default."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q105",
+      "text": "Task: You are writing a new spinlock for a high-core service from scratch. Apply the skill's contention guidance proactively: what should the acquire loop look like before any profiling?",
+      "category": "lock_contention",
+      "difficulty": "medium",
+      "level": "end_to_end",
+      "expected_topics": [
+        "Write test-and-test-and-set from the start: spin on a relaxed atomic load and only attempt the exchange/CAS when the flag reads free, so spinning never writes the line.",
+        "Add bounded exponential backoff with a cap (and a pause/relax body) in the retry path to spread release-time retries; consider yielding/parking after a spin budget for long waits.",
+        "Keep the critical section minimal and ensure correctness (acquire/release ordering); this is the proactive 'fast from the start' application, no profile required."
+      ],
+      "metadata": {
+        "persona": "library_maintainer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "new code -> TTAS + capped backoff by default",
+        "trigger": "new_code",
+        "why_it_matters": "Proactive use case: the skill mandates writing the optimized lock pattern without being asked."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q106",
+      "text": "Scenario: While reviewing code (no profile yet), you see a hot loop that builds a temporary container under a held mutex and returns it, but callers discard it. The skill flags this. Do you act now or wait for a profile?",
+      "category": "critical_section",
+      "difficulty": "medium",
+      "level": "triage",
+      "expected_topics": [
+        "Source is the trigger and the pattern (work/lifetime under a lock that does not need protection) is one the skill flags high-priority, so route to the fix now rather than waiting for a profile.",
+        "Plan the fix: take the lock only for the shared read/update, build and destroy the temporary outside the critical section, or drop the unused return.",
+        "State the cheap verification (before/after lock-hold time or lll_lock_wait) to confirm once measurable."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "source pattern -> act, then verify",
+        "trigger": "source",
+        "why_it_matters": "Source-first triage: a flagged pattern justifies acting before a profile exists."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q107",
+      "text": "Scenario: A teammate shares only a high-level dashboard (throughput -8%, kernel time up) for a high-core service and asks the agent to 'pad the hot struct to fix false sharing.' No c2c, no source. How should the agent respond?",
+      "category": "perf_without_source",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "Aggregate KPIs do not establish false sharing or localize a struct/field; padding a guessed structure is speculative and can regress (wasted cache, broken layout assumptions).",
+        "Route to evidence: capture perf c2c (and annotate) to confirm a false-shared line and identify the exact fields, and obtain the source before editing.",
+        "Withhold the padding change until c2c + source justify it; per the ordering principle, code drives the change."
+      ],
+      "metadata": {
+        "persona": "performance_consultant",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "KPI-only false-sharing claim -> require c2c + source",
+        "trigger": "counter",
+        "why_it_matters": "Negative: a false-sharing fix needs c2c evidence and source, not a KPI movement.",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q108",
+      "text": "Task: An agent must decide between true sharing and false sharing from a `perf c2c` report. What in the report distinguishes them, and how does the distinction change the fix?",
+      "category": "methodology",
+      "difficulty": "medium",
+      "level": "triage",
+      "expected_topics": [
+        "False sharing: HITM concentrated on a line where different threads touch different offsets (logically independent data) -> fix is layout (pad/align onto separate lines).",
+        "True sharing: HITM on the same offset/variable that multiple threads actually read-modify-write -> layout will not help; need an algorithm change (per-CPU/sharded counters, lock-free, reduced update frequency).",
+        "Inspect the offsets and which threads write vs read each, and check the annotate to see if the hot access is the contended variable itself."
+      ],
+      "metadata": {
+        "persona": "performance_triage_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "c2c offsets -> true vs false sharing routing",
+        "trigger": "counter",
+        "why_it_matters": "Tests the central c2c judgment that determines whether padding or an algorithm change is needed."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q109",
+      "text": "Scenario: Two runs of the same code show wildly different TAS-vs-TTAS wall-clock ratios (0.26x to 1.39x) on a CPU-pinned CI host. A teammate wants to gate a lock task on a measured speedup threshold. What should the agent recommend?",
+      "category": "methodology",
+      "difficulty": "hard",
+      "level": "triage",
+      "expected_topics": [
+        "Concurrency/lock microbench timings are too noisy on a pinned/oversubscribed CI host to gate on a speedup threshold; a fixed margin would be flaky in both directions.",
+        "Gate lock/contention tasks on correctness (mutual exclusion / exact result), termination under oversubscription (no livelock/deadlock), and source markers of the intended technique instead.",
+        "Reserve real speedup gates for deterministic single-thread throughput tasks, set conservatively below the measured margin."
+      ],
+      "metadata": {
+        "persona": "evaluation_engineer",
+        "skill_under_test": "performance-patterns",
+        "expected_workflow": "noisy lock timing -> determinism-based gate",
+        "trigger": "counter",
+        "why_it_matters": "Negative: a wall-clock speedup gate on a contended lock is unreliable; gate on determinism instead.",
+        "negative_case": true
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q110",
+      "text": "Task: A benchmark's score does not scale with core count, IPC falls, and kernel cycles rise as threads increase, but no profile is collected yet. Outline the triage sequence the agent should run.",
+      "category": "methodology",
+      "difficulty": "easy",
+      "level": "triage",
+      "expected_topics": [
+        "Rising kernel% with falling IPC at higher core counts is a scaling-bottleneck signature (lock/atomic/false-sharing/serialization), not a single-thread compute issue.",
+        "Run perf record/report for hotspots, then perf c2c for true/false sharing and off-CPU profiling for lock waits; use annotate to see whether cycles sit on a load (sharing) or a cmpxchg (real contention).",
+        "Only after attribution choose the fix family (layout vs algorithm vs fewer/lighter locks); do not guess from the score curve alone."
+      ],
+      "metadata": {
+        "persona": "performance_triage_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "non-scaling signature -> record/c2c/off-CPU sequence",
+        "trigger": "counter",
+        "why_it_matters": "Tests the standard HCC scaling-triage workflow before committing to a fix."
+      }
+    },
+    {
+      "id": "intel-performance-skills-Q111",
+      "text": "Scenario: An annotate of a contended refcount loop shows ~69% of cycles on the load of the counter and ~30% on the `cmpxchg`. A colleague says 'it's the atomic write, add backoff.' Is the load time evidence of a writable-contention problem, and what does it imply?",
+      "category": "methodology",
+      "difficulty": "hard",
+      "level": "diagnosis",
+      "expected_topics": [
+        "Most cycles on the load means the line is arriving in a contended/invalidated state (coherence miss), i.e. the counter is truly shared and bouncing, not merely a slow cmpxchg; backoff on the CAS does not address the load-side coherence traffic.",
+        "The implication is the refcount itself is the bottleneck: reduce contention on the count (scalable/sharded refcount, RCU-managed scheme) or remove the per-op refcount churn, rather than only spacing retries.",
+        "Confirm with c2c that the load offset is the contended counter shared across cores."
+      ],
+      "metadata": {
+        "persona": "performance_optimization_engineer",
+        "skill_under_test": "linux-perf",
+        "expected_workflow": "annotate load-vs-cmpxchg split -> true refcount sharing",
+        "trigger": "counter",
+        "why_it_matters": "Tests reading annotate cycle attribution (load vs cmpxchg) to tell coherence misses from CAS cost."
       }
     }
   ]

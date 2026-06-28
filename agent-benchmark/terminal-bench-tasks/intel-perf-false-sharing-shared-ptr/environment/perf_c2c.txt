@@ -1,0 +1,23 @@
+perf c2c report (shared cache line, --ldlat 30):
+
+  ----- HITM -----   Offset  Symbol / field
+   Rmt    Lcl
+  61.2%  22.7%   0x00   shared_ptr control block: _M_use_count (atomic refcount)
+  14.8%   1.0%   0x10   Payload::value                       (read-only)
+   ...
+
+Cacheline 0xXXXX..00 (64B) is shared by all worker cores:
+  - offset 0x00: the control block's atomic _M_use_count is incremented and
+    decremented on every shared_ptr copy/destroy -> a WRITE from every thread.
+  - offset 0x10: Payload::value is only ever READ.
+
+Because std::make_shared<Payload>() allocates the control block and the object
+in one block, the refcount word and Payload::value land on the same 64-byte
+line. The constant refcount writes invalidate the line, so each read of `value`
+pays a remote-HITM coherence miss despite `value` never being written. This is
+false sharing between the shared_ptr control block and the object payload.
+
+Fix shape (cf. Hologres): stop co-locating them. Allocate the object separately
+from its control block (e.g. `std::shared_ptr<Payload>(new Payload(...))`
+instead of make_shared), and/or cache-line-align/pad so the refcount and the
+hot read-only fields sit on different lines.
