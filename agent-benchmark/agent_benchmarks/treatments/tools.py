@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 class DocQueryTool(Tool):
     """Let the model query a documentation source (MCP/HTTP/local) on demand."""
 
+    kind = "documentation"
     name = "search_documentation"
     description = (
         "Search the official documentation for the library and return the most "
@@ -60,9 +61,20 @@ class DocQueryTool(Tool):
         chunks = [d.get("content", "") for d in docs[: self.keep]]
         return "\n\n---\n\n".join(c for c in chunks if c) or "(no content)"
 
+    def telemetry_metadata(self):
+        meta = super().telemetry_metadata()
+        meta.update({
+            "library_id": self.library_id,
+            "max_results": self.max_results,
+            "keep": self.keep,
+        })
+        return meta
+
 
 class ViewSkillTool(Tool):
     """Progressive disclosure: load a skill's full instructions on demand."""
+
+    kind = "skill"
 
     def __init__(self, skill: Skill, max_chars: int = 12_000):
         self.skill = skill
@@ -80,3 +92,12 @@ class ViewSkillTool(Tool):
     def call(self, **_) -> str:
         self.viewed = True
         return self.skill.as_context(self.max_chars)
+
+    def telemetry_metadata(self):
+        meta = super().telemetry_metadata()
+        meta.update({
+            "skill_name": self.skill.name,
+            "skill_path": str(self.skill.path),
+            "max_chars": self.max_chars,
+        })
+        return meta

@@ -62,3 +62,26 @@ def test_report_renders_agentic_section():
     md = render_arms_report(data)
     assert "Agentic tool use" in md
     assert "`agent`" in md
+    assert "Tool-use rate" in md
+
+
+def test_report_renders_skill_load_rate_from_summary():
+    data = {
+        "library_name": "oneTBB", "model": "m", "provider": "openai",
+        "arms": ["skill_agent:onetbb-quickstart"],
+        "baseline_arm": "baseline",
+        "total_questions": 2,
+        "answers": [],
+        "agentic_usage_summary": {
+            "skill_agent:onetbb-quickstart": {
+                "n": 2,
+                "avg_tool_calls": 0.5,
+                "tool_use_rate": 0.5,
+                "avg_iterations": 1.5,
+                "skill_load_rate": 0.5,
+            }
+        },
+    }
+    md = render_arms_report(data)
+    assert "Skill-load rate" in md
+    assert "| `skill_agent:onetbb-quickstart` | 50% | 0.5 | 50% | 1.5 | 2 |" in md

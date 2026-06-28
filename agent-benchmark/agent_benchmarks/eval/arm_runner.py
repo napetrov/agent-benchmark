@@ -225,6 +225,8 @@ class ArmRunner:
             "context_chunks": [],
             "transcript": result["transcript"],
             "tool_call_count": result["tool_call_count"],
+            "tool_usage": result.get("tool_usage", {}),
+            "discoverability": result.get("tool_usage", {}).get("skill", {}),
             "iterations": result["iterations"],
             "stopped_reason": result["stopped_reason"],
             "token_usage": rec.as_token_usage_dict(),
@@ -319,6 +321,7 @@ class ArmRunner:
             "total_questions": len(records),
             "answers": records,
             "cost_summary": self._cost_summary(records),
+            "agentic_usage_summary": self._summarize_agentic_usage(records),
         }
         if evaluations is not None:
             out["evaluations"] = evaluations
@@ -333,6 +336,62 @@ class ArmRunner:
             )
             out["judge_metrics"] = totals
         return out
+
+    @staticmethod
+    def _summarize_agentic_usage(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Aggregate tool-use/discoverability signals from answer records."""
+        stats: Dict[str, Dict[str, Any]] = {}
+        for rec in records:
+            for arm_name, arm in rec.get("arms", {}).items():
+                if not isinstance(arm, dict) or not arm.get("agentic"):
+                    continue
+                s = stats.setdefault(
+                    arm_name,
+                    {
+                        "n": 0,
+                        "tool_call_total": 0,
+                        "tool_used_n": 0,
+                        "iteration_total": 0,
+                        "skill_offered_n": 0,
+                        "skill_called_n": 0,
+                        "skill_call_total": 0,
+                    },
+                )
+                s["n"] += 1
+                tool_calls = int(arm.get("tool_call_count") or 0)
+                s["tool_call_total"] += tool_calls
+                if tool_calls > 0:
+                    s["tool_used_n"] += 1
+                s["iteration_total"] += int(arm.get("iterations") or 0)
+
+                skill = (arm.get("tool_usage") or {}).get("skill") or {}
+                if skill.get("offered"):
+                    s["skill_offered_n"] += 1
+                if skill.get("called"):
+                    s["skill_called_n"] += 1
+                s["skill_call_total"] += int(skill.get("call_count") or 0)
+
+        summary: Dict[str, Any] = {}
+        for arm_name, s in stats.items():
+            n = s["n"] or 1
+            skill_offered_n = s["skill_offered_n"] or 0
+            summary[arm_name] = {
+                "n": s["n"],
+                "avg_tool_calls": round(s["tool_call_total"] / n, 2),
+                "tool_use_rate": round(s["tool_used_n"] / n, 3),
+                "avg_iterations": round(s["iteration_total"] / n, 2),
+                "skill_offered_n": skill_offered_n,
+                "skill_called_n": s["skill_called_n"],
+                "skill_load_rate": (
+                    round(s["skill_called_n"] / skill_offered_n, 3)
+                    if skill_offered_n else None
+                ),
+                "avg_skill_calls": (
+                    round(s["skill_call_total"] / skill_offered_n, 2)
+                    if skill_offered_n else None
+                ),
+            }
+        return summary
 
     def _cost_summary(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Per-arm rollup of cost, tokens, latency, TTFT, and cache-hit ratio.

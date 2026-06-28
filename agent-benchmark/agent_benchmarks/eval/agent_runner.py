@@ -51,6 +51,51 @@ def _tool_call_fields(tc: Any):
     return getattr(tc, "id", None), name, args
 
 
+def _summarize_tool_usage(
+    tools: List[Tool], transcript: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Summarize offered vs called tools for discoverability reporting."""
+    offered = [t.telemetry_metadata() for t in tools]
+    offered_by_name = {t["name"]: t for t in offered}
+    calls_by_name: Dict[str, int] = {name: 0 for name in offered_by_name}
+    first_iteration_by_name: Dict[str, int] = {}
+
+    for call in transcript:
+        name = call.get("tool")
+        if not name:
+            continue
+        calls_by_name[name] = calls_by_name.get(name, 0) + 1
+        if name not in first_iteration_by_name and call.get("iteration") is not None:
+            first_iteration_by_name[name] = call["iteration"]
+
+    called_tools = [name for name, count in calls_by_name.items() if count > 0]
+    skill_tools = [t for t in offered if t.get("kind") == "skill"]
+    skill_tool_names = {t["name"] for t in skill_tools}
+    skill_calls = sum(calls_by_name.get(name, 0) for name in skill_tool_names)
+
+    return {
+        "offered_tools": offered,
+        "called_tools": called_tools,
+        "tool_call_count_by_name": calls_by_name,
+        "first_call_iteration_by_name": first_iteration_by_name,
+        "used_any_tool": bool(called_tools),
+        "skill": {
+            "offered": bool(skill_tools),
+            "offered_tools": skill_tools,
+            "called": skill_calls > 0,
+            "call_count": skill_calls,
+            "first_call_iteration": min(
+                (
+                    first_iteration_by_name[name]
+                    for name in skill_tool_names
+                    if name in first_iteration_by_name
+                ),
+                default=None,
+            ),
+        },
+    }
+
+
 def run_agent_loop(
     question: str,
     tools: List[Tool],
@@ -138,9 +183,13 @@ def run_agent_loop(
                 except Exception as exc:  # tool failures must not crash the run
                     logger.exception("Tool %s raised", name)
                     result = f"(tool error: {exc})"
-            transcript.append({"tool": name, "arguments": args,
-                               "result_preview": result[:200],
-                               "tool_elapsed_sec": round(time.time() - t_tool, 4)})
+            transcript.append({
+                "iteration": iteration,
+                "tool": name,
+                "arguments": args,
+                "result_preview": result[:200],
+                "tool_elapsed_sec": round(time.time() - t_tool, 4),
+            })
             messages.append({
                 "role": "tool",
                 "tool_call_id": tc_id,
@@ -170,6 +219,7 @@ def run_agent_loop(
         "transcript": transcript,
         "iterations": iteration,
         "tool_call_count": len(transcript),
+        "tool_usage": _summarize_tool_usage(tools, transcript),
         "stopped_reason": stopped_reason,
         "usage": usage_total.as_metrics_dict(answer_chars=len(answer or "")),
         "token_usage": usage_total.as_token_usage_dict(),
