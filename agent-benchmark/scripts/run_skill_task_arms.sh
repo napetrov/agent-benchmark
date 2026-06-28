@@ -28,7 +28,7 @@ TASKS=("$@")
 if [ "${#TASKS[@]}" -eq 0 ]; then
   TASKS=(serial-accumulator false-sharing shared-counter branch-mispredict
          missing-restrict ttas-spinlock cv-herd crc32c mutex-rwlock simd-sort
-         hotspot-report)
+         hotspot-report dnn-dense)
 fi
 MODEL="${SOLVER_MODEL:-}"
 REPEATS="${REPEATS:-1}"

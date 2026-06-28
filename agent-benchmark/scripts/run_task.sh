@@ -31,6 +31,9 @@ TASK_NAME="$(basename "$TASK_DIR")"
 IMAGE="agent-bench/${TASK_NAME}:latest"
 CONTAINER="abrun-${TASK_NAME}-$$"
 mkdir -p "$OUT_DIR"
+# Absolutize: the claude solver does `cd "$WORK"` before `cat "$PROMPT_FILE"`,
+# so a relative OUT_DIR would make that cat miss → empty prompt → solver no-op.
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 REWARD_FILE="$OUT_DIR/reward.txt"
 LOG="$OUT_DIR/run.log"
 echo "0" > "$REWARD_FILE"   # default fail; overwritten on pass
