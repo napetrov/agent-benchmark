@@ -82,14 +82,14 @@ cat > results/arms/matrix.json <<'JSON'
         "id": "openclaw-no-plugin",
         "model": "gpt-4o-mini",
         "provider": "openai",
-        "harness": "agent",
+        "harness": "arms-runner",
         "plugins": []
       },
       {
         "id": "openclaw-caveman",
         "model": "gpt-4o-mini",
         "provider": "openai",
-        "harness": "agent",
+        "harness": "arms-runner",
         "plugins": ["plugin:caveman"]
       }
     ]

@@ -178,8 +178,8 @@ def test_arms_matrix_run_rejects_sanitized_cell_name_collisions(tmp_path: Path):
         json.dumps({
             "matrix": {
                 "cells": [
-                    {"id": "openai/gpt-4o", "model": "m", "provider": "openai", "harness": "agent"},
-                    {"id": "openai:gpt-4o", "model": "m", "provider": "openai", "harness": "agent"},
+                    {"id": "openai/gpt-4o", "model": "m", "provider": "openai", "harness": "arms-runner"},
+                    {"id": "openai:gpt-4o", "model": "m", "provider": "openai", "harness": "arms-runner"},
                 ]
             }
         }),
@@ -208,7 +208,7 @@ def test_arms_matrix_run_rejects_sanitized_cell_name_collisions(tmp_path: Path):
         raise AssertionError("expected matrix-run to reject colliding cell filenames")
 
 
-def test_arms_matrix_run_rejects_nonlocal_harnesses(tmp_path: Path):
+def test_arms_matrix_run_rejects_unwired_harnesses(tmp_path: Path):
     questions = tmp_path / "questions.json"
     questions.write_text(json.dumps([{"id": "q1", "question": "How?"}]), encoding="utf-8")
     matrix = tmp_path / "matrix.json"
@@ -220,7 +220,7 @@ def test_arms_matrix_run_rejects_nonlocal_harnesses(tmp_path: Path):
                         "id": "terminal",
                         "model": "m",
                         "provider": "openai",
-                        "harness": "terminal-bench:terminus",
+                        "harness": "agent",
                     }
                 ]
             }
@@ -245,7 +245,49 @@ def test_arms_matrix_run_rejects_nonlocal_harnesses(tmp_path: Path):
     except SystemExit as exc:
         assert exc.code == 1
     else:  # pragma: no cover - defensive
-        raise AssertionError("expected matrix-run to reject non-local harness adapters")
+        raise AssertionError("expected matrix-run to reject unwired harness adapters")
+
+
+def test_arms_run_selected_matrix_cell_rejects_unwired_harness(tmp_path: Path):
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps([{"id": "q1", "question": "How?"}]), encoding="utf-8")
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {
+                        "id": "agent-cell",
+                        "model": "m",
+                        "provider": "openai",
+                        "harness": "agent",
+                    }
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args([
+        "arms",
+        "run",
+        "--product",
+        "oneTBB",
+        "--questions",
+        str(questions),
+        "--arms",
+        "baseline",
+        "--matrix-cells",
+        str(matrix),
+        "--matrix-cell",
+        "agent-cell",
+    ])
+
+    try:
+        args.func(args)
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected selected matrix cell to reject unwired harness adapters")
 
 
 def test_arms_matrix_run_keeps_cell_artifacts_away_from_generated_names(tmp_path: Path, monkeypatch):
@@ -260,7 +302,7 @@ def test_arms_matrix_run_keeps_cell_artifacts_away_from_generated_names(tmp_path
         json.dumps({
             "matrix": {
                 "cells": [
-                    {"id": "matrix-rollup", "model": "m", "provider": "openai", "harness": "agent"}
+                    {"id": "matrix-rollup", "model": "m", "provider": "openai", "harness": "arms-runner"}
                 ]
             }
         }),
@@ -308,14 +350,14 @@ def test_arms_matrix_run_writes_cells_rollup_and_plugin_delta(tmp_path: Path, mo
                         "name": "agent-none",
                         "model": "m",
                         "provider": "openai",
-                        "harness": "agent",
+                        "harness": "arms-runner",
                         "plugins": [],
                     },
                     {
                         "name": "agent-caveman",
                         "model": "m",
                         "provider": "openai",
-                        "harness": "agent",
+                        "harness": "arms-runner",
                         "plugins": ["plugin:caveman"],
                     },
                 ]

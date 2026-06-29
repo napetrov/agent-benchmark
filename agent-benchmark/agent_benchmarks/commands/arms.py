@@ -298,7 +298,9 @@ def _apply_named_matrix_cell(args: argparse.Namespace) -> None:
     if args.matrix_cells or args.matrix_cell:
         if not args.matrix_cells or not args.matrix_cell:
             raise ValueError("--matrix-cells and --matrix-cell must be passed together")
-        _apply_matrix_cell(args, select_matrix_cell(load_matrix_cells(args.matrix_cells), args.matrix_cell))
+        matrix_cell = select_matrix_cell(load_matrix_cells(args.matrix_cells), args.matrix_cell)
+        _validate_supported_matrix_harnesses([matrix_cell])
+        _apply_matrix_cell(args, matrix_cell)
 
 
 def _apply_matrix_cell(args: argparse.Namespace, matrix_cell) -> None:
@@ -389,19 +391,17 @@ def _validate_unique_cell_filenames(cells) -> None:
 
 def _validate_supported_matrix_harnesses(cells) -> None:
     """Reject matrix harness labels that the in-process runner cannot execute."""
-    from agent_benchmarks.eval.cells import HARNESS_OPENCLAW_AGENT, HARNESS_TERMINAL_BENCH
+    from agent_benchmarks.eval.cells import HARNESS_ARMS_RUNNER
 
     unsupported = [
         cell.harness
         for cell in cells
-        if cell.harness == HARNESS_OPENCLAW_AGENT
-        or cell.harness == HARNESS_TERMINAL_BENCH
-        or cell.harness.startswith(HARNESS_TERMINAL_BENCH + ":")
+        if cell.harness != HARNESS_ARMS_RUNNER
     ]
     if unsupported:
         raise ValueError(
-            "arms matrix-run only supports in-process harnesses for now; "
-            "real adapters are not wired for: "
+            "matrix cells only support harness='arms-runner' until other runners are wired; "
+            "unsupported harnesses: "
             + ", ".join(sorted(set(unsupported)))
         )
 
