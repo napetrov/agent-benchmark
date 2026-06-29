@@ -45,6 +45,7 @@ def cmd_arms_matrix_run(args: argparse.Namespace) -> None:
         specs = _parse_arm_specs(args.arms)
         questions = _load_questions(args.questions)
         cells = load_matrix_cells(args.matrix_cells)
+        _validate_unique_cell_filenames(cells)
     except (ValueError, FileNotFoundError) as exc:
         print(f"Error loading matrix run inputs: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -365,6 +366,19 @@ def _save_arms_output(output: dict, out_json: Path, out_md: Path) -> None:
     out_md.parent.mkdir(parents=True, exist_ok=True)
     out_md.write_text(render_arms_report(output), encoding="utf-8")
     print(f"OK Saved arms report:     {out_md}")
+
+
+def _validate_unique_cell_filenames(cells) -> None:
+    """Reject matrix cells that would overwrite each other's artifacts."""
+    seen: dict[str, str] = {}
+    for cell in cells:
+        safe_name = _safe_name(cell.name)
+        if safe_name in seen:
+            raise ValueError(
+                "matrix cell names collide after filename sanitization: "
+                f"{seen[safe_name]!r} and {cell.name!r} both map to {safe_name!r}"
+            )
+        seen[safe_name] = cell.name
 
 
 def _safe_name(name: str) -> str:

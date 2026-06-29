@@ -208,10 +208,10 @@ def _parse_matrix_cell(raw: Any, idx: int) -> MatrixCellDescriptor:
     plugins = raw.get("plugins", [])
     if isinstance(plugins, str):
         plugin_specs = tuple(s.strip() for s in plugins.split(",") if s.strip())
-    elif isinstance(plugins, list) and all(isinstance(p, str) for p in plugins):
-        plugin_specs = tuple(p.strip() for p in plugins if p.strip())
+    elif isinstance(plugins, list):
+        plugin_specs = tuple(_parse_plugin_spec(p, name) for p in plugins)
     else:
-        raise ValueError(f"matrix cell '{name}' plugins must be a string list")
+        raise ValueError(f"matrix cell '{name}' plugins must be a string, string list, or object list")
 
     return MatrixCellDescriptor(
         name=name,
@@ -220,3 +220,17 @@ def _parse_matrix_cell(raw: Any, idx: int) -> MatrixCellDescriptor:
         harness=harness,
         plugin_specs=plugin_specs,
     )
+
+
+def _parse_plugin_spec(raw: Any, cell_name: str) -> str:
+    if isinstance(raw, str):
+        spec = raw.strip()
+    elif isinstance(raw, dict):
+        spec = str(raw.get("ref") or "").strip()
+        if not spec:
+            raise ValueError(f"matrix cell '{cell_name}' plugin object is missing ref")
+    else:
+        raise ValueError(f"matrix cell '{cell_name}' plugins must contain strings or objects")
+    if not spec:
+        raise ValueError(f"matrix cell '{cell_name}' plugins must not contain empty refs")
+    return spec

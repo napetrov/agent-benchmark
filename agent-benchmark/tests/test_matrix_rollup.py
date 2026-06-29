@@ -115,6 +115,44 @@ def test_arms_matrix_run_parser_accepts_required_args():
     assert args.plugin_deltas is True
 
 
+def test_arms_matrix_run_rejects_sanitized_cell_name_collisions(tmp_path: Path):
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps([{"id": "q1", "question": "How?"}]), encoding="utf-8")
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {"id": "openai/gpt-4o", "model": "m", "provider": "openai", "harness": "agent"},
+                    {"id": "openai:gpt-4o", "model": "m", "provider": "openai", "harness": "agent"},
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args([
+        "arms",
+        "matrix-run",
+        "--product",
+        "oneTBB",
+        "--questions",
+        str(questions),
+        "--arms",
+        "baseline",
+        "--matrix-cells",
+        str(matrix),
+        "--out-dir",
+        str(tmp_path / "out"),
+    ])
+
+    try:
+        args.func(args)
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected matrix-run to reject colliding cell filenames")
+
+
 def test_arms_matrix_run_writes_cells_rollup_and_plugin_delta(tmp_path: Path, monkeypatch):
     def fake_call(prompt, model, provider="openai", api_key=None, system=None, **kw):
         return "short answer" if system else "longer baseline answer", {

@@ -121,6 +121,32 @@ def test_load_matrix_cells_accepts_matrix_block(tmp_path):
     assert select_matrix_cell(cells, "agent-caveman").harness == "agent"
 
 
+def test_load_matrix_cells_accepts_object_plugin_descriptors(tmp_path):
+    path = tmp_path / "matrix.json"
+    path.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {
+                        "id": "agent-caveman",
+                        "model": "gpt-4o-mini",
+                        "provider": "openai",
+                        "harness": "agent",
+                        "plugins": [
+                            {"id": "caveman", "ref": "plugin:caveman:lite", "config": {"level": "lite"}}
+                        ],
+                    }
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    cells = load_matrix_cells(path)
+
+    assert cells[0].plugin_specs == ("plugin:caveman:lite",)
+
+
 def test_load_matrix_cells_rejects_unknown_harness(tmp_path):
     path = tmp_path / "matrix.json"
     path.write_text(
