@@ -629,18 +629,19 @@ def test_subject_work_preflight_loads_tasks_before_awareness(tmp_path: Path, mon
     questions.write_text(json.dumps([{"id": "q1", "question": "Q?"}]), encoding="utf-8")
     docs = tmp_path / "docs.md"
     docs.write_text("# Docs\n", encoding="utf-8")
+    missing_task = tmp_path / "missing-task"
     descriptor = tmp_path / "subject.toml"
     descriptor.write_text(
         f"""
 [subject]
 id = "docs-subject"
 kind = "doc-source"
-ref = "local:{docs}"
+ref = "local:{docs.as_posix()}"
 
 [suite]
 products = ["oneTBB"]
-questions = ["{questions}"]
-tasks = ["{tmp_path / 'missing-task'}"]
+questions = ["{questions.as_posix()}"]
+tasks = ["{missing_task.as_posix()}"]
 """.strip(),
         encoding="utf-8",
     )
