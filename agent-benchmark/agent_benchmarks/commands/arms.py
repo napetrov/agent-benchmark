@@ -45,6 +45,7 @@ def cmd_arms_matrix_run(args: argparse.Namespace) -> None:
         specs = _parse_arm_specs(args.arms)
         questions = _load_questions(args.questions)
         cells = load_matrix_cells(args.matrix_cells)
+        _validate_supported_matrix_harnesses(cells)
         _validate_unique_cell_filenames(cells)
     except (ValueError, FileNotFoundError) as exc:
         print(f"Error loading matrix run inputs: {exc}", file=sys.stderr)
@@ -52,13 +53,15 @@ def cmd_arms_matrix_run(args: argparse.Namespace) -> None:
 
     out_dir = Path(args.out_dir) if args.out_dir else Path(f"results/arms/{args.product}-matrix")
     out_dir.mkdir(parents=True, exist_ok=True)
+    cells_dir = out_dir / "cells"
+    cells_dir.mkdir(parents=True, exist_ok=True)
     cell_artifacts = []
     for cell in cells:
         cell_args = argparse.Namespace(**vars(args))
         _apply_matrix_cell(cell_args, cell)
         safe_name = _safe_name(cell.name)
-        out_json = out_dir / f"{safe_name}.json"
-        out_md = out_dir / f"{safe_name}.md"
+        out_json = cells_dir / f"{safe_name}.json"
+        out_md = cells_dir / f"{safe_name}.md"
         try:
             output = _build_arms_output(cell_args, specs, questions)
         except (ValueError, FileNotFoundError) as exc:
@@ -379,6 +382,25 @@ def _validate_unique_cell_filenames(cells) -> None:
                 f"{seen[safe_name]!r} and {cell.name!r} both map to {safe_name!r}"
             )
         seen[safe_name] = cell.name
+
+
+def _validate_supported_matrix_harnesses(cells) -> None:
+    """Reject matrix harness labels that the in-process runner cannot execute."""
+    from agent_benchmarks.eval.cells import HARNESS_OPENCLAW_AGENT, HARNESS_TERMINAL_BENCH
+
+    unsupported = [
+        cell.harness
+        for cell in cells
+        if cell.harness == HARNESS_OPENCLAW_AGENT
+        or cell.harness == HARNESS_TERMINAL_BENCH
+        or cell.harness.startswith(HARNESS_TERMINAL_BENCH + ":")
+    ]
+    if unsupported:
+        raise ValueError(
+            "arms matrix-run only supports in-process harnesses for now; "
+            "real adapters are not wired for: "
+            + ", ".join(sorted(set(unsupported)))
+        )
 
 
 def _safe_name(name: str) -> str:

@@ -153,6 +153,86 @@ def test_arms_matrix_run_rejects_sanitized_cell_name_collisions(tmp_path: Path):
         raise AssertionError("expected matrix-run to reject colliding cell filenames")
 
 
+def test_arms_matrix_run_rejects_nonlocal_harnesses(tmp_path: Path):
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps([{"id": "q1", "question": "How?"}]), encoding="utf-8")
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {
+                        "id": "terminal",
+                        "model": "m",
+                        "provider": "openai",
+                        "harness": "terminal-bench:terminus",
+                    }
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args([
+        "arms",
+        "matrix-run",
+        "--product",
+        "oneTBB",
+        "--questions",
+        str(questions),
+        "--arms",
+        "baseline",
+        "--matrix-cells",
+        str(matrix),
+    ])
+
+    try:
+        args.func(args)
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected matrix-run to reject non-local harness adapters")
+
+
+def test_arms_matrix_run_keeps_cell_artifacts_away_from_generated_names(tmp_path: Path, monkeypatch):
+    def fake_call(prompt, model, provider="openai", api_key=None, system=None, **kw):
+        return "answer", {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+    monkeypatch.setattr(arm_runner_mod, "llm_call_with_usage", fake_call)
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps([{"id": "q1", "question": "How?"}]), encoding="utf-8")
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {"id": "matrix-rollup", "model": "m", "provider": "openai", "harness": "agent"}
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "out"
+    args = build_parser().parse_args([
+        "arms",
+        "matrix-run",
+        "--product",
+        "oneTBB",
+        "--questions",
+        str(questions),
+        "--arms",
+        "baseline",
+        "--matrix-cells",
+        str(matrix),
+        "--out-dir",
+        str(out_dir),
+    ])
+
+    args.func(args)
+
+    assert json.loads((out_dir / "matrix-rollup.json").read_text(encoding="utf-8"))["schema_version"] == "matrix_rollup.v1"
+    assert json.loads((out_dir / "cells" / "matrix-rollup.json").read_text(encoding="utf-8"))["schema_version"] == "arms.v1"
+
+
 def test_arms_matrix_run_writes_cells_rollup_and_plugin_delta(tmp_path: Path, monkeypatch):
     def fake_call(prompt, model, provider="openai", api_key=None, system=None, **kw):
         return "short answer" if system else "longer baseline answer", {
@@ -206,7 +286,7 @@ def test_arms_matrix_run_writes_cells_rollup_and_plugin_delta(tmp_path: Path, mo
 
     args.func(args)
 
-    assert (out_dir / "agent-none.json").is_file()
-    assert (out_dir / "agent-caveman.json").is_file()
+    assert (out_dir / "cells" / "agent-none.json").is_file()
+    assert (out_dir / "cells" / "agent-caveman.json").is_file()
     assert (out_dir / "matrix-rollup.json").is_file()
     assert (out_dir / "plugin-delta-agent-none-to-agent-caveman.json").is_file()
