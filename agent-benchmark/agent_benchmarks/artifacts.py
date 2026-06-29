@@ -21,7 +21,9 @@ SCHEMA_VERSIONS: dict[str, str] = {
     "answers": "answers.v1",
     "eval": "eval.v1",
     "arms": "arms.v1",
+    "matrix_rollup": "matrix_rollup.v1",
     "plugin_delta": "plugin_delta.v1",
+    "subject_scorecard": "subject_scorecard.v1",
     "task_runs": "task_runs.v1",
     "explore_runs": "explore_runs.v1",
 }

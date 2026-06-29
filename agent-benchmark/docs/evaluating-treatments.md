@@ -73,28 +73,47 @@ Outputs default to `results/arms/<product>.{json,md}` (ignored by git).
 Example Caveman plugin cell:
 
 ```bash
-python cli.py arms run \
+mkdir -p results/arms
+cat > results/arms/matrix.json <<'JSON'
+{
+  "matrix": {
+    "cells": [
+      {
+        "id": "openclaw-no-plugin",
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "harness": "arms-runner",
+        "plugins": []
+      },
+      {
+        "id": "openclaw-caveman",
+        "model": "gpt-4o-mini",
+        "provider": "openai",
+        "harness": "arms-runner",
+        "plugins": ["plugin:caveman"]
+      }
+    ]
+  }
+}
+JSON
+
+python cli.py arms matrix-run \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
   --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
-  --harness openclaw-agent \
+  --matrix-cells results/arms/matrix.json \
   --judge \
-  --out-json results/arms/oneTBB-none.json
-
-python cli.py arms run \
-  --product oneTBB \
-  --questions data/questions/onetbb_golden.json \
-  --arms "baseline,docs,skill:data/skills/onetbb-quickstart" \
-  --plugins "plugin:caveman" \
-  --harness openclaw-agent \
-  --judge \
-  --out-json results/arms/oneTBB-caveman.json
-
-python cli.py arms plugin-delta \
-  --baseline-json results/arms/oneTBB-none.json \
-  --plugin-json results/arms/oneTBB-caveman.json \
-  --out-json results/arms/oneTBB-caveman-delta.json
+  --out-dir results/arms/oneTBB-matrix
 ```
+
+`--matrix-cells` accepts JSON shaped as `{"matrix": {"cells": [...]}}`,
+`{"cells": [...]}`, or a top-level list. Each cell can use `id` (ADR-style) or
+`name` as its identifier. A selected cell controls `model`, `provider`,
+`harness`, and `plugins`, and the run refuses unsupported plugin/harness
+combinations before calling the model. `arms matrix-run` writes one `arms.v1`
+artifact per cell, a `matrix_rollup.v1` JSON/Markdown report, and paired
+`plugin_delta.v1` artifacts for no-plugin/plugin cells that only differ by
+`plugin_set`.
 
 ## Arm specs in detail
 

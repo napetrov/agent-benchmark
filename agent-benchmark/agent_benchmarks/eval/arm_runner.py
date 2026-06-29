@@ -55,6 +55,7 @@ class ArmRunner:
         max_iterations: int = 6,
         harness: str = "arms-runner",
         plugin_set: Optional[Dict[str, Any]] = None,
+        matrix_cell: Optional[str] = None,
     ):
         if not treatments:
             raise ValueError("ArmRunner requires at least one treatment arm")
@@ -64,6 +65,7 @@ class ArmRunner:
         self.api_key = api_key
         self.max_iterations = max_iterations
         self.harness = harness
+        self.matrix_cell = matrix_cell
         self.plugin_set = plugin_set or {
             "plugin_set": "none",
             "plugin_set_id": "sha256:e3b0c44298fc1c149afbf4c8996fb924",
@@ -323,6 +325,8 @@ class ArmRunner:
             "cost_summary": self._cost_summary(records),
             "agentic_usage_summary": self._summarize_agentic_usage(records),
         }
+        if self.matrix_cell:
+            out["matrix_cell"] = self.matrix_cell
         if evaluations is not None:
             out["evaluations"] = evaluations
             out["summary"] = self._summarize(evaluations, baseline_arm)

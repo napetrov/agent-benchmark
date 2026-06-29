@@ -33,6 +33,13 @@ _CAVEMAN_LEVELS = {
     ),
 }
 
+_PROMPT_MIDDLEWARE_HARNESSES = {
+    "arms-runner",
+    "single-shot",
+    "agent",
+    "openclaw-agent",
+}
+
 
 @dataclass(frozen=True)
 class Plugin:
@@ -148,6 +155,17 @@ def create_plugin(spec: str) -> Plugin:
 def create_plugins(specs: Iterable[str]) -> List[Plugin]:
     """Create plugins from a sequence of CLI specs."""
     return [create_plugin(s) for s in specs if s.strip()]
+
+
+def validate_plugins_for_harness(plugins: Iterable[Plugin], harness: str) -> None:
+    """Reject plugin/harness combinations that cannot execute faithfully."""
+    for plugin in plugins:
+        if plugin.kind == "prompt_middleware" and harness not in _PROMPT_MIDDLEWARE_HARNESSES:
+            raise ValueError(
+                f"Plugin '{plugin.ref}' is prompt_middleware and is not supported by "
+                f"harness '{harness}'. Supported harnesses: "
+                f"{', '.join(sorted(_PROMPT_MIDDLEWARE_HARNESSES))}."
+            )
 
 
 def wrap_treatments(treatments: Iterable[Treatment], plugins: Iterable[Plugin]) -> List[Treatment]:

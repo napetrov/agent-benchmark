@@ -90,14 +90,19 @@ working):
   and cost/length metrics; report plugin deltas separately from treatment deltas
   (for example Caveman: completion-token reduction vs quality/pass-rate tax).
   - **DONE slice:** paired plugin/no-plugin artifact comparison via
-    `arms plugin-delta` and `plugin_delta.v1` reports. Remaining Phase C work:
-    explicit `matrix.cells` descriptors and harness/plugin compatibility
-    validation before run.
+    `arms plugin-delta` and `plugin_delta.v1` reports.
+  - **DONE slice:** explicit `matrix.cells` descriptors for `arms run` plus
+    harness/plugin compatibility validation before run.
+  - **DONE slice:** `arms matrix-run` multi-cell orchestration, `matrix_rollup.v1`
+    reports, and automatic paired `plugin_delta.v1` artifacts.
+  - Remaining Phase C work: real runner adapters for non-prompt plugins.
 - **Phase D — Subjects**
   ([ADR](docs/decisions/2026-06-10-artifacts-as-evaluation-subjects.md)).
-  `subjects/` descriptor + loader, `cli.py subjects run` wrapping `arm_runner` +
-  the task adapter, `report/subject_report.py`, and a versioned per-subject
-  scorecard schema — the object #58d/#58i serialize/sign.
+  IN PROGRESS in PR #101 stack: `subjects/` descriptor + loader,
+  `cli.py subjects run` wrapping awareness `arm_runner` matrix cells,
+  `report/subject_report.py`, and a versioned per-subject scorecard schema.
+  Remaining: faithful executable task adapter for subject work suites — the
+  object #58d/#58i serialize/sign.
 
 Each ADR carries its own open questions (harness invocation boundary,
 subject-vs-package overlap, default matrix size, soft vs hard coverage

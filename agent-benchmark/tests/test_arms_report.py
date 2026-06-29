@@ -31,6 +31,7 @@ def test_report_escapes_question_text_in_table():
 def test_report_renders_cost_and_latency_section():
     data = {
         "library_name": "oneTBB", "model": "m", "provider": "openai",
+        "matrix_cell": "agent-caveman",
         "arms": ["baseline", "skill"], "baseline_arm": "baseline",
         "total_questions": 1, "answers": [],
         "cost_summary": {
@@ -45,6 +46,7 @@ def test_report_renders_cost_and_latency_section():
         },
     }
     md = render_arms_report(data)
+    assert "- Matrix cell: `agent-caveman`" in md
     assert "## Cost & latency" in md
     assert "$0.0042 (1/2)" in md  # partial-coverage flag: 1 of 2 rows priced
     assert "50.0%" in md          # cache-hit ratio rendered as percent

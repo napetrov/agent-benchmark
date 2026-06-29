@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from agent_benchmarks.eval.cells import (
@@ -9,8 +11,10 @@ from agent_benchmarks.eval.cells import (
     CrossCellDeltaError,
     group_by_cell,
     is_known_harness,
+    load_matrix_cells,
     safe_delta,
     same_cell,
+    select_matrix_cell,
 )
 
 
@@ -32,8 +36,11 @@ def test_cell_from_row_defaults_plugin_set_to_none():
 def test_is_known_harness():
     assert is_known_harness("single-shot")
     assert is_known_harness("agent")
+    assert is_known_harness("arms-runner")
+    assert is_known_harness("openclaw-agent")
     assert is_known_harness("terminal-bench")
     assert is_known_harness("terminal-bench:terminus")  # concrete instance
+    assert not is_known_harness("terminal-bench:")
     assert not is_known_harness("made-up-harness")
 
 
@@ -87,3 +94,97 @@ def test_group_by_cell():
         "b|agent|none",
     }
     assert len(grouped["a|single-shot|none"]) == 2
+
+
+def test_load_matrix_cells_accepts_matrix_block(tmp_path):
+    path = tmp_path / "matrix.json"
+    path.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {
+                        "id": "agent-caveman",
+                        "model": "gpt-4o-mini",
+                        "provider": "openai",
+                        "harness": "agent",
+                        "plugins": ["plugin:caveman:lite"],
+                    }
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    cells = load_matrix_cells(path)
+
+    assert cells[0].name == "agent-caveman"
+    assert cells[0].plugin_specs == ("plugin:caveman:lite",)
+    assert select_matrix_cell(cells, "agent-caveman").harness == "agent"
+
+
+def test_load_matrix_cells_accepts_object_plugin_descriptors(tmp_path):
+    path = tmp_path / "matrix.json"
+    path.write_text(
+        json.dumps({
+            "matrix": {
+                "cells": [
+                    {
+                        "id": "agent-caveman",
+                        "model": "gpt-4o-mini",
+                        "provider": "openai",
+                        "harness": "agent",
+                        "plugins": [
+                            {"id": "caveman", "ref": "plugin:caveman:lite", "config": {"level": "lite"}}
+                        ],
+                    }
+                ]
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    cells = load_matrix_cells(path)
+
+    assert cells[0].plugin_specs == ("plugin:caveman:lite",)
+
+
+@pytest.mark.parametrize("payload", [{"cells": []}, {"matrix": {"cells": []}}, []])
+def test_load_matrix_cells_rejects_empty_cell_list(tmp_path, payload):
+    path = tmp_path / "matrix.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="at least one cell"):
+        load_matrix_cells(path)
+
+
+def test_load_matrix_cells_rejects_unknown_harness(tmp_path):
+    path = tmp_path / "matrix.json"
+    path.write_text(
+        json.dumps({
+            "cells": [
+                {
+                    "name": "bad",
+                    "model": "m",
+                    "provider": "openai",
+                    "harness": "made-up",
+                }
+            ]
+        }),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unknown harness"):
+        load_matrix_cells(path)
+
+
+def test_select_matrix_cell_reports_available_names(tmp_path):
+    path = tmp_path / "matrix.json"
+    path.write_text(
+        json.dumps([
+            {"name": "base", "model": "m", "provider": "openai", "harness": "agent"}
+        ]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="available cells: base"):
+        select_matrix_cell(load_matrix_cells(path), "missing")
