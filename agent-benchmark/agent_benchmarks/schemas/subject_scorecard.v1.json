@@ -48,6 +48,9 @@
     "baseline": {
       "type": "string"
     },
+    "baseline_digest": {
+      "type": "string"
+    },
     "awareness": {
       "type": "object",
       "required": ["arm_specs", "runs"],

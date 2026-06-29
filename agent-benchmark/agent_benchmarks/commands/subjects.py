@@ -68,14 +68,16 @@ def cmd_subjects_run(args: argparse.Namespace) -> None:
         print(f"Error loading subject: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    out_dir = Path(args.out_dir) if args.out_dir else Path("results/subjects") / descriptor.id
+    out_dir = Path(args.out_dir) if args.out_dir else Path("results/subjects") / _safe_subject_id(descriptor.id)
     out_dir.mkdir(parents=True, exist_ok=True)
     matrix_path = out_dir / "matrix.cells.json"
     matrix_path.write_text(json.dumps(_matrix_config_for_run(descriptor, args), indent=2), encoding="utf-8")
     baseline_arm = _baseline_arm_name(descriptor.baseline, args)
+    _validate_unique_awareness_arm_names(awareness_arm_specs(descriptor), args)
 
     awareness_runs: list[dict] = []
     questions = _questions_for_products(descriptor.suite.products, descriptor.suite.questions)
+    _validate_unique_product_output_dirs(descriptor.suite.products)
     for product, questions_path in zip(descriptor.suite.products, questions, strict=True):
         run_dir = out_dir / _safe_name(product)
         rollup_json = run_dir / "matrix-rollup.json"
@@ -168,6 +170,52 @@ def _questions_for_products(products: tuple[str, ...], questions: tuple[str, ...
     raise ValueError(
         "suite.questions must contain either one shared file or one file per suite.product"
     )
+
+
+def _validate_unique_product_output_dirs(products: tuple[str, ...]) -> None:
+    from agent_benchmarks.commands.arms import _safe_name
+
+    safe_names = [_safe_name(product) for product in products]
+    dot_names = [product for product, safe in zip(products, safe_names, strict=True) if safe in {".", ".."}]
+    if dot_names:
+        raise ValueError(
+            "suite.products must not resolve to '.' or '..' output directories: "
+            + ", ".join(dot_names)
+        )
+    collisions = sorted({name for name in safe_names if safe_names.count(name) > 1})
+    if collisions:
+        details = ", ".join(
+            f"{name}: {', '.join(product for product in products if _safe_name(product) == name)}"
+            for name in collisions
+        )
+        raise ValueError(f"suite.products collide after output directory sanitization: {details}")
+
+
+def _validate_unique_awareness_arm_names(arm_specs: list[str], args: argparse.Namespace) -> None:
+    from agent_benchmarks.treatments import create_treatments
+
+    try:
+        create_treatments(
+            arm_specs,
+            top_k=args.top_k,
+            rerank_threshold=args.rerank_threshold,
+        )
+    except ValueError as exc:
+        if "Duplicate arm name" not in str(exc):
+            raise
+        raise ValueError(
+            "subject awareness arms resolve to duplicate runtime names; "
+            "use a baseline with a distinct treatment kind or split this comparison"
+        ) from exc
+
+
+def _safe_subject_id(subject_id: str) -> str:
+    from agent_benchmarks.commands.arms import _safe_name
+
+    safe = _safe_name(subject_id)
+    if safe in {".", ".."}:
+        raise ValueError("subject.id must not resolve to '.' or '..' output directory")
+    return safe
 
 
 def _matrix_config_for_run(descriptor, args: argparse.Namespace) -> dict:

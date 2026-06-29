@@ -1,3 +1,5 @@
+baseline = "baseline"
+
 [subject]
 id = "onetbb-quickstart-skill"
 kind = "skill"
@@ -7,8 +9,6 @@ ref = "data/skills/onetbb-quickstart"
 products = ["oneTBB"]
 questions = ["data/questions/onetbb.json"]
 tasks = []
-
-baseline = "baseline"
 
 [[matrix.cells]]
 id = "arms-runner"

@@ -20,11 +20,18 @@ def load_subject(path: str | Path) -> SubjectDescriptor:
     raw = _load_mapping(path)
     subject_raw = _mapping(raw.get("subject"), "subject")
     suite_raw = _mapping(raw.get("suite"), "suite")
+    matrix_declared = "matrix" in raw
     matrix_raw = raw.get("matrix", {})
+    if matrix_declared and not matrix_raw:
+        raise ValueError("matrix must declare cells when present")
 
+    if "baseline" in subject_raw:
+        raise ValueError("baseline must be top-level, not under [subject]")
     subject = _parse_subject(subject_raw)
     suite = _parse_suite(suite_raw)
-    baseline = str(raw.get("baseline") or "baseline").strip()
+    if "baseline" in suite_raw:
+        raise ValueError("baseline must be top-level, not under [suite]")
+    baseline = str(raw["baseline"] if "baseline" in raw else "baseline").strip()
     if not baseline:
         raise ValueError("baseline must not be empty")
 
@@ -118,6 +125,8 @@ def _parse_subject(raw: dict[str, Any]) -> SubjectArtifact:
         raise ValueError(f"subject.ref is required for kind={kind!r}")
     if kind == "bundle" and not members:
         raise ValueError("bundle subjects require subject.members")
+    if kind == "bundle" and all(member.kind == "mcp" for member in members):
+        raise ValueError("all-MCP bundles are not supported until MCP arm names can be made unique")
     return SubjectArtifact(id=subject_id, kind=kind, ref=ref_s, members=tuple(members))
 
 
@@ -139,6 +148,8 @@ def _extract_matrix_cells(raw: Any) -> tuple[dict[str, Any], ...]:
     cells = raw.get("cells", [])
     if not isinstance(cells, list):
         raise ValueError("matrix.cells must be a list")
+    if not cells:
+        raise ValueError("matrix.cells must contain at least one cell when declared")
     out: list[dict[str, Any]] = []
     for idx, cell in enumerate(cells):
         cell_raw = _mapping(cell, f"matrix.cells[{idx}]")
