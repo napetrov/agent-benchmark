@@ -61,7 +61,35 @@
       "additionalProperties": true
     },
     "work": {
-      "type": "object"
+      "type": "object",
+      "required": ["status", "arm_specs", "tasks"],
+      "properties": {
+        "status": {
+          "enum": ["not_run", "run", "skipped"]
+        },
+        "arm_specs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "tasks": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "harnesses": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "task_runs": {
+          "type": ["string", "null"]
+        },
+        "task_report": {
+          "type": ["string", "null"]
+        },
+        "summary": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
     },
     "cells": {
       "type": "array"

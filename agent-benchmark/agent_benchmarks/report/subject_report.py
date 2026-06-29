@@ -54,6 +54,29 @@ def render_subject_scorecard(scorecard: dict) -> str:
     else:
         lines.append("- none")
 
+    work = scorecard.get("work", {})
+    lines.extend(["", "## Work runs"])
+    lines.append(f"- Status: `{work.get('status', 'not_run')}`")
+    tasks = work.get("tasks", [])
+    lines.append(f"- Tasks: {', '.join(f'`{task}`' for task in tasks) if tasks else 'none'}")
+    harnesses = work.get("harnesses", [])
+    lines.append(f"- Harnesses: {', '.join(f'`{h}`' for h in harnesses) if harnesses else 'none'}")
+    if work.get("task_runs"):
+        lines.append(f"- Artifact: `{work.get('task_runs')}`")
+    if work.get("task_report"):
+        lines.append(f"- Report: `{work.get('task_report')}`")
+    per_harness = work.get("summary", {}).get("per_harness", {})
+    if per_harness:
+        lines.append("")
+        lines.append("| Harness | Pass rate | Passed | Tasks |")
+        lines.append("| --- | ---: | ---: | ---: |")
+        for harness, stats in per_harness.items():
+            rate = stats.get("pass_rate")
+            rate_s = "n/a" if rate is None else f"{rate:.2%}"
+            lines.append(
+                f"| `{harness}` | {rate_s} | {stats.get('passed', 0)} | {stats.get('n', 0)} |"
+            )
+
     warnings = scorecard.get("warnings", [])
     if warnings:
         lines.extend(["", "## Warnings"])
