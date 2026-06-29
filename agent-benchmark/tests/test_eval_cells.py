@@ -148,6 +148,15 @@ def test_load_matrix_cells_accepts_object_plugin_descriptors(tmp_path):
     assert cells[0].plugin_specs == ("plugin:caveman:lite",)
 
 
+@pytest.mark.parametrize("payload", [{"cells": []}, {"matrix": {"cells": []}}, []])
+def test_load_matrix_cells_rejects_empty_cell_list(tmp_path, payload):
+    path = tmp_path / "matrix.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="at least one cell"):
+        load_matrix_cells(path)
+
+
 def test_load_matrix_cells_rejects_unknown_harness(tmp_path):
     path = tmp_path / "matrix.json"
     path.write_text(

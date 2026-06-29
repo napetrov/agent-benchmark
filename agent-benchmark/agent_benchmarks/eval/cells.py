@@ -153,6 +153,8 @@ def load_matrix_cells(path: str | Path) -> list[MatrixCellDescriptor]:
     """
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     cells = _extract_cells(raw)
+    if not cells:
+        raise ValueError("matrix config must contain at least one cell")
     out = [_parse_matrix_cell(item, idx) for idx, item in enumerate(cells)]
     names = [c.name for c in out]
     duplicates = sorted({name for name in names if names.count(name) > 1})
