@@ -40,6 +40,7 @@ def test_is_known_harness():
     assert is_known_harness("openclaw-agent")
     assert is_known_harness("terminal-bench")
     assert is_known_harness("terminal-bench:terminus")  # concrete instance
+    assert not is_known_harness("terminal-bench:")
     assert not is_known_harness("made-up-harness")
 
 

@@ -56,7 +56,8 @@ def is_known_harness(harness: str) -> bool:
         HARNESS_OPENCLAW_AGENT,
     ):
         return True
-    return harness.startswith(HARNESS_TERMINAL_BENCH + ":")
+    prefix = HARNESS_TERMINAL_BENCH + ":"
+    return harness.startswith(prefix) and len(harness) > len(prefix)
 
 
 @dataclass(frozen=True)

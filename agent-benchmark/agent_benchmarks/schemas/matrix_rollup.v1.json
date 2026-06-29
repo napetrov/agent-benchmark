@@ -80,7 +80,19 @@
       }
     },
     "plugin_deltas": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact"
+        ],
+        "properties": {
+          "artifact": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
     },
     "warnings": {
       "type": "array",

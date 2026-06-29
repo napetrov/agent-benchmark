@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 import agent_benchmarks.eval.arm_runner as arm_runner_mod
-from agent_benchmarks.artifacts import validate_artifact
+from agent_benchmarks.artifacts import ArtifactValidationError, validate_artifact
 from agent_benchmarks.cli import build_parser
+from agent_benchmarks.commands.arms import _load_questions
 from agent_benchmarks.eval.matrix_rollup import build_matrix_rollup, strip_internal_payloads
-from agent_benchmarks.report.matrix_rollup_report import render_matrix_rollup_report
+from agent_benchmarks.report.matrix_rollup_report import _md_cell, render_matrix_rollup_report
 
 
 def _arms_artifact(matrix_cell: str, plugin_set: str = "none") -> dict:
@@ -73,7 +76,22 @@ def test_build_matrix_rollup_pairs_plugin_cells(tmp_path: Path):
     assert persisted["total_cells"] == 2
     assert persisted["plugin_deltas"][0]["baseline_cell"] == "agent-none"
     assert persisted["plugin_deltas"][0]["plugin_cell"] == "agent-caveman"
+    assert persisted["plugin_deltas"][0]["artifact"].startswith(
+        str(tmp_path / "plugin-delta-agent-none-to-agent-caveman-")
+    )
     assert "_artifact_payload" not in persisted["plugin_deltas"][0]
+
+
+def test_matrix_rollup_schema_requires_plugin_delta_artifact():
+    rollup = {
+        "schema_version": "matrix_rollup.v1",
+        "library_name": "oneTBB",
+        "cells": [],
+        "plugin_deltas": [{"baseline_cell": "a", "plugin_cell": "b"}],
+    }
+
+    with pytest.raises(ArtifactValidationError, match="artifact"):
+        validate_artifact("matrix_rollup", rollup)
 
 
 def test_matrix_rollup_report_lists_cells_and_deltas(tmp_path: Path):
@@ -93,7 +111,36 @@ def test_matrix_rollup_report_lists_cells_and_deltas(tmp_path: Path):
     md = render_matrix_rollup_report(rollup)
 
     assert "# Matrix rollup" in md
-    assert "`agent-none` -> `agent-caveman`" in md
+    assert "agent-none -> agent-caveman" in md
+
+
+def test_matrix_rollup_report_escapes_pipe_tables():
+    assert _md_cell("a | b\nc") == r"a \| b c"
+    md = render_matrix_rollup_report({
+        "library_name": "oneTBB",
+        "cells": [
+            {
+                "matrix_cell": "a|b",
+                "provider": "openai",
+                "model": "m\nx",
+                "harness": "agent",
+                "plugin_set": "none",
+                "artifact": "out|path",
+            }
+        ],
+        "plugin_deltas": [
+            {
+                "baseline_cell": "base|line",
+                "plugin_cell": "plug\nin",
+                "plugin_set": "cave|man",
+                "artifact": "delta|path",
+            }
+        ],
+    })
+
+    assert r"a\|b" in md
+    assert r"out\|path" in md
+    assert r"base\|line -> plug in" in md
 
 
 def test_arms_matrix_run_parser_accepts_required_args():
@@ -113,6 +160,14 @@ def test_arms_matrix_run_parser_accepts_required_args():
     assert args.arms_cmd == "matrix-run"
     assert args.matrix_cells == "matrix.json"
     assert args.plugin_deltas is True
+
+
+def test_load_questions_rejects_non_object_items(tmp_path: Path):
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps(["bad"]), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="question at index 0"):
+        _load_questions(str(questions))
 
 
 def test_arms_matrix_run_rejects_sanitized_cell_name_collisions(tmp_path: Path):
@@ -289,4 +344,4 @@ def test_arms_matrix_run_writes_cells_rollup_and_plugin_delta(tmp_path: Path, mo
     assert (out_dir / "cells" / "agent-none.json").is_file()
     assert (out_dir / "cells" / "agent-caveman.json").is_file()
     assert (out_dir / "matrix-rollup.json").is_file()
-    assert (out_dir / "plugin-delta-agent-none-to-agent-caveman.json").is_file()
+    assert list(out_dir.glob("plugin-delta-agent-none-to-agent-caveman-*.json"))

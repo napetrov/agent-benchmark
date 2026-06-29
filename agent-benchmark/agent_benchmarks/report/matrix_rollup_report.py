@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 
+def _md_cell(text: Any) -> str:
+    return str(text or "").replace("\n", " ").replace("|", r"\|")
+
+
 def render_matrix_rollup_report(data: dict[str, Any]) -> str:
     lines: list[str] = []
     lines.append(f"# Matrix rollup — {data.get('library_name', '?')}")
@@ -24,12 +28,13 @@ def render_matrix_rollup_report(data: dict[str, Any]) -> str:
     lines.append("| Cell | Model | Harness | Plugins | Artifact |")
     lines.append("| --- | --- | --- | --- | --- |")
     for cell in data.get("cells", []):
+        model = f"{cell.get('provider', '?')}/{cell.get('model', '?')}"
         lines.append(
-            f"| `{cell.get('matrix_cell', '?')}` | "
-            f"`{cell.get('provider', '?')}/{cell.get('model', '?')}` | "
-            f"`{cell.get('harness', '?')}` | "
-            f"`{cell.get('plugin_set', 'none')}` | "
-            f"`{cell.get('artifact', '?')}` |"
+            f"| {_md_cell(cell.get('matrix_cell', '?'))} | "
+            f"{_md_cell(model)} | "
+            f"{_md_cell(cell.get('harness', '?'))} | "
+            f"{_md_cell(cell.get('plugin_set', 'none'))} | "
+            f"{_md_cell(cell.get('artifact', '?'))} |"
         )
     lines.append("")
 
@@ -41,8 +46,8 @@ def render_matrix_rollup_report(data: dict[str, Any]) -> str:
         lines.append("| --- | --- | --- |")
         for row in deltas:
             lines.append(
-                f"| `{row.get('baseline_cell', '?')}` -> `{row.get('plugin_cell', '?')}` | "
-                f"`{row.get('plugin_set', '?')}` | `{row.get('artifact', '?')}` |"
+                f"| {_md_cell(row.get('baseline_cell', '?'))} -> {_md_cell(row.get('plugin_cell', '?'))} | "
+                f"{_md_cell(row.get('plugin_set', '?'))} | {_md_cell(row.get('artifact', '?'))} |"
             )
         lines.append("")
 

@@ -73,6 +73,7 @@ Outputs default to `results/arms/<product>.{json,md}` (ignored by git).
 Example Caveman plugin cell:
 
 ```bash
+mkdir -p results/arms
 cat > results/arms/matrix.json <<'JSON'
 {
   "matrix": {
@@ -81,14 +82,14 @@ cat > results/arms/matrix.json <<'JSON'
         "id": "openclaw-no-plugin",
         "model": "gpt-4o-mini",
         "provider": "openai",
-        "harness": "openclaw-agent",
+        "harness": "agent",
         "plugins": []
       },
       {
         "id": "openclaw-caveman",
         "model": "gpt-4o-mini",
         "provider": "openai",
-        "harness": "openclaw-agent",
+        "harness": "agent",
         "plugins": ["plugin:caveman"]
       }
     ]

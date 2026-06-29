@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -82,7 +83,11 @@ def _paired_plugin_deltas(
             )
             continue
 
-        delta_path = out_dir / f"plugin-delta-{_safe_name(baseline_name)}-to-{_safe_name(plugin_name)}.json"
+        pair_suffix = sha256(f"{baseline_name}\0{plugin_name}".encode("utf-8")).hexdigest()[:8]
+        delta_path = out_dir / (
+            f"plugin-delta-{_safe_name(baseline_name)}-to-"
+            f"{_safe_name(plugin_name)}-{pair_suffix}.json"
+        )
         deltas.append({
             "baseline_cell": baseline_name,
             "plugin_cell": plugin_name,

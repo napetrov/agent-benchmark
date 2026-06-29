@@ -285,6 +285,9 @@ def _load_questions(path: str) -> list[dict]:
         questions = questions_data
     if not isinstance(questions, list):
         raise ValueError(f"expected a list of questions in {path}")
+    bad_idx = next((i for i, q in enumerate(questions) if not isinstance(q, dict)), None)
+    if bad_idx is not None:
+        raise ValueError(f"expected question at index {bad_idx} in {path} to be an object")
     print(f"Loaded {len(questions)} questions from {path}")
     return questions
 
