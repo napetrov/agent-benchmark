@@ -68,7 +68,7 @@ def render_subject_scorecard(scorecard: dict) -> str:
     per_harness = work.get("summary", {}).get("per_harness", {})
     if per_harness:
         lines.append("")
-        lines.append("| Harness | Pass rate | Passed | Tasks |")
+        lines.append("| Harness | Pass rate | Passed | Runs |")
         lines.append("| --- | ---: | ---: | ---: |")
         for harness, stats in per_harness.items():
             rate = stats.get("pass_rate")

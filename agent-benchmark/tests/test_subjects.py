@@ -299,6 +299,7 @@ tasks = ["terminal-bench-tasks/example"]
     md = render_subject_scorecard(scorecard)
     assert "## Work runs" in md
     assert "`out/task-runs.json`" in md
+    assert "| Harness | Pass rate | Passed | Runs |" in md
     assert "| `codex` | 0.00% | 0 | 1 |" in md
 
 
@@ -617,6 +618,45 @@ tasks = ["terminal-bench-tasks/example"]
 
     with pytest.raises(ValueError, match="pass --work-harnesses"):
         _run_subject_work(descriptor, args, out_dir=tmp_path)
+
+
+def test_subject_work_preflight_loads_tasks_before_awareness(tmp_path: Path, monkeypatch, capsys):
+    def fail_if_called(args):
+        raise AssertionError("awareness matrix should not run before task preflight")
+
+    monkeypatch.setattr("agent_benchmarks.commands.arms.cmd_arms_matrix_run", fail_if_called)
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps([{"id": "q1", "question": "Q?"}]), encoding="utf-8")
+    docs = tmp_path / "docs.md"
+    docs.write_text("# Docs\n", encoding="utf-8")
+    descriptor = tmp_path / "subject.toml"
+    descriptor.write_text(
+        f"""
+[subject]
+id = "docs-subject"
+kind = "doc-source"
+ref = "local:{docs}"
+
+[suite]
+products = ["oneTBB"]
+questions = ["{questions}"]
+tasks = ["{tmp_path / 'missing-task'}"]
+""".strip(),
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args([
+        "subjects",
+        "run",
+        str(descriptor),
+        "--work-harnesses",
+        "codex",
+    ])
+
+    with pytest.raises(SystemExit) as excinfo:
+        args.func(args)
+
+    assert excinfo.value.code == 1
+    assert "Error loading subject work: Task directory not found" in capsys.readouterr().err
 
 
 def test_subjects_run_writes_work_task_runs_when_requested(tmp_path: Path, monkeypatch):

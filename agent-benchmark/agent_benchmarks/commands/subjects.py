@@ -67,7 +67,11 @@ def cmd_subjects_run(args: argparse.Namespace) -> None:
     except (ValueError, FileNotFoundError) as exc:
         print(f"Error loading subject: {exc}", file=sys.stderr)
         sys.exit(1)
-    _validate_subject_work_args(descriptor, args)
+    try:
+        work_tasks = _validate_subject_work_args(descriptor, args)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"Error loading subject work: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     out_dir = Path(args.out_dir) if args.out_dir else Path("results/subjects") / _safe_subject_id(descriptor.id)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -115,7 +119,7 @@ def cmd_subjects_run(args: argparse.Namespace) -> None:
             "rollup": load_artifact("matrix_rollup", rollup_json),
         })
 
-    work_run = _run_subject_work(descriptor, args, out_dir=out_dir)
+    work_run = _run_subject_work(descriptor, args, out_dir=out_dir, tasks=work_tasks)
     scorecard = build_subject_scorecard(
         descriptor,
         awareness_runs=awareness_runs,
@@ -282,7 +286,7 @@ def _baseline_arm_name(baseline_spec: str, args: argparse.Namespace) -> str:
     return treatment.name
 
 
-def _run_subject_work(descriptor, args: argparse.Namespace, *, out_dir: Path) -> dict | None:
+def _run_subject_work(descriptor, args: argparse.Namespace, *, out_dir: Path, tasks: list | None = None) -> dict | None:
     """Run executable task suites for a subject when explicitly requested."""
     if not descriptor.suite.tasks:
         return None
@@ -295,15 +299,14 @@ def _run_subject_work(descriptor, args: argparse.Namespace, *, out_dir: Path) ->
         }
 
     harnesses = [h.strip() for h in args.work_harnesses.split(",") if h.strip()]
-    _validate_subject_work_args(descriptor, args)
+    tasks = tasks if tasks is not None else _validate_subject_work_args(descriptor, args)
     if args.work_baseline_harness and args.work_baseline_harness not in harnesses:
         harnesses.insert(0, args.work_baseline_harness)
 
     from agent_benchmarks.artifacts import save_artifact
-    from agent_benchmarks.harnesses import TaskSuiteRunner, load_task
+    from agent_benchmarks.harnesses import TaskSuiteRunner
     from agent_benchmarks.report.task_runs_report import render_task_runs_report
 
-    tasks = [load_task(task) for task in descriptor.suite.tasks]
     work_dir = Path(args.work_output_dir) if args.work_output_dir else out_dir / "work"
     task_runs_path = work_dir / "task-runs.json"
     runner = TaskSuiteRunner(
@@ -338,12 +341,15 @@ def _work_arm_specs(descriptor) -> list[str]:
     return work_arm_specs(descriptor)
 
 
-def _validate_subject_work_args(descriptor, args: argparse.Namespace) -> None:
+def _validate_subject_work_args(descriptor, args: argparse.Namespace) -> list:
     if not descriptor.suite.tasks or args.skip_work:
-        return
+        return []
     harnesses = [h.strip() for h in args.work_harnesses.split(",") if h.strip()]
     if not harnesses:
         raise ValueError(
             "suite.tasks declared; pass --work-harnesses <harness[,harness]> "
             "to run them, or --skip-work to leave work.status=skipped"
         )
+    from agent_benchmarks.harnesses import load_task
+
+    return [load_task(task) for task in descriptor.suite.tasks]
