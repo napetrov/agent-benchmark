@@ -67,6 +67,11 @@ def cmd_subjects_run(args: argparse.Namespace) -> None:
     except (ValueError, FileNotFoundError) as exc:
         print(f"Error loading subject: {exc}", file=sys.stderr)
         sys.exit(1)
+    try:
+        work_tasks = _validate_subject_work_args(descriptor, args)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"Error loading subject work: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     out_dir = Path(args.out_dir) if args.out_dir else Path("results/subjects") / _safe_subject_id(descriptor.id)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -114,7 +119,13 @@ def cmd_subjects_run(args: argparse.Namespace) -> None:
             "rollup": load_artifact("matrix_rollup", rollup_json),
         })
 
-    scorecard = build_subject_scorecard(descriptor, awareness_runs=awareness_runs, out_dir=out_dir)
+    work_run = _run_subject_work(descriptor, args, out_dir=out_dir, tasks=work_tasks)
+    scorecard = build_subject_scorecard(
+        descriptor,
+        awareness_runs=awareness_runs,
+        work_run=work_run,
+        out_dir=out_dir,
+    )
     out_json = Path(args.out_json) if args.out_json else out_dir / "subject-scorecard.json"
     out_md = Path(args.out_md) if args.out_md else out_json.with_suffix(".md")
     save_artifact("subject_scorecard", scorecard, out_json)
@@ -159,6 +170,32 @@ def register(sub, positive_int) -> None:
     run_p.add_argument("--max-iterations", type=positive_int, default=6, dest="max_iterations")
     run_p.add_argument("--concurrency", type=positive_int, default=5)
     run_p.add_argument("--no-plugin-deltas", action="store_true", dest="no_plugin_deltas")
+    run_p.add_argument(
+        "--work-harnesses",
+        default="",
+        dest="work_harnesses",
+        help=(
+            "Comma-separated executable-task harnesses for suite.tasks "
+            "(for example: codex,docker-claude-skill:data/skills/x)."
+        ),
+    )
+    run_p.add_argument("--work-baseline-harness", default=None, dest="work_baseline_harness")
+    run_p.add_argument("--work-model", default=None, dest="work_model")
+    run_p.add_argument("--work-output-dir", default=None, dest="work_output_dir")
+    run_p.add_argument("--work-command-template", default=None, dest="work_command_template")
+    run_p.add_argument("--work-repeats", type=positive_int, default=1, dest="work_repeats")
+    run_p.add_argument(
+        "--work-dry-run",
+        action="store_true",
+        dest="work_dry_run",
+        help="Build the task_runs artifact without invoking executable-task agents.",
+    )
+    run_p.add_argument(
+        "--skip-work",
+        action="store_true",
+        dest="skip_work",
+        help="Skip suite.tasks even when the subject descriptor declares them.",
+    )
     run_p.set_defaults(func=cmd_subjects_run)
 
 
@@ -247,3 +284,72 @@ def _baseline_arm_name(baseline_spec: str, args: argparse.Namespace) -> str:
         rerank_threshold=args.rerank_threshold,
     )[0]
     return treatment.name
+
+
+def _run_subject_work(descriptor, args: argparse.Namespace, *, out_dir: Path, tasks: list | None = None) -> dict | None:
+    """Run executable task suites for a subject when explicitly requested."""
+    if not descriptor.suite.tasks:
+        return None
+    if args.skip_work:
+        return {
+            "status": "skipped",
+            "tasks": list(descriptor.suite.tasks),
+            "arm_specs": _work_arm_specs(descriptor),
+            "warnings": ["suite.tasks skipped by --skip-work"],
+        }
+
+    harnesses = [h.strip() for h in args.work_harnesses.split(",") if h.strip()]
+    tasks = tasks if tasks is not None else _validate_subject_work_args(descriptor, args)
+    if args.work_baseline_harness and args.work_baseline_harness not in harnesses:
+        harnesses.insert(0, args.work_baseline_harness)
+
+    from agent_benchmarks.artifacts import save_artifact
+    from agent_benchmarks.harnesses import TaskSuiteRunner
+    from agent_benchmarks.report.task_runs_report import render_task_runs_report
+
+    work_dir = Path(args.work_output_dir) if args.work_output_dir else out_dir / "work"
+    task_runs_path = work_dir / "task-runs.json"
+    runner = TaskSuiteRunner(
+        tasks=tasks,
+        harnesses=harnesses,
+        model=args.work_model or args.model,
+        baseline_harness=args.work_baseline_harness,
+        output_root=work_dir,
+        command_template=args.work_command_template,
+        dry_run=args.work_dry_run,
+        repeats=args.work_repeats,
+    )
+    artifact = runner.run()
+    save_artifact("task_runs", artifact, task_runs_path)
+    task_runs_md = task_runs_path.with_suffix(".md")
+    task_runs_md.parent.mkdir(parents=True, exist_ok=True)
+    task_runs_md.write_text(render_task_runs_report(artifact), encoding="utf-8")
+    return {
+        "status": "run",
+        "tasks": list(descriptor.suite.tasks),
+        "arm_specs": _work_arm_specs(descriptor),
+        "harnesses": harnesses,
+        "task_runs": str(task_runs_path),
+        "task_report": str(task_runs_md),
+        "summary": artifact.get("summary", {}),
+    }
+
+
+def _work_arm_specs(descriptor) -> list[str]:
+    from agent_benchmarks.subjects.loader import work_arm_specs
+
+    return work_arm_specs(descriptor)
+
+
+def _validate_subject_work_args(descriptor, args: argparse.Namespace) -> list:
+    if not descriptor.suite.tasks or args.skip_work:
+        return []
+    harnesses = [h.strip() for h in args.work_harnesses.split(",") if h.strip()]
+    if not harnesses:
+        raise ValueError(
+            "suite.tasks declared; pass --work-harnesses <harness[,harness]> "
+            "to run them, or --skip-work to leave work.status=skipped"
+        )
+    from agent_benchmarks.harnesses import load_task
+
+    return [load_task(task) for task in descriptor.suite.tasks]

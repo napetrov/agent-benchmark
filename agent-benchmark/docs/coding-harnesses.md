@@ -77,6 +77,26 @@ python cli.py tasks run \
 Use `--dry-run` to validate matrix expansion and artifact shape without invoking
 external agents.
 
+## Subject Work Suites
+
+`subjects run` uses the same task harnesses for the subject descriptor's
+`suite.tasks` entries. Task execution is explicit because the work harness may
+invoke Docker, Harbor, or a billable model-backed solver. If a descriptor
+declares tasks, pass `--work-harnesses` or consciously skip them with
+`--skip-work`:
+
+```bash
+python cli.py subjects run subjects/onetbb-quickstart.toml \
+  --work-harnesses docker-claude,docker-claude-skill:data/skills/onetbb-quickstart \
+  --work-baseline-harness docker-claude \
+  --work-model us.anthropic.claude-haiku-4-5-20251001-v1:0 \
+  --work-repeats 3
+```
+
+The subject scorecard embeds the work status, the `task_runs.v1` artifact path,
+the Markdown task report path, and the `summary.per_harness` pass-rate/cost
+rollup. Use `--work-dry-run` to verify wiring without invoking the harness.
+
 ## Skill treatment experiment (without-skill vs with-skill)
 
 The skill experiment is just two `docker-*` harnesses over one task set, with

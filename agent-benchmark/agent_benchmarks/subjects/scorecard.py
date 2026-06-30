@@ -16,14 +16,18 @@ def build_subject_scorecard(
     *,
     awareness_runs: list[dict[str, Any]],
     out_dir: Path,
+    work_run: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a subject_scorecard.v1 artifact from matrix rollup runs."""
     warnings: list[str] = []
     if descriptor.suite.tasks:
-        warnings.append(
-            "task suites are declared but not executed by this scorecard yet; "
-            "work arms are included for adapter planning"
-        )
+        if work_run is None:
+            warnings.append(
+                "task suites are declared but not executed; pass --work-harnesses "
+                "or --skip-work to make the work status explicit"
+            )
+        else:
+            warnings.extend(work_run.get("warnings", []))
 
     cells = []
     plugin_deltas = []
@@ -87,9 +91,13 @@ def build_subject_scorecard(
             ],
         },
         "work": {
-            "status": "not_run",
+            "status": work_run.get("status", "not_run") if work_run else "not_run",
             "arm_specs": work_arm_specs(descriptor),
             "tasks": list(descriptor.suite.tasks),
+            "harnesses": work_run.get("harnesses", []) if work_run else [],
+            "task_runs": work_run.get("task_runs") if work_run else None,
+            "task_report": work_run.get("task_report") if work_run else None,
+            "summary": work_run.get("summary", {}) if work_run else {},
         },
         "cells": cells,
         "plugin_deltas": plugin_deltas,
