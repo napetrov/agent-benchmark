@@ -83,6 +83,57 @@ def test_view_skill_tool():
     assert tool.viewed is True
 
 
+def test_view_skill_tool_multifile(tmp_path):
+    """Test that multi-file skills offer file parameter and can load sibling files."""
+    # Create a minimal multi-file skill fixture
+    skill_dir = tmp_path / "test-skill"
+    skill_dir.mkdir()
+
+    # Create SKILL.md
+    skill_md = skill_dir / "SKILL.md"
+    skill_md.write_text("""---
+name: test-skill
+description: Test skill for multi-file support
+---
+# Test Skill
+
+Navigation table here.
+""")
+
+    # Create topic files
+    (skill_dir / "topic-a.md").write_text("# Topic A\nContent for topic A.")
+    (skill_dir / "topic-b.md").write_text("# Topic B\nContent for topic B.")
+
+    # Load skill and create tool
+    skill = load_skill(skill_dir)
+    tool = ViewSkillTool(skill)
+
+    # Check that tool has file parameter with enum of available files
+    assert "properties" in tool.parameters
+    assert "file" in tool.parameters["properties"]
+
+    # Multi-file skill: should have enum with SKILL.md + sibling .md files
+    file_param = tool.parameters["properties"]["file"]
+    assert file_param["type"] == "string"
+    assert "enum" in file_param
+    assert "SKILL.md" in file_param["enum"]
+    assert "topic-a.md" in file_param["enum"]
+    assert "topic-b.md" in file_param["enum"]
+    assert len(file_param["enum"]) == 3  # SKILL.md + 2 topics
+
+    # Test loading SKILL.md (default)
+    body = tool.call()
+    assert "test-skill" in body.lower()
+    assert "Navigation table" in body
+    assert tool.viewed is True
+
+    # Test loading a specific topic file
+    topic_content = tool.call(file="topic-a.md")
+    assert "topic-a.md" in topic_content
+    assert "Topic A" in topic_content
+    assert "Content for topic A" in topic_content
+
+
 # ── loop ────────────────────────────────────────────────────────────────
 def test_agent_loop_calls_tool_then_answers(monkeypatch):
     tool = DocQueryTool(_FakeDocClient(), "lib/x")

@@ -220,6 +220,48 @@ description: One line that tells the agent when to use this skill.
 …
 ```
 
+**Multi-file skills** (progressive disclosure):
+
+Skills can contain multiple `.md` files alongside `SKILL.md`. When used with
+`skill-agent:<path>`, the tool offers a `file` parameter listing all available
+files. The model can load `SKILL.md` first (typically a navigation table) and
+then load specific topic files as needed.
+
+Example structure:
+```
+skills/my-skill/
+  SKILL.md           # Navigation/overview with topic-to-file mapping
+  getting-started.md # Topic-specific guidance
+  advanced.md        # Deep-dive content
+  troubleshooting.md # Common issues and solutions
+```
+
+When the `ViewSkillTool` detects sibling `.md` files, it automatically offers:
+```json
+{
+  "file": {
+    "type": "string",
+    "enum": ["SKILL.md", "advanced.md", "getting-started.md", "troubleshooting.md"],
+    "description": "Which file to load. Start with 'SKILL.md' to see the navigation..."
+  }
+}
+```
+
+The `SKILL.md` should contain a navigation table mapping user contexts to files:
+
+```markdown
+| Your context | Read this file |
+|--------------|----------------|
+| Installing and basic setup | `getting-started.md` |
+| Advanced configuration | `advanced.md` |
+| Debugging common errors | `troubleshooting.md` |
+```
+
+**Note:** When used with injected mode (`skill:<path>`), only `SKILL.md` is
+loaded. Multi-file structure only activates in agentic mode (`skill-agent:<path>`).
+For best results with injected mode, consolidate content into a single `SKILL.md`
+file rather than relying on multi-file progressive disclosure.
+
 ## Scope and caveats
 
 - **Three levels of fidelity for skills/MCP.** (1) `skill:` / `mcp:` inject
