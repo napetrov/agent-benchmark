@@ -239,7 +239,10 @@ system prompt and reserve `persona` for the existing synthetic-user concept.
   Phase 4).
 - **Phase 4 — PARTIAL.** Skills: `skills/` fixtures + `SKILL.md` loader, the
   skill-as-context arm (`SkillTreatment`), and the agentic skill-view arm
-  (`SkillAgentTreatment`) are done. Faithful skill *script execution* on the
+  (`SkillAgentTreatment`) are done. `ViewSkillTool` now supports multi-file
+  skills: when sibling `.md` files exist, the tool offers a `file` parameter
+  allowing progressive disclosure (the model can load `SKILL.md` navigation first,
+  then load specific topic files). Faithful skill *script execution* on the
   terminal-bench track remains.
 
 Each phase is independently shippable and leaves the existing two-arm

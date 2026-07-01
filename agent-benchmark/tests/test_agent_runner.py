@@ -83,6 +83,36 @@ def test_view_skill_tool():
     assert tool.viewed is True
 
 
+def test_view_skill_tool_multifile():
+    """Test that multi-file skills offer file parameter and can load sibling files."""
+    skill = load_skill("data/skills/dpnp")
+    tool = ViewSkillTool(skill)
+
+    # Check that tool has file parameter with enum of available files
+    assert "properties" in tool.parameters
+    if "file" in tool.parameters["properties"]:
+        # Multi-file skill: should have enum with SKILL.md + sibling .md files
+        file_param = tool.parameters["properties"]["file"]
+        assert file_param["type"] == "string"
+        assert "enum" in file_param
+        assert "SKILL.md" in file_param["enum"]
+        assert len(file_param["enum"]) > 1  # Should have sibling files
+
+        # Test loading SKILL.md (default)
+        body = tool.call()
+        assert "dpnp" in body.lower()
+        assert tool.viewed is True
+
+        # Test loading a specific topic file
+        topic_file = [f for f in file_param["enum"] if f != "SKILL.md"][0]
+        topic_content = tool.call(file=topic_file)
+        assert topic_file in topic_content
+        assert len(topic_content) > 0
+    else:
+        # Single-file skill: no file parameter
+        assert len(tool.parameters["properties"]) == 0
+
+
 # ── loop ────────────────────────────────────────────────────────────────
 def test_agent_loop_calls_tool_then_answers(monkeypatch):
     tool = DocQueryTool(_FakeDocClient(), "lib/x")

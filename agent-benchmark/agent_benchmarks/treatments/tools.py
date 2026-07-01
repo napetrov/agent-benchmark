@@ -72,7 +72,12 @@ class DocQueryTool(Tool):
 
 
 class ViewSkillTool(Tool):
-    """Progressive disclosure: load a skill's full instructions on demand."""
+    """Progressive disclosure: load a skill's full instructions on demand.
+
+    Supports multi-file skills: if sibling .md files exist, the tool accepts
+    a 'file' parameter to load them individually. SKILL.md is always loaded
+    when no file is specified.
+    """
 
     kind = "skill"
 
@@ -87,11 +92,49 @@ class ViewSkillTool(Tool):
             f"Load the full instructions for the '{skill.name}' skill. "
             f"Use it when the task matches: {skill.description}"
         )
-        self.parameters = {"type": "object", "properties": {}}
 
-    def call(self, **_) -> str:
+        # Build file enum from sibling .md resources
+        md_files = [r.name for r in skill.resources if r.suffix == '.md']
+        if md_files:
+            # Multi-file skill: offer file picker
+            self.parameters = {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "enum": ["SKILL.md"] + sorted(md_files),
+                        "description": (
+                            "Which file to load. Start with 'SKILL.md' to see the navigation "
+                            "table that maps your task to the right topic file, then load "
+                            "that specific file for detailed guidance."
+                        ),
+                    }
+                },
+                "required": [],
+            }
+        else:
+            # Single-file skill: no parameters
+            self.parameters = {"type": "object", "properties": {}}
+
+    def call(self, file: str = "SKILL.md", **_) -> str:
         self.viewed = True
-        return self.skill.as_context(self.max_chars)
+
+        if file == "SKILL.md":
+            return self.skill.as_context(self.max_chars)
+
+        # Load sibling .md file
+        target = self.skill.path.parent / file
+        if not target.exists() or target.suffix != '.md':
+            return f"(file '{file}' not found or not a .md file)"
+
+        try:
+            content = target.read_text(encoding="utf-8")
+            if len(content) > self.max_chars:
+                content = content[:self.max_chars].rstrip() + "\n…"
+            return f"# Skill: {self.skill.name} — {file}\n\n{content}"
+        except Exception as exc:
+            logger.exception("Failed to read skill file")
+            return f"(failed to read '{file}': {exc})"
 
     def telemetry_metadata(self):
         meta = super().telemetry_metadata()
