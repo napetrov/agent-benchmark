@@ -7,7 +7,11 @@ from pathlib import Path
 
 BINARY = Path("/app/spin_fixed")
 SOURCE = Path("/app/spin_fixed.cpp")
-TIMEOUT = 60.0
+# Subprocess hard-kill budget. Kept above the no-livelock assertion bound (60 s,
+# see test_no_livelock_under_high_contention) so a genuinely hung lock reaches
+# that assertion — and its "possible livelock" message — instead of dying here
+# with an unhandled TimeoutExpired.
+TIMEOUT = 90.0
 
 
 def _strip_comments(text):
@@ -58,10 +62,18 @@ def test_mutual_exclusion_exact_total():
 
 def test_no_livelock_under_high_contention():
     # heavy oversubscription must still terminate well within the time limit;
-    # this catches livelock/deadlock without relying on a flaky speedup margin
+    # this catches livelock/deadlock without relying on a flaky speedup margin.
+    #
+    # The bound is deliberately generous: 64 threads on a CPU-capped container
+    # (the harness runs with --cpus 4) is ~16x oversubscribed, so absolute
+    # wall-clock varies widely with host load. A correct TTAS lock finishes in a
+    # few seconds; a livelocked/deadlocked one does not terminate at all. The old
+    # 30 s bound flaked on loaded hosts (observed 30.9-41.4 s for CORRECT locks) —
+    # it was measuring throughput, not liveness. 60 s cleanly separates
+    # "terminates" from "hung" without the false negatives.
     total, elapsed = _run(64, 60000)
     assert total == 64 * 60000
-    assert elapsed < 30.0, f"high-contention run took {elapsed:.1f}s; possible livelock"
+    assert elapsed < 60.0, f"high-contention run took {elapsed:.1f}s; possible livelock"
 
 
 def test_source_uses_test_and_test_and_set():
