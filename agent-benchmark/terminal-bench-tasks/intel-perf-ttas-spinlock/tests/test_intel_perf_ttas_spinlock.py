@@ -7,7 +7,11 @@ from pathlib import Path
 
 BINARY = Path("/app/spin_fixed")
 SOURCE = Path("/app/spin_fixed.cpp")
-TIMEOUT = 60.0
+# Subprocess hard-kill budget. Kept above the no-livelock assertion bound (60 s,
+# see test_no_livelock_under_high_contention) so a genuinely hung lock reaches
+# that assertion — and its "possible livelock" message — instead of dying here
+# with an unhandled TimeoutExpired.
+TIMEOUT = 90.0
 
 
 def _strip_comments(text):
