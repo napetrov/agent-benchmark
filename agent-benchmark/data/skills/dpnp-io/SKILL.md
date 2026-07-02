@@ -1,5 +1,5 @@
 ---
-skill_name: dpnp-io
+name: dpnp-io
 description: File I/O patterns for dpnp arrays (NumPy conversion round-trips, HDF5, Zarr, CSV, chunking for large datasets)
 ---
 
@@ -31,6 +31,9 @@ dpnp focuses on compute acceleration, not file formats. The conversion overhead 
 
 **Single array (.npy)**:
 ```python
+import numpy
+import dpnp
+
 # Load
 data = dpnp.array(numpy.load('input.npy'))
 
@@ -40,10 +43,13 @@ numpy.save('output.npy', dpnp.asnumpy(data))
 
 **Multiple arrays (.npz)**:
 ```python
-# Load
-npz = numpy.load('data.npz')
-x = dpnp.array(npz['x'])
-y = dpnp.array(npz['y'])
+import numpy
+import dpnp
+
+# Load — use with block to ensure the NpzFile is closed after reading
+with numpy.load('data.npz') as npz:
+    x = dpnp.array(npz['x'])
+    y = dpnp.array(npz['y'])
 
 # Save
 numpy.savez('output.npz', x=dpnp.asnumpy(x), y=dpnp.asnumpy(y))
@@ -66,6 +72,9 @@ chunk_size = 25_000_000  # 200MB of float64 (8 bytes each)
 data = numpy.load('large.npy', mmap_mode='r')  # Memory-mapped, no full load
 result = []
 
+# Pre-allocate output array to avoid accumulating chunks in memory
+final = numpy.empty(len(data), dtype=numpy.float64)
+
 for i in range(0, len(data), chunk_size):
     chunk_np = data[i:i+chunk_size]
     chunk_dpnp = dpnp.array(chunk_np)
@@ -73,10 +82,9 @@ for i in range(0, len(data), chunk_size):
     # Your dpnp operations
     processed = dpnp.sqrt(chunk_dpnp) * 2.0
     
-    result.append(dpnp.asnumpy(processed))
+    # Write directly into output slice — no in-memory accumulation
+    final[i:i+len(chunk_np)] = dpnp.asnumpy(processed)
 
-# Combine chunks
-final = numpy.concatenate(result)
 numpy.save('output.npy', final)
 ```
 
@@ -106,13 +114,13 @@ with h5py.File('large.h5', 'r') as f:
     chunk_size = 1_000_000
     result = []
     
+    combined = numpy.empty(dset.shape[0], dtype=numpy.complex128)
     for i in range(0, dset.shape[0], chunk_size):
         chunk_np = dset[i:i+chunk_size]
         chunk_dpnp = dpnp.array(chunk_np)
         processed = dpnp.fft.fft(chunk_dpnp)
-        result.append(dpnp.asnumpy(processed))
-    
-    combined = numpy.concatenate(result)
+        # Write directly into pre-allocated slice
+        combined[i:i+len(chunk_np)] = dpnp.asnumpy(processed)
 ```
 
 **Incremental writes** (results too large for memory):
@@ -152,14 +160,13 @@ z[:] = dpnp.asnumpy(arr)
 z = zarr.open('data.zarr', mode='r')
 dset = z['dataset']
 chunk_size = 100_000
-results = []
+combined = numpy.empty(dset.shape[0], dtype=numpy.float64)
 
 for i in range(0, dset.shape[0], chunk_size):
     chunk = dpnp.array(dset[i:i+chunk_size])
     processed = dpnp.log(chunk + 1)
-    results.append(dpnp.asnumpy(processed))
-
-combined = numpy.concatenate(results)
+    # Write directly into output slice
+    combined[i:i+chunk_size] = dpnp.asnumpy(processed)
 ```
 
 **Incremental writes**:
@@ -176,6 +183,7 @@ for i in range(0, 10_000_000, 500_000):
 
 **CSV with pandas**:
 ```python
+import numpy
 import pandas as pd
 import dpnp
 
@@ -190,6 +198,9 @@ numpy.savetxt('output.csv', dpnp.asnumpy(arr), delimiter=',')
 
 **Numeric CSV with numpy.loadtxt**:
 ```python
+import numpy
+import dpnp
+
 arr = dpnp.array(numpy.loadtxt('data.csv', delimiter=','))
 ```
 

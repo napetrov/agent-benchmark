@@ -9,7 +9,6 @@ Memory management and device control for DPNP arrays. DPNP arrays live in SYCL u
 
 ```python
 import dpnp
-import dpctl
 
 # Check where array lives
 arr = dpnp.arange(1000)
@@ -17,14 +16,16 @@ print(arr.sycl_device)  # opencl:gpu:0, level_zero:gpu:0, opencl:cpu:0, etc.
 print(arr.sycl_queue)   # Queue information
 
 # Pre-allocate to avoid repeated allocation overhead
-result = dpnp.empty((1000, 1000), dtype=dpnp.float64)
+a = dpnp.arange(1000, dtype=dpnp.float64)
+b = dpnp.arange(1000, dtype=dpnp.float64)
+result = dpnp.empty(1000, dtype=dpnp.float64)
 for i in range(100):
     dpnp.add(a, b, out=result)  # Reuses result buffer, no new allocation
 ```
 
 ## DPNP Memory Model
 
-DPNP arrays are allocated in SYCL unified shared memory (USM) on the device (GPU or CPU). This contrasts with NumPy arrays, which live in CPU heap memory. Memory is not automatically freed when a dpnp array goes out of scope; it persists until Python's garbage collector runs. In long-running scripts or Jupyter notebooks, this can cause memory accumulation. DPNP selects a default device at import time: CPU fallback if no GPU is available, otherwise the first detected GPU. Use `dpctl.select_default_device()` to override. Device memory limits are typically 8-64 GB for discrete GPUs, unlimited for CPU. Allocation overhead is 10-100× higher than CPU malloc, so pre-allocation is critical for performance in loops.
+DPNP arrays are allocated in SYCL unified shared memory (USM) on the device (GPU or CPU). This contrasts with NumPy arrays, which live in CPU heap memory. Memory is not automatically freed when a dpnp array goes out of scope; it persists until Python's garbage collector reclaims it, though reclamation timing depends on object lifetime and allocator behavior. In long-running scripts or Jupyter notebooks, this can cause memory accumulation. DPNP selects a default device at import time: CPU fallback if no GPU is available, otherwise the first detected GPU. Use `dpctl.select_default_device()` to override. Device memory limits are typically 8-64 GB for discrete GPUs, unlimited for CPU. Allocation overhead is 10-100× higher than CPU malloc, so pre-allocation is critical for performance in loops.
 
 ## Checking Array Location
 
@@ -106,10 +107,10 @@ arr = dpnp.arange(10000)
 for i in range(1000):
     process(dpnp.asnumpy(arr))  # Still copies, but no repeated allocation
 
-# Force garbage collection in notebooks
+# Nudge garbage collection in notebooks (reclamation is not guaranteed immediate)
 import gc
 del large_array
-gc.collect()  # Frees device memory immediately
+gc.collect()  # May help reclaim device memory; timing depends on allocator
 ```
 
 ## Chunking Large Workloads
@@ -135,7 +136,7 @@ for i in range(0, total_size, chunk_size):
     # Convert back and save
     np.save(f"result_{i}.npy", dpnp.asnumpy(result))
     
-    # Free memory before next iteration
+    # Free memory before next iteration (gc.collect may help, but timing is allocator-dependent)
     del arr, result, chunk
     gc.collect()
 ```
@@ -145,7 +146,7 @@ for i in range(0, total_size, chunk_size):
 1. Check device placement with `array.sycl_device` when debugging multi-device issues.
 2. Use `out=` parameter for ufuncs in loops with > 100 iterations and arrays < 1 MB.
 3. Use `dpnp.empty()` instead of `dpnp.zeros()` when initial values do not matter.
-4. Call `gc.collect()` in Jupyter notebooks after deleting large arrays to free device memory immediately.
+4. In Jupyter notebooks, call `gc.collect()` after deleting large arrays to encourage device memory reclamation (note: timing depends on object lifetime and allocator behavior, not guaranteed immediate).
 5. Monitor memory with `xpu-smi dump -m 1` during development to catch leaks early.
 6. Chunk datasets that exceed 50% of device memory; process iteratively with explicit cleanup.
 7. Profile before optimizing: use `time` module and memory monitoring to identify actual bottleneck.
