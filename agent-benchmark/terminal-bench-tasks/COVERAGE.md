@@ -132,11 +132,11 @@ This matrix tracks which dpnp APIs and concepts are covered by terminal-bench-st
 
 | API / concept | Task | Status | Verifier strategy |
 | --- | --- | --- | --- |
-| Drop-in `import dpnp as np`, `asnumpy()` fallback | `dpnp-migration-replace-numpy` | proposed | NumPy reference signature comparison, AST import check |
-| `sum/mean/std` with `axis=0` | `dpnp-reduction-stats` | proposed | NumPy reference signature comparison, AST reduction check |
-| `dpnp.matmul` / `@` operator, oneMKL backend | `dpnp-linalg-matmul` | proposed | NumPy reference signature comparison, AST matmul check |
-| `dpnp.fft.fft`, power spectrum | `dpnp-fft-pipeline` | proposed | NumPy reference signature comparison, AST fft check |
-| `dpctl` device introspection, GPU→CPU fallback | `dpnp-device-fallback` | proposed | NumPy reference signature comparison, dpctl import + GPU attempt check |
+| Drop-in `import dpnp as np`, `asnumpy()` fallback | `dpnp-migration-replace-numpy` | implemented | NumPy reference signature comparison, AST import check |
+| `sum/mean/std` with `axis=0` | `dpnp-reduction-stats` | implemented | NumPy reference signature comparison, AST reduction check |
+| `dpnp.matmul` / `@` operator, oneMKL backend | `dpnp-linalg-matmul` | implemented | NumPy reference signature comparison, AST matmul check |
+| `dpnp.fft.fft`, power spectrum | `dpnp-fft-pipeline` | implemented | NumPy reference signature comparison, AST fft check |
+| `dpctl` device introspection, GPU→CPU fallback | `dpnp-device-fallback` | implemented | NumPy reference signature comparison, dpctl import + GPU attempt check |
 
 ## Notes for new tasks
 

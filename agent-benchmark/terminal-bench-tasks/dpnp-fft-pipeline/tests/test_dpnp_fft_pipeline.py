@@ -31,22 +31,37 @@ def _sig(text):
 
 
 def _uses_dpnp_fft(tree):
-    """True if the solution imports dpnp and calls dpnp.fft.fft."""
-    has_dpnp = False
-    has_fft = False
+    """True if the solution imports dpnp and calls dpnp.fft.fft (not numpy/scipy)."""
+    # Collect all dpnp import aliases (e.g. "import dpnp as xp" -> "xp")
+    dpnp_names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name.startswith("dpnp"):
-                    has_dpnp = True
+                    dpnp_names.add(alias.asname or alias.name)
         if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("dpnp"):
-            has_dpnp = True
+            for alias in node.names:
+                dpnp_names.add(alias.asname or alias.name)
+
+    if not dpnp_names:
+        return False
+
+    # Walk for a .fft call whose receiver chain starts with a dpnp-bound name
+    for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             func = node.func
-            # dpnp.fft.fft(...)
+            # dpnp.fft.fft(...) -> Attribute(Attribute(Name('dpnp'), 'fft'), 'fft')
             if isinstance(func, ast.Attribute) and func.attr == "fft":
-                has_fft = True
-    return has_dpnp and has_fft
+                inner = func.value
+                # two-level: dpnp.fft
+                if isinstance(inner, ast.Attribute) and inner.attr == "fft":
+                    root = inner.value
+                    if isinstance(root, ast.Name) and root.id in dpnp_names:
+                        return True
+                # one-level alias: fft_mod.fft where fft_mod came from dpnp
+                if isinstance(inner, ast.Name) and inner.id in dpnp_names:
+                    return True
+    return False
 
 
 def test_files_exist():

@@ -31,23 +31,36 @@ def _sig(text):
 
 
 def _uses_dpnp_reductions(tree):
-    """True if solution imports dpnp and uses sum/mean/std with axis kwarg."""
-    has_dpnp = False
-    reduction_calls = set()
+    """True if solution imports dpnp and uses sum/mean/std rooted on a dpnp-bound name."""
+    # Collect dpnp-bound names
+    dpnp_names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == "dpnp":
-                    has_dpnp = True
+                    dpnp_names.add(alias.asname or alias.name)
         if isinstance(node, ast.ImportFrom) and (node.module or "") == "dpnp":
-            has_dpnp = True
+            for alias in node.names:
+                dpnp_names.add(alias.asname or alias.name)
+
+    if not dpnp_names:
+        return False
+
+    # Find reduction calls rooted on a dpnp-bound name
+    REDUCTIONS = {"sum", "mean", "std"}
+    found: set[str] = set()
+    for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             func = node.func
-            if isinstance(func, ast.Attribute) and func.attr in ("sum", "mean", "std"):
-                reduction_calls.add(func.attr)
-            if isinstance(func, ast.Name) and func.id in ("sum", "mean", "std"):
-                reduction_calls.add(func.id)
-    return has_dpnp and len(reduction_calls) >= 2
+            # dpnp.sum(...) / alias.sum(...)
+            if (
+                isinstance(func, ast.Attribute)
+                and func.attr in REDUCTIONS
+                and isinstance(func.value, ast.Name)
+                and func.value.id in dpnp_names
+            ):
+                found.add(func.attr)
+    return len(found) >= 2
 
 
 def test_files_exist():
@@ -63,9 +76,32 @@ def test_solution_uses_dpnp_reductions():
 
 
 def test_solution_uses_axis_parameter():
-    source = SOLUTION.read_text(errors="replace")
-    assert "axis=0" in source, (
-        "solution.py must use axis=0 for per-column reductions"
+    tree = ast.parse(SOLUTION.read_text(errors="replace"), filename=str(SOLUTION))
+    # Check that at least one reduction call has axis=0 as a keyword argument
+    dpnp_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "dpnp":
+                    dpnp_names.add(alias.asname or alias.name)
+        if isinstance(node, ast.ImportFrom) and (node.module or "") == "dpnp":
+            for alias in node.names:
+                dpnp_names.add(alias.asname or alias.name)
+    found_axis = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if (
+                isinstance(func, ast.Attribute)
+                and func.attr in ("sum", "mean", "std")
+                and isinstance(func.value, ast.Name)
+                and func.value.id in dpnp_names
+            ):
+                for kw in node.keywords:
+                    if kw.arg == "axis" and isinstance(kw.value, ast.Constant) and kw.value.value == 0:
+                        found_axis = True
+    assert found_axis, (
+        "solution.py must pass axis=0 to a dpnp reduction (sum/mean/std) for per-column computation"
     )
 
 

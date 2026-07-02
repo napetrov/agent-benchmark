@@ -16,7 +16,7 @@ def get_device():
 
 def run():
     sycl_device = get_device()
-    print(f"INFO device={sycl_device.device_type!s}")
+    print(f"INFO device={sycl_device.device_type.name.lower()}")
     x = dpnp.arange(500_000, dtype=dpnp.float64, device=sycl_device)
     y = dpnp.sqrt(dpnp.abs(dpnp.sin(x) * dpnp.cos(x) + 1.0))
     sig = float(dpnp.sum(y))

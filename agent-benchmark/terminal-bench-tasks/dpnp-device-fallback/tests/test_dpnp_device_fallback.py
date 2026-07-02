@@ -42,9 +42,21 @@ def _uses_dpctl(tree):
     return False
 
 
-def _has_gpu_attempt(source: str) -> bool:
-    """Return True if source contains a GPU device attempt (not just 'cpu')."""
-    return '"gpu"' in source or "'gpu'" in source
+def _has_gpu_attempt(tree: ast.AST) -> bool:
+    """Return True if source attempts SyclDevice('gpu') inside a try block."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try):
+            for stmt in ast.walk(node):
+                if (
+                    isinstance(stmt, ast.Call)
+                    and getattr(stmt.func, "attr", getattr(stmt.func, "id", "")) == "SyclDevice"
+                    and any(
+                        isinstance(a, ast.Constant) and a.value == "gpu"
+                        for a in stmt.args
+                    )
+                ):
+                    return True
+    return False
 
 
 def test_files_exist():
@@ -60,8 +72,8 @@ def test_solution_uses_dpctl():
 
 
 def test_solution_attempts_gpu_first():
-    source = SOLUTION.read_text(errors="replace")
-    assert _has_gpu_attempt(source), (
+    tree = ast.parse(SOLUTION.read_text(errors="replace"), filename=str(SOLUTION))
+    assert _has_gpu_attempt(tree), (
         "solution.py must attempt GPU device selection before falling back to CPU"
     )
 
