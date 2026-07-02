@@ -1,0 +1,8 @@
+id: dpnp-fallback-pattern
+product: dpnp
+query: >
+  Where is the recommended dpnp compatibility and fallback pattern documented —
+  the one that handles NotImplementedError and uses asnumpy() for conversion
+  to host libraries?
+references:
+  - path: data/skills/dpnp-quickstart/SKILL.md

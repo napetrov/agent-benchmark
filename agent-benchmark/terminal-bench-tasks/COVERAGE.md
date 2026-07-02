@@ -16,7 +16,7 @@ honest effective state (`covered` needs both halves; `questions-only` and
 | --- | --- | --- | --- |
 | `advisor` | ⬜ | ⬜ 0 | planned |
 | `dpctl` | ⬜ | ⬜ 0 | planned |
-| `dpnp` | ✅ | ⬜ 0 | questions-only |
+| `dpnp` | ✅ | ✅ 5 | covered |
 | `gdb_intel` | ⬜ | ⬜ 0 | planned |
 | `icx` | ⬜ | ⬜ 0 | planned |
 | `ifort` | ⬜ | ⬜ 0 | planned |
@@ -125,6 +125,18 @@ profile artifacts are shipped in the task environment.
 | sklearnex | `sklearnex-kmeans` / `sklearnex-pca` | Cluster inertia / explained-variance within tolerance of stock sklearn |
 | OpenMP | `openmp-reduce` | `#pragma omp parallel for reduction` checksum vs serial (offline, stock `-fopenmp`) |
 | oneDNN | `onednn-conv` | Small convolution vs a serial reference output tensor signature |
+
+## dpnp
+
+This matrix tracks which dpnp APIs and concepts are covered by terminal-bench-style coding tasks.
+
+| API / concept | Task | Status | Verifier strategy |
+| --- | --- | --- | --- |
+| Drop-in `import dpnp as np`, `asnumpy()` fallback | `dpnp-migration-replace-numpy` | proposed | NumPy reference signature comparison, AST import check |
+| `sum/mean/std` with `axis=0` | `dpnp-reduction-stats` | proposed | NumPy reference signature comparison, AST reduction check |
+| `dpnp.matmul` / `@` operator, oneMKL backend | `dpnp-linalg-matmul` | proposed | NumPy reference signature comparison, AST matmul check |
+| `dpnp.fft.fft`, power spectrum | `dpnp-fft-pipeline` | proposed | NumPy reference signature comparison, AST fft check |
+| `dpctl` device introspection, GPU→CPU fallback | `dpnp-device-fallback` | proposed | NumPy reference signature comparison, dpctl import + GPU attempt check |
 
 ## Notes for new tasks
 

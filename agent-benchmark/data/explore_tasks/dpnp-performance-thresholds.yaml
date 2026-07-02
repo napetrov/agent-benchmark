@@ -1,0 +1,8 @@
+id: dpnp-performance-thresholds
+product: dpnp
+query: >
+  Where in the dpnp skill documentation does it explain when to use dpnp vs
+  NumPy based on array size thresholds, and what the performance pitfalls are
+  (JIT warmup, small array overhead, data transfer cost)?
+references:
+  - path: data/skills/dpnp-quickstart/SKILL.md
