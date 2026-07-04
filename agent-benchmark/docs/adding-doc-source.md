@@ -10,7 +10,7 @@ With `--doc-source` you can point it at a local directory or any URL instead.
 | `context7` | Context7 cloud API (default) |
 | `local:<path>` | Local `.md` / `.rst` / `.html` / `.txt` files |
 | `url:<url>` | Fetch and search a single web page |
-| `okf:<path>` | Google [OKF](https://cloud.google.com/) bundle — a directory of Markdown files with YAML frontmatter |
+| `okf:<path>` | Google OKF (Open Knowledge Format) bundle — a directory of Markdown files with YAML frontmatter |
 | `mcp:<ref>` | Retrieve through a real MCP server (requires `pip install mcp`) |
 
 The `mcp:<ref>` form is `<transport>=<target>[;opt=val...]`, e.g.

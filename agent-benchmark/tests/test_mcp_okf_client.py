@@ -62,6 +62,39 @@ def test_split_frontmatter_non_mapping_ignored():
     assert body == "body"
 
 
+def test_split_frontmatter_body_horizontal_rules_preserved():
+    # A document that does NOT open with a fence keeps its mid-body '---'
+    # horizontal rules intact — none of the surrounding prose is dropped.
+    doc = "# Title\n\nIntro with KEYWORD.\n\n---\n\nSection two."
+    fm, body = split_frontmatter(doc)
+    assert fm == {}
+    assert "Intro with KEYWORD" in body
+    assert "Section two" in body
+    assert "---" in body
+
+
+def test_split_frontmatter_value_with_dashes_not_truncated():
+    # A frontmatter value containing '---' must not be treated as a fence.
+    doc = "---\ntitle: before---after\ndesc: real\n---\nbody text"
+    fm, body = split_frontmatter(doc)
+    assert fm == {"title": "before---after", "desc": "real"}
+    assert body == "body text"
+
+
+def test_split_frontmatter_open_fence_no_close():
+    # Opening fence with no closing fence -> whole text is body.
+    doc = "---\ntitle: X\nno closing fence, this is all body"
+    fm, body = split_frontmatter(doc)
+    assert fm == {}
+    assert "no closing fence" in body
+
+
+def test_split_frontmatter_longer_fences():
+    fm, body = split_frontmatter("----\ntitle: X\n----\nbody")
+    assert fm == {"title": "X"}
+    assert body == "body"
+
+
 # ── check_connection ──────────────────────────────────────────────────────────
 
 def test_check_connection_existing_bundle(okf_bundle):
@@ -111,6 +144,29 @@ def test_frontmatter_boosts_relevance(okf_bundle):
     # "runbook" only appears in install.md's frontmatter type field.
     docs = OKFClient(okf_bundle).get_library_docs("okf:oneTBB", "runbook", max_results=5)
     assert docs[0]["file"].endswith("install.md")
+
+
+def test_metadata_only_card_is_retrievable(tmp_path):
+    # OKF metric/dataset card: all knowledge in frontmatter, empty body.
+    (tmp_path / "metric.md").write_text(
+        "---\n"
+        "title: Daily Active Users\n"
+        "type: metric\n"
+        "description: DAU counted per calendar day\n"
+        "---\n"
+    )
+    docs = OKFClient(tmp_path).get_library_docs("okf:x", "DAU metric calendar day")
+    assert len(docs) == 1
+    assert docs[0]["metadata"]["type"] == "metric"
+    assert docs[0]["relevance_score"] > 0.0
+
+
+def test_truly_empty_card_skipped(tmp_path):
+    # No frontmatter and no body -> nothing to index.
+    (tmp_path / "empty.md").write_text("")
+    (tmp_path / "real.md").write_text("---\ntitle: Real\n---\n# Real\n\ncontent here")
+    docs = OKFClient(tmp_path).get_library_docs("okf:x", "content")
+    assert all(d["file"] != "empty.md" for d in docs)
 
 
 def test_file_without_frontmatter_indexed(okf_bundle):

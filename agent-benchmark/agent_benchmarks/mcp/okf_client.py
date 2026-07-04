@@ -14,6 +14,7 @@ Markdown body and passed through in each chunk's ``metadata``.
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -33,30 +34,42 @@ _FRONTMATTER_SIGNAL_FIELDS = ("title", "tags", "type", "description")
 # Weight applied to frontmatter matches relative to body matches.
 _FRONTMATTER_WEIGHT = 0.5
 
+# A frontmatter fence is a line containing only three or more dashes.
+_FENCE_RE = re.compile(r"^-{3,}\s*$")
+
 
 def split_frontmatter(text: str) -> Tuple[Dict[str, Any], str]:
     """Split an OKF document into (frontmatter dict, body).
 
-    A document opens with a ``---`` fence, the YAML frontmatter, a closing
-    ``---`` fence, then the Markdown body. If no well-formed frontmatter block
-    is present, returns an empty dict and the original text as the body.
-    Malformed YAML is tolerated: it degrades to an empty frontmatter dict
-    rather than raising, so a single bad file cannot abort a scan.
+    A document opens with a ``---`` fence *line*, the YAML frontmatter, a
+    closing ``---`` fence line, then the Markdown body. The fence is matched
+    on whole lines only, so a body-level ``---`` (a Markdown horizontal rule)
+    or a value that happens to contain ``---`` does not truncate the document.
+
+    If no well-formed frontmatter block is present, returns an empty dict and
+    the original text as the body. Malformed YAML is tolerated: it degrades to
+    an empty frontmatter dict rather than raising, so a single bad file cannot
+    abort a scan.
     """
-    if not text.startswith("---"):
+    lines = text.splitlines(keepends=True)
+    # First non-empty line must be an opening fence.
+    if not lines or not _FENCE_RE.match(lines[0].rstrip("\n")):
         return {}, text
-    # Split into ["", frontmatter, body] around the first two fences.
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return {}, text
-    try:
-        frontmatter = yaml.safe_load(parts[1])
-    except yaml.YAMLError as exc:
-        logger.debug("OKFClient: malformed frontmatter, ignoring: %s", exc)
-        frontmatter = None
-    if not isinstance(frontmatter, dict):
-        frontmatter = {}
-    return frontmatter, parts[2].lstrip("\n")
+    # Find the closing fence on its own line.
+    for idx in range(1, len(lines)):
+        if _FENCE_RE.match(lines[idx].rstrip("\n")):
+            fm_text = "".join(lines[1:idx])
+            body = "".join(lines[idx + 1:]).lstrip("\n")
+            try:
+                frontmatter = yaml.safe_load(fm_text)
+            except yaml.YAMLError as exc:
+                logger.debug("OKFClient: malformed frontmatter, ignoring: %s", exc)
+                frontmatter = None
+            if not isinstance(frontmatter, dict):
+                frontmatter = {}
+            return frontmatter, body
+    # Opening fence but no closing fence: treat whole text as body.
+    return {}, text
 
 
 class OKFClient(MCPClient):
@@ -132,7 +145,10 @@ class OKFClient(MCPClient):
                 continue
 
             frontmatter, body = split_frontmatter(raw)
-            if not body.strip():
+            # Skip only truly empty cards. A metadata-only OKF card (e.g. a
+            # metric or dataset whose knowledge lives entirely in frontmatter)
+            # has an empty body but is still retrievable via its signal fields.
+            if not body.strip() and not frontmatter:
                 continue
 
             frontmatter_text = " ".join(
