@@ -7,6 +7,7 @@ from agent_benchmarks.mcp.factory import create_doc_source_client
 from agent_benchmarks.mcp.context7 import Context7Client
 from agent_benchmarks.mcp.local_markdown import LocalMarkdownClient
 from agent_benchmarks.mcp.url_client import URLClient
+from agent_benchmarks.mcp.okf_client import OKFClient
 
 
 def test_context7_default(tmp_path):
@@ -45,6 +46,23 @@ def test_url_source_no_cache():
     assert isinstance(client, URLClient)
 
 
+def test_okf_source(tmp_path):
+    client = create_doc_source_client(f"okf:{tmp_path}")
+    assert isinstance(client, OKFClient)
+    assert client.path == tmp_path
+
+
+def test_okf_source_relative_path():
+    client = create_doc_source_client("okf:docs/onetbb-okf")
+    assert isinstance(client, OKFClient)
+    assert client.path == Path("docs/onetbb-okf")
+
+
+def test_okf_missing_path_raises():
+    with pytest.raises(ValueError, match="okf:.*path"):
+        create_doc_source_client("okf:")
+
+
 def test_local_missing_path_raises():
     with pytest.raises(ValueError, match="local:.*path"):
         create_doc_source_client("local:")
@@ -77,6 +95,7 @@ def test_returns_mcp_client_interface():
             "context7",
             f"local:{tmp_path}",
             "url:https://example.com/docs",
+            f"okf:{tmp_path}",
         ]
         for source in sources:
             client = create_doc_source_client(source)
