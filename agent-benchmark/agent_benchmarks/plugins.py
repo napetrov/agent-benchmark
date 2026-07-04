@@ -1,8 +1,18 @@
 """Runtime plugins for treatment-arm runs.
 
-Plugins are behavior modifiers applied inside a fixed model/harness cell.  The
-first implementation supports prompt-middleware plugins, including a Caveman
-style brevity plugin, and records a canonical plugin-set identity for reports.
+Plugins are behavior modifiers applied inside a fixed model/harness cell.  Two
+plugin kinds are implemented (ADR 2026-06-11 §3.1 taxonomy):
+
+* ``prompt_middleware`` — modifies the system prompt *before* the model runs
+  (e.g. a Caveman brevity instruction). Raw and final answer are identical.
+* ``output_shaper`` — post-processes the model's answer *after* it is produced
+  (e.g. a hard truncation). This is the kind whose whole point is that the
+  final answer differs from the raw model output, which is why the metrics
+  block carries distinct ``raw_answer_chars`` / ``final_answer_chars`` (ADR
+  §3.3): a shaper can cut the delivered text without reducing the tokens the
+  model was already billed for.
+
+Every run records a canonical plugin-set identity for reports.
 """
 
 from __future__ import annotations
@@ -52,10 +62,20 @@ class Plugin:
     config: Dict[str, Any] = field(default_factory=dict)
     system_prompt: Optional[str] = None
 
+    @property
+    def is_output_shaper(self) -> bool:
+        return self.kind == "output_shaper"
+
     def apply(self, cfg: AgentConfig) -> AgentConfig:
-        """Return a copy of *cfg* with this plugin applied."""
+        """Return a copy of *cfg* with this plugin applied.
+
+        Prompt-middleware plugins fold their instruction into the system prompt
+        here (pre-model). Output shapers leave the prompt untouched — they act
+        after the model runs, via :meth:`shape`, and register themselves in
+        ``metadata["output_shapers"]`` so the runner knows to call them.
+        """
         system_prompt = cfg.system_prompt
-        if self.system_prompt:
+        if self.system_prompt and not self.is_output_shaper:
             system_prompt = (
                 f"{system_prompt.rstrip()}\n\n{self.system_prompt}"
                 if system_prompt
@@ -66,12 +86,34 @@ class Plugin:
         plugins = list(metadata.get("plugins", []))
         plugins.append(self.metadata())
         metadata["plugins"] = plugins
+        if self.is_output_shaper:
+            shapers = list(metadata.get("output_shapers", []))
+            shapers.append(self)
+            metadata["output_shapers"] = shapers
         return AgentConfig(
             system_prompt=system_prompt,
             injected_context=list(cfg.injected_context),
             tools=list(cfg.tools),
             metadata=metadata,
         )
+
+    def shape(self, answer: str) -> str:
+        """Post-process a model answer (output shapers only).
+
+        Deterministic and offline — no LLM call — so the token/length trade-off
+        can be exercised in CI without a live runtime (ADR §4.6). A non-shaper
+        plugin returns the answer unchanged.
+        """
+        if not self.is_output_shaper or answer is None:
+            return answer
+        if self.id == "truncate":
+            max_chars = int(self.config.get("max_chars", 0) or 0)
+            if max_chars > 0 and len(answer) > max_chars:
+                ellipsis = "…" if self.config.get("ellipsis", True) else ""
+                keep = max(0, max_chars - len(ellipsis))
+                return answer[:keep] + ellipsis
+            return answer
+        return answer
 
     def metadata(self) -> Dict[str, Any]:
         """Stable, serialisable plugin metadata."""
@@ -110,13 +152,37 @@ class PluginWrappedTreatment(Treatment):
         )
 
 
+def take_output_shapers(cfg: AgentConfig) -> tuple[list["Plugin"], Dict[str, Any]]:
+    """Split runtime shaper objects out of an AgentConfig's metadata.
+
+    Returns ``(shapers, clean_metadata)`` where ``clean_metadata`` is a shallow
+    copy safe to serialise (the ``output_shapers`` key holds live ``Plugin``
+    objects and must not reach ``json.dumps``). Shaper *provenance* still lives
+    in the serialisable ``metadata["plugins"]`` list.
+    """
+    shapers = list(cfg.metadata.get("output_shapers", []))
+    if not shapers:
+        return [], cfg.metadata
+    clean = {k: v for k, v in cfg.metadata.items() if k != "output_shapers"}
+    return shapers, clean
+
+
+def apply_output_shapers(shapers: Iterable["Plugin"], answer: str) -> str:
+    """Run an ordered list of output shapers over a model answer."""
+    for shaper in shapers:
+        answer = shaper.shape(answer)
+    return answer
+
+
 def create_plugin(spec: str) -> Plugin:
     """Create one plugin from a CLI spec.
 
     Supported refs:
-      - ``plugin:caveman``
+      - ``plugin:caveman`` (prompt_middleware)
       - ``plugin:caveman:<lite|full|ultra>``
-      - ``caveman`` / ``caveman:<level>`` as a shorthand
+      - ``plugin:truncate`` (output_shaper; defaults to 800 chars)
+      - ``plugin:truncate:<max_chars>``
+      - the ``plugin:`` prefix is optional (``caveman:ultra``, ``truncate:500``)
     """
     raw = spec.strip()
     if not raw:
@@ -128,33 +194,71 @@ def create_plugin(spec: str) -> Plugin:
 
     parts = raw.split(":")
     plugin_id = parts[0].strip()
-    if plugin_id != "caveman":
-        raise ValueError(
-            f"Unknown plugin spec: '{spec}'. Valid specs: 'plugin:caveman[:lite|full|ultra]'."
-        )
-    if len(parts) > 2:
-        raise ValueError(
-            f"Invalid caveman plugin spec: '{spec}'. Use 'plugin:caveman[:level]'."
-        )
-    level = parts[1].strip() if len(parts) == 2 else "full"
-    if level not in _CAVEMAN_LEVELS:
-        raise ValueError(
-            f"Invalid caveman level '{level}'. Valid levels: {', '.join(_CAVEMAN_LEVELS)}."
+    canonical_ref = ref if ref.startswith("plugin:") else f"plugin:{ref}"
+
+    if plugin_id == "caveman":
+        if len(parts) > 2:
+            raise ValueError(
+                f"Invalid caveman plugin spec: '{spec}'. Use 'plugin:caveman[:level]'."
+            )
+        level = parts[1].strip() if len(parts) == 2 else "full"
+        if level not in _CAVEMAN_LEVELS:
+            raise ValueError(
+                f"Invalid caveman level '{level}'. Valid levels: {', '.join(_CAVEMAN_LEVELS)}."
+            )
+        return Plugin(
+            id="caveman",
+            ref=canonical_ref,
+            kind="prompt_middleware",
+            version="0.1.0",
+            config={"level": level, "target_style": "terse"},
+            system_prompt=_CAVEMAN_LEVELS[level],
         )
 
-    return Plugin(
-        id="caveman",
-        ref=ref if ref.startswith("plugin:") else f"plugin:{ref}",
-        kind="prompt_middleware",
-        version="0.1.0",
-        config={"level": level, "target_style": "terse"},
-        system_prompt=_CAVEMAN_LEVELS[level],
+    if plugin_id == "truncate":
+        if len(parts) > 2:
+            raise ValueError(
+                f"Invalid truncate plugin spec: '{spec}'. Use 'plugin:truncate[:max_chars]'."
+            )
+        if len(parts) == 2:
+            raw_max = parts[1].strip()
+            try:
+                max_chars = int(raw_max)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid truncate max_chars '{raw_max}': must be a positive integer."
+                ) from None
+            if max_chars <= 0:
+                raise ValueError(
+                    f"Invalid truncate max_chars '{raw_max}': must be a positive integer."
+                )
+        else:
+            max_chars = 800
+        return Plugin(
+            id="truncate",
+            ref=canonical_ref,
+            kind="output_shaper",
+            version="0.1.0",
+            config={"max_chars": max_chars, "ellipsis": True},
+        )
+
+    raise ValueError(
+        f"Unknown plugin spec: '{spec}'. Valid specs: "
+        f"'plugin:caveman[:lite|full|ultra]', 'plugin:truncate[:max_chars]'."
     )
 
 
 def create_plugins(specs: Iterable[str]) -> List[Plugin]:
     """Create plugins from a sequence of CLI specs."""
     return [create_plugin(s) for s in specs if s.strip()]
+
+
+_OUTPUT_SHAPER_HARNESSES = {
+    "arms-runner",
+    "single-shot",
+    "agent",
+    "openclaw-agent",
+}
 
 
 def validate_plugins_for_harness(plugins: Iterable[Plugin], harness: str) -> None:
@@ -165,6 +269,12 @@ def validate_plugins_for_harness(plugins: Iterable[Plugin], harness: str) -> Non
                 f"Plugin '{plugin.ref}' is prompt_middleware and is not supported by "
                 f"harness '{harness}'. Supported harnesses: "
                 f"{', '.join(sorted(_PROMPT_MIDDLEWARE_HARNESSES))}."
+            )
+        if plugin.kind == "output_shaper" and harness not in _OUTPUT_SHAPER_HARNESSES:
+            raise ValueError(
+                f"Plugin '{plugin.ref}' is output_shaper and is not supported by "
+                f"harness '{harness}'. Supported harnesses: "
+                f"{', '.join(sorted(_OUTPUT_SHAPER_HARNESSES))}."
             )
 
 
@@ -185,17 +295,22 @@ def plugin_set_metadata(plugins: Iterable[Plugin]) -> Dict[str, Any]:
             "plugin_set_id": EMPTY_PLUGIN_SET_ID,
             "plugins": [],
         }
-    label = "+".join(
-        f"{p['id']}:{p.get('config', {}).get('level')}"
-        if p.get("id") == "caveman" and p.get("config", {}).get("level")
-        else p["id"]
-        for p in items
-    )
+    label = "+".join(_plugin_label(p) for p in items)
     return {
         "plugin_set": label,
         "plugin_set_id": _hash_obj(items),
         "plugins": items,
     }
+
+
+def _plugin_label(p: Dict[str, Any]) -> str:
+    """Human-readable per-plugin label for a plugin-set name."""
+    cfg = p.get("config", {}) or {}
+    if p.get("id") == "caveman" and cfg.get("level"):
+        return f"caveman:{cfg['level']}"
+    if p.get("id") == "truncate" and cfg.get("max_chars"):
+        return f"truncate:{cfg['max_chars']}"
+    return p["id"]
 
 
 def _hash_obj(obj: Any) -> str:

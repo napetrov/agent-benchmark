@@ -171,10 +171,10 @@ current status.
     — make base model × harness an explicit, swept, reported dimension; deltas
     only comparable within a `(model, harness)` cell. *(Phase B.)*
   - [decisions/2026-06-11-plugin-and-harness-aware-benchmarks.md](decisions/2026-06-11-plugin-and-harness-aware-benchmarks.md)
-    — add plugins such as Caveman as explicit runtime behavior modifiers and
-    report token/cost gains separately from quality or task-success loss. Use
-    `arms plugin-delta` to compare paired no-plugin/plugin `arms.v1` artifacts.
-    *(Phase C.)*
+    — add plugins such as Caveman (`prompt_middleware`) and a `truncate`
+    `output_shaper` as explicit runtime behavior modifiers and report token/cost
+    gains separately from quality or task-success loss. Use `arms plugin-delta`
+    to compare paired no-plugin/plugin `arms.v1` artifacts. *(Phase C.)*
   - [decisions/2026-06-19-run-telemetry-metrics.md](decisions/2026-06-19-run-telemetry-metrics.md)
     — capture per-run tokens, cost, cache, and latency as a normalized
     `metrics{}` block on every result row; answers the plugin ADR's O5.

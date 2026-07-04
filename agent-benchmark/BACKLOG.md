@@ -95,7 +95,13 @@ working):
     harness/plugin compatibility validation before run.
   - **DONE slice:** `arms matrix-run` multi-cell orchestration, `matrix_rollup.v1`
     reports, and automatic paired `plugin_delta.v1` artifacts.
-  - Remaining Phase C work: real runner adapters for non-prompt plugins.
+  - **DONE slice:** `output_shaper` plugin kind + post-model hook
+    (`plugin:truncate[:max_chars]`) so raw-vs-final answer metrics diverge and
+    the length/cost/quality trade-off report is live (was dead machinery); a
+    deterministic offline shaper proves it in CI without a plugin runtime.
+  - Remaining Phase C work: runner adapters for the `tool_middleware`,
+    `memory_context`, and `harness_extension` kinds, and an external
+    `openclaw-agent` runtime adapter.
 - **Phase D — Subjects**
   ([ADR](docs/decisions/2026-06-10-artifacts-as-evaluation-subjects.md)).
   IN PROGRESS in PR #101/#102 stack: `subjects/` descriptor + loader,

@@ -144,8 +144,11 @@ class ArmRunner:
             logger.exception("Arm %s prepare() failed", treatment.name)
             return {"error": f"prepare_failed: {exc}", "answer": None}
 
+        from agent_benchmarks.plugins import take_output_shapers
+        shapers, cfg_metadata = take_output_shapers(cfg)
+
         if cfg.is_agentic:
-            return self._answer_agentic_arm(cfg, question_text, t0)
+            return self._answer_agentic_arm(cfg, question_text, t0, shapers, cfg_metadata)
 
         if cfg.has_context:
             context = "\n\n---\n\n".join(c["content"] for c in cfg.injected_context)
@@ -166,11 +169,16 @@ class ArmRunner:
         except Exception as exc:
             logger.exception("Arm %s answer generation failed", treatment.name)
             return {"error": f"generation_failed: {exc}", "answer": None,
-                    "metadata": cfg.metadata}
+                    "metadata": cfg_metadata}
+
+        raw_chars = len(answer_text or "")
+        final_text = self._apply_shapers(shapers, answer_text)
+        final_chars = len(final_text or "")
 
         rec = to_record(usage, self.model, self.provider)
         return {
-            "answer": answer_text,
+            "answer": final_text,
+            "raw_answer": answer_text if shapers else None,
             "model": self.model,
             "harness": self.harness,
             "plugin_set": self.plugin_set["plugin_set"],
@@ -185,16 +193,27 @@ class ArmRunner:
                 for c in cfg.injected_context
             ],
             "token_usage": rec.as_token_usage_dict(),
-            "metrics": rec.as_metrics_dict(answer_chars=len(answer_text or "")),
-            "metadata": cfg.metadata,
+            "metrics": rec.as_metrics_dict(answer_chars=raw_chars, final_chars=final_chars),
+            "metadata": cfg_metadata,
             "elapsed_sec": round(time.time() - t0, 2),
         }
 
+    @staticmethod
+    def _apply_shapers(shapers, answer_text):
+        """Run output shapers over a raw answer (no-op when there are none)."""
+        if not shapers:
+            return answer_text
+        from agent_benchmarks.plugins import apply_output_shapers
+        return apply_output_shapers(shapers, answer_text or "")
+
     def _answer_agentic_arm(
-        self, cfg, question_text: str, t0: float
+        self, cfg, question_text: str, t0: float, shapers=None, cfg_metadata=None
     ) -> Dict[str, Any]:
         """Run an arm whose treatment offers tools via the agent loop."""
         from agent_benchmarks.eval.agent_runner import run_agent_loop
+
+        shapers = shapers or []
+        cfg_metadata = cfg_metadata if cfg_metadata is not None else cfg.metadata
 
         try:
             result = run_agent_loop(
@@ -209,15 +228,20 @@ class ArmRunner:
         except Exception as exc:
             logger.exception("Agentic arm failed")
             return {"error": f"agent_failed: {exc}", "answer": None,
-                    "metadata": cfg.metadata}
+                    "metadata": cfg_metadata}
 
+        raw_answer = result["answer"]
+        final_answer = self._apply_shapers(shapers, raw_answer)
         rec = to_record(result.get("usage") or result["token_usage"], self.model, self.provider)
-        metrics = rec.as_metrics_dict(answer_chars=len(result["answer"] or ""))
+        metrics = rec.as_metrics_dict(
+            answer_chars=len(raw_answer or ""), final_chars=len(final_answer or "")
+        )
         per_turn = result.get("per_turn")
         if per_turn is not None:
             metrics["per_turn"] = per_turn
         return {
-            "answer": result["answer"],
+            "answer": final_answer,
+            "raw_answer": raw_answer if shapers else None,
             "model": self.model,
             "harness": self.harness,
             "plugin_set": self.plugin_set["plugin_set"],
@@ -233,7 +257,7 @@ class ArmRunner:
             "stopped_reason": result["stopped_reason"],
             "token_usage": rec.as_token_usage_dict(),
             "metrics": metrics,
-            "metadata": cfg.metadata,
+            "metadata": cfg_metadata,
             "elapsed_sec": round(time.time() - t0, 2),
         }
 

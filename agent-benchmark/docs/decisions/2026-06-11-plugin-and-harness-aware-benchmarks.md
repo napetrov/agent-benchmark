@@ -10,9 +10,16 @@ slices: paired plugin/no-plugin artifact comparison via `arms plugin-delta` and
 `arms run` with harness/plugin compatibility validation before the run; and
 `arms matrix-run` multi-cell orchestration writing `matrix_rollup.v1` reports
 (`eval/matrix_rollup.py`, `report/matrix_rollup_report.py`) with automatic
-paired `plugin_delta.v1` artifacts. **Remaining:** real runner adapters for
-non-prompt plugins (memory, tool middleware) — the prompt-plugin path (Caveman)
-is wired end-to-end. Builds on the treatment-arm framework
+paired `plugin_delta.v1` artifacts; and the **`output_shaper`** plugin kind with
+a post-model hook (`plugin:truncate[:max_chars]`), so the raw-vs-final answer
+metrics (§3.3) diverge and the length-vs-cost-vs-quality trade-off report is no
+longer dead machinery (`plugins.py` `shape()` / `take_output_shapers`,
+`arm_runner` post-model application, `metrics/usage.py` distinct
+`raw_answer_chars`/`final_answer_chars`). **Remaining:** runner adapters for the
+`tool_middleware`, `memory_context`, and `harness_extension` kinds, and an
+external `openclaw-agent` runtime for plugins that only run there. The two
+in-process kinds (`prompt_middleware` — Caveman; `output_shaper` — truncate) are
+wired end-to-end. Builds on the treatment-arm framework
 (`agent_benchmarks/treatments/`, `eval/arm_runner.py`, `eval/agent_runner.py`,
 `python cli.py arms run`) and the software-packaging track's `AgentConfig`
 package shape.
@@ -108,6 +115,16 @@ Plugins should declare the layer they modify. Initial taxonomy:
 This taxonomy is metadata first. Implementation can start with a generic
 `plugin:<ref>` arm/cell modifier and specialize only when reporting needs a
 plugin-kind-specific metric.
+
+**Implemented kinds.** `prompt_middleware` (`plugin:caveman[:lite|full|ultra]`)
+folds a brevity instruction into the system prompt before the model runs;
+`output_shaper` (`plugin:truncate[:max_chars]`) post-processes the produced
+answer. Both are in-process and run under the `arms-runner`/`single-shot`/`agent`
+harnesses; a shaper is rejected on a `terminal-bench:<agent>` harness it cannot
+faithfully modify. The shaper is deliberately deterministic and offline so the
+raw-vs-final metric divergence and the trade-off report can be exercised in CI
+without a live plugin runtime (ADR §4.6). `tool_middleware`, `memory_context`,
+and `harness_extension` are declared here but not yet wired to a runner.
 
 ### 3.2 Matrix cells, not pure Cartesian products
 

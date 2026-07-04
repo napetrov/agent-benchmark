@@ -93,12 +93,16 @@ class UsageRecord:
             "total_tokens": self.total_tokens,
         }
 
-    def as_metrics_dict(self, answer_chars: Optional[int] = None) -> dict:
+    def as_metrics_dict(
+        self, answer_chars: Optional[int] = None, final_chars: Optional[int] = None
+    ) -> dict:
         """The per-row ``metrics{}`` block (plugin ADR §3.3 field names).
 
-        ``answer_chars`` populates ``raw_answer_chars`` / ``final_answer_chars``;
-        the two are equal until an output-shaper plugin (Phase C) shortens the
-        text after the model has produced it.
+        ``answer_chars`` is the *raw* model output size; ``final_chars`` is the
+        size delivered after any output-shaper plugin ran. When ``final_chars``
+        is omitted the two are equal (no shaper). Storing both is what lets a
+        Caveman-style shaper report a length reduction it did *not* save in
+        billed model tokens (ADR §3.3).
         """
         m: dict[str, Any] = {
             "prompt_tokens": self.prompt_tokens,
@@ -116,7 +120,7 @@ class UsageRecord:
         }
         if answer_chars is not None:
             m["raw_answer_chars"] = answer_chars
-            m["final_answer_chars"] = answer_chars
+            m["final_answer_chars"] = final_chars if final_chars is not None else answer_chars
         return m
 
     def with_latency(self, latency_sec: float, ttft_sec: Optional[float] = None) -> "UsageRecord":

@@ -3,10 +3,11 @@
 **Status:** ACCEPTED (umbrella) — IN PROGRESS. This is the index for five related
 decisions that together extend the benchmark beyond its doc-centric framing as
 the project moves toward packaging a *summonable Intel expert* (umbrella #58).
-Phases A, B, and C.0 have landed (PRs #81, #82, #84/#85); Phase C is partly
-landed (paired plugin-delta, explicit matrix cells, and `arms matrix-run`
-shipped — only real runner adapters for non-prompt plugins remain) and Phase D
-is in progress (PR #101/#102 stack). Each decision is recorded and reviewable on
+Phases A, B, and C.0 have landed (PRs #81, #82, #84/#85); Phase C is mostly
+landed (paired plugin-delta, explicit matrix cells, `arms matrix-run`, and both
+in-process plugin kinds — `prompt_middleware` and `output_shaper` — shipped;
+remaining are runner adapters for the tool/memory/harness-extension kinds) and
+Phase D is in progress (PR #101/#102 stack). Each decision is recorded and reviewable on
 its own; this file states the shared motivation, how the decisions fit together,
 and the rollout order. Tracked as BACKLOG #59.
 
@@ -105,9 +106,11 @@ modifiers explicit, and subjects assemble those into the shippable credential.
 4. **[Plugin-aware cells](2026-06-11-plugin-and-harness-aware-benchmarks.md)**
    (Phase C) next — extends the matrix from a simple Cartesian product to explicit
    cells with harness-specific model support and plugin sets (`none`, `caveman`,
-   ...). **Mostly done** — paired plugin-delta, explicit matrix cells, and
-   `arms matrix-run` have landed; only real runner adapters for non-prompt
-   plugins remain.
+   `truncate`, ...). **Mostly done** — paired plugin-delta, explicit matrix
+   cells, `arms matrix-run`, and both in-process plugin kinds
+   (`prompt_middleware`, `output_shaper`) have landed; remaining are runner
+   adapters for `tool_middleware`/`memory_context`/`harness_extension` and an
+   external `openclaw-agent` runtime.
 5. **[Subjects](2026-06-10-artifacts-as-evaluation-subjects.md)** (Phase D) last —
    assembles the layers beneath it into the per-subject scorecard the packaging
    track (#58d/#58i) serializes and signs. **IN PROGRESS (PR #101/#102 stack).**
