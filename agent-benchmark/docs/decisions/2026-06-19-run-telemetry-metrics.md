@@ -1,11 +1,15 @@
 # ADR: Per-run telemetry — tokens, cost, cache, and latency as first-class metrics
 
-**Status:** PROPOSED. Extends the
+**Status:** ACCEPTED — IMPLEMENTED (Phase C.0, PR #84/#85). Extends the
 [evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
 (BACKLOG #59). Carves the **metrics-capture slice** out of the
 [plugin-and-harness-aware ADR](2026-06-11-plugin-and-harness-aware-benchmarks.md)
 so it can land independently, and answers that ADR's open question **O5**
-(which cost metrics are required in every result row). Builds on
+(which cost metrics are required in every result row). Landed: a normalized
+`UsageRecord` from the `llm.py` chokepoint (`agent_benchmarks/metrics/usage.py`),
+a per-row `metrics{}` block (tokens, cache read/write, `litellm` cost, latency;
+TTFT behind a streaming flag), per-turn + per-tool detail in the agent loop, the
+additive `arms.v2` schema, and cost/latency report columns. Builds on
 `agent_benchmarks/llm.py`, `eval/arm_runner.py`, `eval/agent_runner.py`, and the
 `agent_benchmarks/metrics/` package.
 

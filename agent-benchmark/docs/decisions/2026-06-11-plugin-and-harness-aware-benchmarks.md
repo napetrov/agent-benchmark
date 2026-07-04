@@ -1,12 +1,21 @@
 # ADR: Plugin and harness-aware benchmark dimensions
 
-**Status:** PROPOSED. Extends the
+**Status:** ACCEPTED — MOSTLY IMPLEMENTED (Phase C). Extends the
 [evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
 (BACKLOG #59), especially the
-[model x harness dimension](2026-06-10-model-harness-dimension.md). Builds on
-the treatment-arm framework (`agent_benchmarks/treatments/`,
-`eval/arm_runner.py`, `eval/agent_runner.py`, `python cli.py arms run`) and the
-software-packaging track's `AgentConfig` package shape.
+[model x harness dimension](2026-06-10-model-harness-dimension.md). Landed
+slices: paired plugin/no-plugin artifact comparison via `arms plugin-delta` and
+`plugin_delta.v1` reports (`eval/plugin_delta.py`,
+`report/plugin_delta_report.py`); explicit `matrix.cells` descriptors for
+`arms run` with harness/plugin compatibility validation before the run; and
+`arms matrix-run` multi-cell orchestration writing `matrix_rollup.v1` reports
+(`eval/matrix_rollup.py`, `report/matrix_rollup_report.py`) with automatic
+paired `plugin_delta.v1` artifacts. **Remaining:** real runner adapters for
+non-prompt plugins (memory, tool middleware) — the prompt-plugin path (Caveman)
+is wired end-to-end. Builds on the treatment-arm framework
+(`agent_benchmarks/treatments/`, `eval/arm_runner.py`, `eval/agent_runner.py`,
+`python cli.py arms run`) and the software-packaging track's `AgentConfig`
+package shape.
 
 **Date:** 2026-06-11
 
