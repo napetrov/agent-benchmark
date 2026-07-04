@@ -27,6 +27,12 @@ def create_doc_source_client(
         Fetch documentation from an arbitrary URL, split into paragraphs,
         and return the most query-relevant chunks.
 
+    ``okf:<path>``
+        Load a Google OKF (Open Knowledge Format) bundle: a directory of
+        Markdown files with YAML frontmatter.  The frontmatter is scored as
+        additional retrieval signal and passed through as each chunk's
+        ``metadata``.  ``<path>`` may be absolute or relative.
+
     ``mcp:<ref>``
         Retrieve documentation through a real MCP server (tool-call protocol).
         ``<ref>`` selects the transport and target, with optional ``;``-separated
@@ -62,6 +68,7 @@ def create_doc_source_client(
     >>> client = create_doc_source_client("context7")
     >>> client = create_doc_source_client("local:/docs/onetbb")
     >>> client = create_doc_source_client("url:https://spec.example.com/api.html")
+    >>> client = create_doc_source_client("okf:/docs/onetbb-okf-bundle")
     """
     if doc_source == "context7":
         from .context7 import Context7Client
@@ -83,12 +90,19 @@ def create_doc_source_client(
         _cache = cache_dir or Path(".cache/url")
         return URLClient(url=url, cache_dir=_cache)
 
+    if doc_source.startswith("okf:"):
+        from .okf_client import OKFClient
+        path_str = doc_source[len("okf:"):]
+        if not path_str:
+            raise ValueError("'okf:' source requires a path, e.g. 'okf:/path/to/okf-bundle'")
+        return OKFClient(Path(path_str))
+
     if doc_source.startswith("mcp:"):
         return _build_mcp_protocol_client(doc_source[len("mcp:"):])
 
     raise ValueError(
         f"Unknown --doc-source format: '{doc_source}'. "
-        "Valid formats: 'context7', 'local:<path>', 'url:<url>', 'mcp:<ref>'"
+        "Valid formats: 'context7', 'local:<path>', 'url:<url>', 'okf:<path>', 'mcp:<ref>'"
     )
 
 

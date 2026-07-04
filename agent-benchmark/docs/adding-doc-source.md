@@ -10,6 +10,7 @@ With `--doc-source` you can point it at a local directory or any URL instead.
 | `context7` | Context7 cloud API (default) |
 | `local:<path>` | Local `.md` / `.rst` / `.html` / `.txt` files |
 | `url:<url>` | Fetch and search a single web page |
+| `okf:<path>` | Google [OKF](https://cloud.google.com/) bundle — a directory of Markdown files with YAML frontmatter |
 | `mcp:<ref>` | Retrieve through a real MCP server (requires `pip install mcp`) |
 
 The `mcp:<ref>` form is `<transport>=<target>[;opt=val...]`, e.g.
@@ -38,9 +39,36 @@ python cli.py answers generate --product oneTBB --questions questions/oneTBB.jso
 # Full pipeline with local docs
 python cli.py evaluate --product oneTBB --repo uxlfoundation/oneTBB \
   --doc-source local:/path/to/docs
+
+# OKF bundle (Markdown + YAML frontmatter)
+python cli.py evaluate --product oneTBB \
+  --doc-source okf:/path/to/onetbb-okf-bundle
 ```
 
 `--doc-source` is supported by `answers generate`, `questions generate`, and `evaluate`.
+
+---
+
+## OKF (Open Knowledge Format)
+
+`okf:<path>` reads a Google **Open Knowledge Format** bundle: a directory of
+Markdown files, each with a YAML frontmatter block. OKF is vendor-neutral,
+git-friendly, and SDK-free — the same shape this repo already uses for its
+`data/skills/*/SKILL.md` sources.
+
+The `okf:` client differs from `local:` in that it **parses the frontmatter**:
+
+- Frontmatter fields (`title`, `tags`, `type`, `description`) are scored as
+  extra retrieval signal on top of the Markdown body, so a document whose
+  frontmatter matches the query ranks higher.
+- The parsed frontmatter is passed through unchanged in each chunk's
+  `metadata`, so downstream steps can route on `type` (`api`, `runbook`, …).
+- Malformed frontmatter degrades to an empty dict rather than aborting the run.
+
+Because OKF is just a doc source, you can benchmark it as a **treatment arm**
+against `context7` or raw `local:` markdown to measure whether the OKF format
+actually improves agent answers — see
+[evaluating-treatments.md](evaluating-treatments.md).
 
 ---
 
