@@ -1,8 +1,12 @@
 # ADR: Base model × harness as an evaluation dimension
 
-**Status:** PROPOSED. One of four decisions under the
-[evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
-(BACKLOG #59). Builds on `agent_benchmarks/llm.py`, `eval/arm_runner.py`,
+**Status:** ACCEPTED — IMPLEMENTED (Phase B, PR #82). One of five decisions under
+the [evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
+(BACKLOG #59). The answer model and harness are now explicit reported axes: a
+`matrix:` config block, a `(model, harness)` `Cell` key threaded through
+`eval/arm_runner.py`, report/dashboard columns, and a `terminal-bench` harness
+adapter that turns task pass-rate into an arm outcome. Cost-gated, single-cell
+default. Builds on `agent_benchmarks/llm.py`, `eval/arm_runner.py`,
 `eval/agent_runner.py`, and the terminal-bench track.
 
 **Date:** 2026-06-10

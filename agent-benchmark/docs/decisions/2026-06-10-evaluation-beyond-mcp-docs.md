@@ -1,10 +1,15 @@
 # Evaluation beyond MCP docs — overview and decision index
 
-**Status:** PROPOSED (umbrella). This is the index for four related decisions
-that together extend the benchmark beyond its doc-centric framing as the project
-moves toward packaging a *summonable Intel expert* (umbrella #58). Each decision
-is recorded and reviewable on its own; this file states the shared motivation,
-how the decisions fit together, and the rollout order. Tracked as BACKLOG #59.
+**Status:** ACCEPTED (umbrella) — IN PROGRESS. This is the index for five related
+decisions that together extend the benchmark beyond its doc-centric framing as
+the project moves toward packaging a *summonable Intel expert* (umbrella #58).
+Phases A, B, and C.0 have landed (PRs #81, #82, #84/#85); Phase C is mostly
+landed (paired plugin-delta, explicit matrix cells, `arms matrix-run`, and both
+in-process plugin kinds — `prompt_middleware` and `output_shaper` — shipped;
+remaining are runner adapters for the tool/memory/harness-extension kinds) and
+Phase D is in progress (PR #101/#102 stack). Each decision is recorded and reviewable on
+its own; this file states the shared motivation, how the decisions fit together,
+and the rollout order. Tracked as BACKLOG #59.
 
 **Date:** 2026-06-10
 
@@ -26,14 +31,16 @@ delta; behavioral signal lives in a separate handful of terminal-bench tasks.
 
 That substrate is right, but it is still organized around **documentation as the
 thing under test**, on **one implicit model and harness**, with **awareness
-measured everywhere and work measured almost nowhere**. Four structural gaps
+measured everywhere and work measured almost nowhere**. Structural gaps
 follow, and each is large enough — in design surface, in data-model impact, and
-in the open questions it raises — to warrant its own decision record. A single
+in the open questions it raises — to warrant its own decision record. (The
+telemetry ADR was later carved out of the plugin-aware decision as Phase C.0, so
+this index now spans five records rather than the original four.) A single
 shared section would obscure the distinct trade-offs reviewers must weigh
 independently, which is why this file is an index rather than one combined
 proposal.
 
-## 2. The four decisions
+## 2. The five decisions
 
 | ADR | Decision | Core question it answers |
 |---|---|---|
@@ -87,20 +94,26 @@ modifiers explicit, and subjects assemble those into the shippable credential.
 ## 4. Rollout order
 
 1. **[Coverage contract](2026-06-10-questions-and-tasks-coverage-contract.md)**
-   first — cheapest, no new eval machinery, and it gives the other two a real
-   portfolio (and a *work* signal) to target.
-2. **[Model × harness](2026-06-10-model-harness-dimension.md)** next — makes
-   every existing and future delta comparable and adds the `terminal-bench`
-   harness adapter that turns task pass-rate into an arm outcome.
+   (Phase A) first — cheapest, no new eval machinery, and it gives the other two
+   a real portfolio (and a *work* signal) to target. **DONE (PR #81).**
+2. **[Model × harness](2026-06-10-model-harness-dimension.md)** (Phase B) next —
+   makes every existing and future delta comparable and adds the `terminal-bench`
+   harness adapter that turns task pass-rate into an arm outcome. **DONE (PR #82).**
 3. **[Run telemetry](2026-06-19-run-telemetry-metrics.md)** (Phase C.0) before
    plugins — captures the per-run cost/token/cache/latency `metrics{}` block at
    the `llm.py` chokepoint that the plugin trade-off reports depend on.
+   **DONE (PR #84/#85).**
 4. **[Plugin-aware cells](2026-06-11-plugin-and-harness-aware-benchmarks.md)**
-   next — extends the matrix from a simple Cartesian product to explicit cells
-   with harness-specific model support and plugin sets (`none`, `caveman`, ...).
-5. **[Subjects](2026-06-10-artifacts-as-evaluation-subjects.md)** last — assembles
-   the layers beneath it into the per-subject scorecard the packaging track
-   (#58d/#58i) serializes and signs.
+   (Phase C) next — extends the matrix from a simple Cartesian product to explicit
+   cells with harness-specific model support and plugin sets (`none`, `caveman`,
+   `truncate`, ...). **Mostly done** — paired plugin-delta, explicit matrix
+   cells, `arms matrix-run`, and both in-process plugin kinds
+   (`prompt_middleware`, `output_shaper`) have landed; remaining are runner
+   adapters for `tool_middleware`/`memory_context`/`harness_extension` and an
+   external `openclaw-agent` runtime.
+5. **[Subjects](2026-06-10-artifacts-as-evaluation-subjects.md)** (Phase D) last —
+   assembles the layers beneath it into the per-subject scorecard the packaging
+   track (#58d/#58i) serializes and signs. **IN PROGRESS (PR #101/#102 stack).**
 
 Each leaves the existing two-arm doc flow and `arms run` working, and each is
 useful shipped alone. See each ADR for its detailed design, alternatives,

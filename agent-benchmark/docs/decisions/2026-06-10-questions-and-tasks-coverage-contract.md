@@ -1,10 +1,20 @@
 # ADR: A questions-and-tasks coverage contract for every project
 
-**Status:** PROPOSED. One of four decisions under the
-[evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
-(BACKLOG #59). Touches `config/products.yaml`, `libraries.yaml`,
+**Status:** ACCEPTED — IMPLEMENTED (Phase A, PR #81). One of five decisions under
+the [evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
+(BACKLOG #59). Per-product `coverage_status` lives in `products.yaml`; the
+product × {questions, tasks} matrix is generated into
+`terminal-bench-tasks/COVERAGE.md` by `python -m agent_benchmarks.coverage`; the
+drift check (`agent_benchmarks/coverage.py`, wired into `config_check`) fails a
+`covered` product with no resolvable task/question. Touches `products.yaml`,
 `terminal-bench-tasks/COVERAGE.md`, the dashboard, and the executable
-[terminal-bench track](../contributing-terminal-bench-task.md).
+[terminal-bench track](../contributing-terminal-bench-task.md). Two open
+questions were resolved in the implementation: **O4** — the contract fields
+(`questions`, `coverage_status`) live in the top-level `products.yaml`, not
+`config/products.yaml`; and the ADR §5 negative ("a per-product `tasks` list is
+a second place task identity lives") was avoided by **deriving** the work signal
+from each `task.toml`'s `tags` rather than hand-listing tasks per product, so the
+task directory stays the single source of truth.
 
 **Date:** 2026-06-10
 

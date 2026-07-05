@@ -1,8 +1,15 @@
 # ADR: Artifacts as first-class evaluation subjects
 
-**Status:** PROPOSED. One of four decisions under the
+**Status:** ACCEPTED — IN PROGRESS (Phase D, PR #101/#102 stack). One of five
+decisions under the
 [evaluation-beyond-MCP-docs umbrella](2026-06-10-evaluation-beyond-mcp-docs.md)
-(BACKLOG #59). Builds on the treatment-arm framework
+(BACKLOG #59). Landed: a `subjects/` descriptor + loader
+(`agent_benchmarks/subjects/`), `cli.py subjects {list,show,run}` wrapping the
+awareness `arm_runner` matrix cells, `report/subject_report.py`, the versioned
+`subject_scorecard.v1` schema, and a faithful executable-task adapter for work
+suites via `--work-harnesses` (writing `task_runs.v1` and embedding the work
+artifact/summary in the scorecard — the object #58d/#58i serialize and sign).
+Builds on the treatment-arm framework
 ([2026-05-29](2026-05-29-evaluating-mcp-skills-personas.md);
 `agent_benchmarks/treatments/`, `eval/arm_runner.py`, `cli.py arms run`) and feeds
 the packaging scorecard (#58d/#58i).

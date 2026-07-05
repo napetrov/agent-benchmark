@@ -155,7 +155,7 @@ def register(sub, positive_int) -> None:
     arms_run_p.add_argument("--harness", default="arms-runner",
                             help="Execution harness label stamped into output (default: arms-runner)")
     arms_run_p.add_argument("--plugins", default="",
-                            help="Comma-separated plugin refs, e.g. 'plugin:caveman' or 'plugin:caveman:ultra'")
+                            help="Comma-separated plugin refs, e.g. 'plugin:caveman:ultra' or 'plugin:truncate:800'")
     arms_run_p.add_argument("--matrix-cells", default=None, dest="matrix_cells",
                             help="JSON file containing matrix.cells descriptors")
     arms_run_p.add_argument("--matrix-cell", default=None, dest="matrix_cell",
@@ -245,7 +245,7 @@ def _add_common_run_args(parser, positive_int, *, matrix_required: bool = False)
     parser.add_argument("--harness", default="arms-runner",
                         help="Execution harness label stamped into output (default: arms-runner)")
     parser.add_argument("--plugins", default="",
-                        help="Comma-separated plugin refs, e.g. 'plugin:caveman' or 'plugin:caveman:ultra'")
+                        help="Comma-separated plugin refs, e.g. 'plugin:caveman:ultra' or 'plugin:truncate:800'")
     parser.add_argument("--matrix-cells", required=matrix_required, default=None, dest="matrix_cells",
                         help="JSON file containing matrix.cells descriptors")
     if not matrix_required:
