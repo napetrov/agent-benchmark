@@ -8,6 +8,12 @@ import sys
 from pathlib import Path
 
 from agent_benchmarks.commands.evaluate import _run_ragas_eval
+from agent_benchmarks.defaults import (
+    DEFAULT_ANSWER_MODEL,
+    DEFAULT_ANSWER_PROVIDER,
+    DEFAULT_CONCURRENCY,
+    DEFAULT_MAX_TOKENS_PER_QUESTION,
+)
 
 
 def cmd_answers_generate(args: argparse.Namespace) -> None:
@@ -107,13 +113,13 @@ def register(sub, positive_int) -> None:
                          help="Run tag for multi-model comparison (e.g. gpt4o). "
                               "Sets output to results/{product}_{run_id}/answers/{product}.json")
     gen_a_p.add_argument("--output", default=None, help="Output file (default: answers/{product}.json)")
-    gen_a_p.add_argument("--model", default="gpt-4o", help="LLM model for answering")
-    gen_a_p.add_argument("--provider", default="openai", choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
-    gen_a_p.add_argument("--max-tokens", type=int, default=4000, help="Max tokens to retrieve per question")
+    gen_a_p.add_argument("--model", default=DEFAULT_ANSWER_MODEL, help="LLM model for answering")
+    gen_a_p.add_argument("--provider", default=DEFAULT_ANSWER_PROVIDER, choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
+    gen_a_p.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS_PER_QUESTION, help="Max tokens to retrieve per question")
     gen_a_p.add_argument("--top-k", type=int, default=None, help="Number of docs to retrieve before reranking (default from config/products.yaml retrieval.top_k)")
     gen_a_p.add_argument("--rerank-threshold", type=float, default=0.3, help="Min relevance score (0-1) to keep docs")
     gen_a_p.add_argument("--debug-retrieval", action="store_true", help="Include retrieval metadata in output")
-    gen_a_p.add_argument("--concurrency", type=positive_int, default=5, help="Parallel API calls (default: 5)")
+    gen_a_p.add_argument("--concurrency", type=positive_int, default=DEFAULT_CONCURRENCY, help="Parallel API calls (default: 5)")
     gen_a_p.add_argument("--doc-source", default="context7",
                          help="Documentation source: 'context7' (default), 'local:<path>', 'url:<url>'")
     gen_a_p.add_argument("--context7-id", default=None, dest="context7_id",
