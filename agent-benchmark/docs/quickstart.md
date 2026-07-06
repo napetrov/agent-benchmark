@@ -1,11 +1,30 @@
 # LLM evaluation pipeline — quickstart
 
-End-to-end recipe for running the LLM-assisted documentation evaluation:
-persona discovery → question generation → context-arm/baseline answer generation
-→ judge scoring → analysis report.
+End-to-end recipe for the canonical benchmark flow: target → preflight → fixed question/task set → `without_docs` vs `with_docs` answer generation → judge scoring → report.
 
 For the static documentation benchmark (`coverage`, `freshness`, `readability`,
 `example_pass_rate`), see the top-level [README](../README.md#static-benchmark-metrics).
+
+
+## Canonical flow
+
+Use this path first. Manual persona/question/answer/eval commands below are advanced debugging tools.
+
+```bash
+python cli.py benchmark preflight --target onetbb
+python cli.py benchmark run --target onetbb
+```
+
+Defaults: `results/<target>_final/`, `openai/gpt-5.5` answer model, `anthropic/claude-sonnet-4-5-20250929` judge, semantic-only retrieval with `top_k=3`, and `without_docs` vs `with_docs` arms.
+
+For fair model/context comparisons, seed once and reuse questions:
+
+```bash
+python cli.py benchmark run --target onetbb --output-dir results/onetbb_seed
+python cli.py benchmark run --target onetbb --questions-from results/onetbb_seed --model gpt-5.1
+```
+
+See [user-flow.md](user-flow.md) for target/generalization rules.
 
 ## Prerequisites
 
@@ -71,7 +90,7 @@ python cli.py questions generate \
   --personas personas/oneTBB.json \
   --count 2 \
   --validate \
-  --model gpt-4o-mini
+  --model gpt-5.5
 ```
 
 Extracts seed topics from the docs, generates questions per persona × topic,
@@ -86,9 +105,9 @@ python cli.py answers generate \
   --product oneTBB \
   --questions questions/oneTBB.json \
   --output answers/oneTBB.json \
-  --model gpt-4o-mini \
+  --model gpt-5.5 \
   --provider openai \
-  --top-k 5 \
+  --top-k 3 \
   --rerank-threshold 0.3 \
   --debug-retrieval
 ```
@@ -105,7 +124,7 @@ python cli.py eval score \
   --product oneTBB \
   --answers answers/oneTBB.json \
   --output eval/oneTBB.json \
-  --judge-model claude-sonnet-4 \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic
 ```
 
@@ -161,7 +180,7 @@ python cli.py eval score --product $PRODUCT --answers answers/$PRODUCT.json --ju
 python cli.py report generate --product $PRODUCT --eval eval/$PRODUCT.json --questions questions/$PRODUCT.json --output reports/$PRODUCT.md
 ```
 
-Or use the single-command wrapper:
+Advanced manual pipeline wrapper:
 
 ```bash
 python cli.py evaluate --product $PRODUCT --repo $REPO
@@ -185,7 +204,7 @@ reproducible benchmark; ad-hoc runs stay under the git-ignored `reports/` and
 
 ## Cost estimate
 
-For 35 questions on `gpt-4o` + `claude-sonnet-4`:
+For 35 questions on `gpt-5.5` + `claude-sonnet-4-5-20250929`:
 
 | Step | Calls | Approx. cost |
 | --- | --- | --- |

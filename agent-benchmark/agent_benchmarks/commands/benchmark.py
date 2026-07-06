@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from pathlib import Path
 
 from agent_benchmarks.commands.evaluate import _warn_judge_independence
+from agent_benchmarks.defaults import (
+    DEFAULT_ANSWER_MODEL,
+    DEFAULT_ANSWER_PROVIDER,
+    DEFAULT_CONCURRENCY,
+    DEFAULT_JUDGE_MODEL,
+    DEFAULT_JUDGE_PROVIDER,
+    DEFAULT_MAX_TOKENS_PER_QUESTION,
+    DEFAULT_RETRIEVAL_TOP_K,
+    DEFAULT_RESULTS_SUFFIX,
+)
 from agent_benchmarks.commands.library import _load_registry
 
 
-def _run_single_library(entry, output_dir: str, model: str, provider: str, judge_model: str, judge_provider: str = "openai", doc_source_override=None, max_tokens_per_question: int = 4000, force_regen: bool = False, concurrency: int = 5, questions_from=None) -> dict:
+def _run_single_library(entry, output_dir: str, model: str, provider: str, judge_model: str, judge_provider: str = DEFAULT_JUDGE_PROVIDER, doc_source_override=None, max_tokens_per_question: int = DEFAULT_MAX_TOKENS_PER_QUESTION, force_regen: bool = False, concurrency: int = DEFAULT_CONCURRENCY, questions_from=None) -> dict:
     """Run full evaluation pipeline for one ProductEntry. Returns result dict."""
     from agent_benchmarks.orchestrator import EvaluationPipeline
     from pathlib import Path as _Path
@@ -45,9 +57,119 @@ def _run_single_library(entry, output_dir: str, model: str, provider: str, judge
         max_tokens_per_question=max_tokens_per_question,
         force_regen=force_regen,
         questions_from=questions_from,
+        product_key=entry.key,
     )
     result = pipeline.run(concurrency=concurrency)
     return {"library": entry.key, "name": entry.name, "status": "ok", "result": result}
+
+
+def _api_key_name(provider: str) -> str:
+    return {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+        "amazon-bedrock": "AWS_BEARER_TOKEN_BEDROCK",
+        "google-vertex": "GEMINI_API_KEY",
+        "openai-codex": "OPENAI_API_KEY",
+    }.get(provider, "OPENAI_API_KEY")
+
+
+def _resolved_benchmark_plan(entry, args: argparse.Namespace) -> dict:
+    doc_source = getattr(args, "doc_source", None) or (entry.doc_sources[0] if entry.doc_sources else "context7")
+    output_dir = getattr(args, "output_dir", None) or f"results/{entry.key}{DEFAULT_RESULTS_SUFFIX}"
+    return {
+        "target": entry.key,
+        "name": entry.name,
+        "description": entry.description,
+        "repo": entry.repo,
+        "doc_source": doc_source,
+        "output_dir": output_dir,
+        "answer": f"{args.provider}/{args.model}",
+        "judge": f"{args.judge_provider}/{args.judge_model}",
+        "questions_from": getattr(args, "questions_from", None),
+        "retrieval": f"semantic-only, top_k={DEFAULT_RETRIEVAL_TOP_K}",
+        "arms": "without_docs vs with_docs",
+        "max_tokens_per_question": getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
+        "concurrency": getattr(args, "concurrency", DEFAULT_CONCURRENCY),
+    }
+
+
+def _print_plan(plan: dict) -> None:
+    print("Resolved benchmark plan")
+    for key, value in plan.items():
+        if value is not None:
+            print(f"  {key}: {value}")
+
+
+def cmd_benchmark_preflight(args: argparse.Namespace) -> None:
+    """Validate the resolved benchmark plan without running LLM calls."""
+    from agent_benchmarks.orchestrator.pipeline import load_questions_payload, resolve_questions_from_path
+    from agent_benchmarks.mcp.factory import create_doc_source_client
+
+    registry = _load_registry(args)
+    try:
+        entry = registry.get(args.library)
+    except KeyError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    plan = _resolved_benchmark_plan(entry, args)
+    _print_plan(plan)
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for provider in {args.provider, args.judge_provider}:
+        key = _api_key_name(provider)
+        if not os.environ.get(key):
+            errors.append(f"missing {key} for provider {provider}")
+
+    try:
+        Path(plan["output_dir"]).mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        errors.append(f"output dir not writable: {plan['output_dir']} ({exc})")
+
+    try:
+        client = create_doc_source_client(plan["doc_source"])
+        if plan["doc_source"] == "context7" and getattr(entry, "context7_id", None):
+            print(f"  context7_id: {entry.context7_id}")
+        elif plan["doc_source"] == "context7":
+            warnings.append("context7 id not pinned; client will resolve by target name")
+        _ = client
+    except Exception as exc:  # pragma: no cover - defensive for plugin clients
+        errors.append(f"doc source invalid: {plan['doc_source']} ({exc})")
+
+    if plan["questions_from"]:
+        qf = resolve_questions_from_path(Path(plan["questions_from"]), entry.key)
+        if not qf.exists():
+            errors.append(f"questions source not found: {qf}")
+        else:
+            try:
+                questions = load_questions_payload(qf)
+                print(f"  questions: {qf} ({len(questions)} items)")
+            except Exception as exc:
+                errors.append(f"questions source invalid: {qf} ({exc})")
+
+    same = _warn_judge_independence(
+        answer_provider=args.provider,
+        answer_model=args.model,
+        judge_provider=args.judge_provider,
+        judge_model=args.judge_model,
+        context=f"preflight:{entry.key}",
+    )
+    if same:
+        warnings.append("judge and answer model are identical")
+
+    if warnings:
+        print("Warnings:")
+        for item in warnings:
+            print(f"  ⚠ {item}")
+    if errors:
+        print("Errors:", file=sys.stderr)
+        for item in errors:
+            print(f"  ✗ {item}", file=sys.stderr)
+        sys.exit(1)
+    print("✅ Preflight OK")
 
 
 def cmd_benchmark_run(args: argparse.Namespace) -> None:
@@ -60,9 +182,9 @@ def cmd_benchmark_run(args: argparse.Namespace) -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    output_dir = args.output_dir or f"results/{entry.key}"
+    output_dir = args.output_dir or f"results/{entry.key}{DEFAULT_RESULTS_SUFFIX}"
     n_runs = getattr(args, "multi_run", 1)
-    concurrency = getattr(args, "concurrency", 5)
+    concurrency = getattr(args, "concurrency", DEFAULT_CONCURRENCY)
     questions_from = getattr(args, "questions_from", None)
 
     if n_runs == 1:
@@ -72,9 +194,9 @@ def cmd_benchmark_run(args: argparse.Namespace) -> None:
             model=args.model,
             provider=args.provider,
             judge_model=args.judge_model,
-            judge_provider=getattr(args, "judge_provider", "openai"),
+            judge_provider=getattr(args, "judge_provider", DEFAULT_JUDGE_PROVIDER),
             doc_source_override=getattr(args, "doc_source", None),
-            max_tokens_per_question=getattr(args, "max_tokens", 4000),
+            max_tokens_per_question=getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
             force_regen=getattr(args, "force_regen", False),
             concurrency=concurrency,
             questions_from=questions_from,
@@ -93,9 +215,9 @@ def cmd_benchmark_run(args: argparse.Namespace) -> None:
                 model=args.model,
                 provider=args.provider,
                 judge_model=args.judge_model,
-                judge_provider=getattr(args, "judge_provider", "openai"),
+                judge_provider=getattr(args, "judge_provider", DEFAULT_JUDGE_PROVIDER),
                 doc_source_override=getattr(args, "doc_source", None),
-                max_tokens_per_question=getattr(args, "max_tokens", 4000),
+                max_tokens_per_question=getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
                 force_regen=(getattr(args, "force_regen", False) and i == 1),
                 concurrency=concurrency,
                 questions_from=qfrom,
@@ -140,17 +262,18 @@ def cmd_benchmark_batch(args: argparse.Namespace) -> None:
     failed = []
 
     for entry in entries:
+        output_dir = str(Path(args.output_dir) / f"{entry.key}{DEFAULT_RESULTS_SUFFIX}")
         try:
             r = _run_single_library(
                 entry,
-                output_dir=args.output_dir,
+                output_dir=output_dir,
                 model=args.model,
                 provider=args.provider,
                 judge_model=args.judge_model,
-                judge_provider=getattr(args, "judge_provider", "openai"),
-                max_tokens_per_question=getattr(args, "max_tokens", 4000),
+                judge_provider=getattr(args, "judge_provider", DEFAULT_JUDGE_PROVIDER),
+                max_tokens_per_question=getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
                 force_regen=getattr(args, "force_regen", False),
-                concurrency=getattr(args, "concurrency", 5),
+                concurrency=getattr(args, "concurrency", DEFAULT_CONCURRENCY),
             )
             results.append(r)
         except Exception as exc:
@@ -175,25 +298,25 @@ def cmd_benchmark_batch(args: argparse.Namespace) -> None:
 
 def register(sub, positive_int) -> None:
     """Add the `benchmark` subcommand group."""
-    benchmark_p = sub.add_parser("benchmark", help="Run benchmark for one or all registered libraries")
+    benchmark_p = sub.add_parser("benchmark", help="Run context benchmark for one or more registered targets")
     benchmark_sub = benchmark_p.add_subparsers(dest="benchmark_cmd", required=True)
 
     # benchmark run — single library from registry
-    bench_run_p = benchmark_sub.add_parser("run", help="Run full pipeline for a registered library")
-    bench_run_p.add_argument("--library", required=True, help="Library key from registry (e.g., onetbb)")
+    bench_run_p = benchmark_sub.add_parser("run", help="Run full benchmark for a registered target")
+    bench_run_p.add_argument("--library", "--target", required=True, dest="library", help="Target key from registry (e.g., onetbb). --library kept as compatibility alias")
     bench_run_p.add_argument("--doc-source", default=None, dest="doc_source",
-                             help="Override doc source (default: first in registry entry)")
+                             help="Override doc/context source (default: first in registry entry)")
     bench_run_p.add_argument("--output-dir", default=None, dest="output_dir",
-                             help="Output directory (default: results/{library})")
-    bench_run_p.add_argument("--model", default="gpt-4o-mini")
-    bench_run_p.add_argument("--provider", default="openai", choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
-    bench_run_p.add_argument("--judge-model", default="gpt-4o-mini", dest="judge_model")
-    bench_run_p.add_argument("--judge-provider", default="openai", dest="judge_provider",
+                             help="Output directory (default: results/{target}_final)")
+    bench_run_p.add_argument("--model", default=DEFAULT_ANSWER_MODEL)
+    bench_run_p.add_argument("--provider", default=DEFAULT_ANSWER_PROVIDER, choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
+    bench_run_p.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL, dest="judge_model")
+    bench_run_p.add_argument("--judge-provider", default=DEFAULT_JUDGE_PROVIDER, dest="judge_provider",
                              choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
     bench_run_p.add_argument("--registry", default=None, help="Path to custom products.yaml")
-    bench_run_p.add_argument("--max-tokens", type=positive_int, default=4000, dest="max_tokens",
+    bench_run_p.add_argument("--max-tokens", type=positive_int, default=DEFAULT_MAX_TOKENS_PER_QUESTION, dest="max_tokens",
                              help="Max tokens to retrieve per question from doc source (default: 4000)")
-    bench_run_p.add_argument("--concurrency", type=positive_int, default=5, dest="concurrency",
+    bench_run_p.add_argument("--concurrency", type=positive_int, default=DEFAULT_CONCURRENCY, dest="concurrency",
                              help="Parallel API calls for answering and judging (default: 5)")
     bench_run_p.add_argument("--force-regen", action="store_true", dest="force_regen",
                              help="Regenerate personas/questions even if cached files exist")
@@ -201,13 +324,28 @@ def register(sub, positive_int) -> None:
                              help="Reuse questions from another run's output directory or JSON file. "
                                   "Skips question generation entirely — essential for fair multi-model "
                                   "comparisons (all models evaluated on the same question set). "
-                                  "Example: --questions-from results/onedal_gpt4o")
+                                  "Example: --questions-from results/onedal_gpt51")
     bench_run_p.add_argument("--multi-run", type=positive_int, default=1, dest="multi_run",
                              metavar="N",
                              help="Run answer generation + evaluation N times (default: 1). "
                                   "N>=3 enables variance check in the trust gate. "
                                   "Results are averaged; variance is measured for stability.")
     bench_run_p.set_defaults(func=cmd_benchmark_run)
+
+    # benchmark preflight — validate plan, no LLM calls
+    bench_pre_p = benchmark_sub.add_parser("preflight", help="Validate resolved benchmark plan without running LLM calls")
+    bench_pre_p.add_argument("--library", "--target", required=True, dest="library", help="Target key from registry (e.g., onetbb)")
+    bench_pre_p.add_argument("--doc-source", default=None, dest="doc_source", help="Override doc/context source")
+    bench_pre_p.add_argument("--output-dir", default=None, dest="output_dir", help="Output directory (default: results/{target}_final)")
+    bench_pre_p.add_argument("--model", default=DEFAULT_ANSWER_MODEL)
+    bench_pre_p.add_argument("--provider", default=DEFAULT_ANSWER_PROVIDER, choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
+    bench_pre_p.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL, dest="judge_model")
+    bench_pre_p.add_argument("--judge-provider", default=DEFAULT_JUDGE_PROVIDER, dest="judge_provider", choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
+    bench_pre_p.add_argument("--registry", default=None, help="Path to custom products.yaml")
+    bench_pre_p.add_argument("--max-tokens", type=positive_int, default=DEFAULT_MAX_TOKENS_PER_QUESTION, dest="max_tokens")
+    bench_pre_p.add_argument("--concurrency", type=positive_int, default=DEFAULT_CONCURRENCY, dest="concurrency")
+    bench_pre_p.add_argument("--questions-from", default=None, dest="questions_from", help="Question-set source for fair comparison")
+    bench_pre_p.set_defaults(func=cmd_benchmark_preflight)
 
     # benchmark batch — multiple libraries
     bench_batch_p = benchmark_sub.add_parser("batch", help="Run pipeline for multiple libraries")
@@ -217,12 +355,12 @@ def register(sub, positive_int) -> None:
     bench_batch_p.add_argument("--all", action="store_true", dest="all_libraries",
                                help="Run for all libraries in registry")
     bench_batch_p.add_argument("--output-dir", default="results", dest="output_dir")
-    bench_batch_p.add_argument("--model", default="gpt-4o-mini")
-    bench_batch_p.add_argument("--provider", default="openai", choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
-    bench_batch_p.add_argument("--judge-model", default="gpt-4o-mini", dest="judge_model")
-    bench_batch_p.add_argument("--judge-provider", default="openai", dest="judge_provider",
+    bench_batch_p.add_argument("--model", default=DEFAULT_ANSWER_MODEL)
+    bench_batch_p.add_argument("--provider", default=DEFAULT_ANSWER_PROVIDER, choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
+    bench_batch_p.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL, dest="judge_model")
+    bench_batch_p.add_argument("--judge-provider", default=DEFAULT_JUDGE_PROVIDER, dest="judge_provider",
                                choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
-    bench_batch_p.add_argument("--max-tokens", type=positive_int, default=4000, dest="max_tokens",
+    bench_batch_p.add_argument("--max-tokens", type=positive_int, default=DEFAULT_MAX_TOKENS_PER_QUESTION, dest="max_tokens",
                                help="Max tokens to retrieve per question from doc source (default: 4000)")
     bench_batch_p.add_argument("--force-regen", action="store_true", dest="force_regen",
                                help="Regenerate personas/questions even if cached files exist")

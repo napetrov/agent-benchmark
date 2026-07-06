@@ -6,9 +6,18 @@ import json
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
+from agent_benchmarks.defaults import DEFAULT_ANSWER_MODEL, DEFAULT_ANSWER_PROVIDER, DEFAULT_JUDGE_MODEL, DEFAULT_JUDGE_PROVIDER, DEFAULT_RETRIEVAL_TOP_K
 from agent_benchmarks.mcp.factory import create_doc_source_client
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_questions_from_path(questions_from: Path, product_slug: str) -> Path:
+    """Resolve a --questions-from file or run directory for a target slug."""
+    qf = Path(questions_from)
+    if qf.is_dir():
+        qf = qf / "questions" / f"{product_slug}.json"
+    return qf
 
 
 def compute_question_set_hash(questions: List[Dict[str, Any]]) -> str:
@@ -19,6 +28,15 @@ def compute_question_set_hash(questions: List[Dict[str, Any]]) -> str:
     )
     raw = "\n".join(fingerprints).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()[:12]
+
+
+def load_questions_payload(path: Path) -> List[Dict[str, Any]]:
+    """Load questions from either a wrapped artifact or a raw list."""
+    raw = json.loads(path.read_text())
+    questions = raw.get("questions", raw) if isinstance(raw, dict) else raw
+    if not isinstance(questions, list):
+        raise ValueError(f"Expected a list of questions in {path}")
+    return questions
 
 
 class EvaluationPipeline:
@@ -41,13 +59,13 @@ class EvaluationPipeline:
         repo: Optional[str] = None,
         description: Optional[str] = None,
         custom_questions_path: Optional[Path] = None,
-        model: str = "gpt-4o-mini",
-        provider: str = "openai",
-        judge_model: str = "gpt-4o-mini",
-        judge_provider: str = "openai",
+        model: str = DEFAULT_ANSWER_MODEL,
+        provider: str = DEFAULT_ANSWER_PROVIDER,
+        judge_model: str = DEFAULT_JUDGE_MODEL,
+        judge_provider: str = DEFAULT_JUDGE_PROVIDER,
         personas_count: int = 5,
         questions_per_topic: int = 2,
-        top_k: int = 5,
+        top_k: int = DEFAULT_RETRIEVAL_TOP_K,
         rerank_threshold: float = 0.3,
         debug_retrieval: bool = False,
         doc_source: str = "context7",
@@ -55,6 +73,7 @@ class EvaluationPipeline:
         max_tokens_per_question: int = 4000,
         force_regen: bool = False,
         questions_from: Optional[Path] = None,
+        product_key: Optional[str] = None,
     ):
         """
         Initialize pipeline.
@@ -91,24 +110,16 @@ class EvaluationPipeline:
             )
 
         self.product = product
+        self.product_key = product_key or product
         self.repo = repo
         self.description = description
         self.output_dir = Path(output_dir)
 
         # Auto-discover golden questions for this product if not explicitly provided.
-        # Convention: data/questions/<slug>_golden.json next to the project root (two levels
-        # up from this file: agent_benchmarks/orchestrator/pipeline.py → agent_benchmarks/ → project root).
-        # `product` may be a display name with spaces (e.g. "Intel Performance Skills"),
-        # but golden files are named with the registry key slug
-        # (intel_performance_skills_golden.json), so normalize spaces/hyphens to underscores.
+        # Convention: data/questions/<product_lower>_golden.json next to the project root (two levels
+        # up from this file: agent_benchmarks/orchestrator/pipeline.py → agent_benchmarks/ → project root)
         _project_root = Path(__file__).resolve().parent.parent.parent
-        _questions_dir = _project_root / "data" / "questions"
-        _slug = product.lower().replace(" ", "_").replace("-", "_")
-        _candidates = [
-            _questions_dir / f"{_slug}_golden.json",
-            _questions_dir / f"{product.lower()}_golden.json",  # legacy/literal form
-        ]
-        _auto_golden = next((c for c in _candidates if c.exists()), _candidates[0])
+        _auto_golden = _project_root / "data" / "questions" / f"{self.product_key.lower()}_golden.json"
         if custom_questions_path:
             _custom_path = Path(custom_questions_path)
             if not _custom_path.exists():
@@ -139,10 +150,8 @@ class EvaluationPipeline:
 
         # External questions source (skip generation, load from this path/dir)
         if questions_from is not None:
-            qf = Path(questions_from)
-            # Accept either a directory (auto-find <product>.json) or a file path
-            if qf.is_dir():
-                qf = qf / "questions" / f"{product}.json"
+            # Accept either a directory (auto-find <target>.json) or a file path.
+            qf = resolve_questions_from_path(Path(questions_from), self.product_key)
             if not qf.exists():
                 raise FileNotFoundError(
                     f"--questions-from: questions file not found: {qf}"
@@ -153,11 +162,11 @@ class EvaluationPipeline:
             self.external_questions_path = None
 
         # Output paths
-        self.personas_path = self.output_dir / "personas" / f"{product}.json"
-        self.questions_path = self.output_dir / "questions" / f"{product}.json"
-        self.answers_path = self.output_dir / "answers" / f"{product}.json"
-        self.eval_path = self.output_dir / "eval" / f"{product}.json"
-        self.report_path = self.output_dir / "reports" / f"{product}.md"
+        self.personas_path = self.output_dir / "personas" / f"{self.product_key}.json"
+        self.questions_path = self.output_dir / "questions" / f"{self.product_key}.json"
+        self.answers_path = self.output_dir / "answers" / f"{self.product_key}.json"
+        self.eval_path = self.output_dir / "eval" / f"{self.product_key}.json"
+        self.report_path = self.output_dir / "reports" / f"{self.product_key}.md"
         
         # Create output dirs
         for path in [self.personas_path, self.questions_path, self.answers_path, self.eval_path, self.report_path]:
@@ -195,11 +204,7 @@ class EvaluationPipeline:
         if self.external_questions_path is not None:
             # Reuse question set from another run — skip generation entirely
             logger.info(f"Step 2-3/6: Loading external questions from {self.external_questions_path}...")
-            raw = json.loads(self.external_questions_path.read_text())
-            merged_questions = raw.get("questions", raw) if isinstance(raw, dict) else raw
-            # Copy to local questions_path so downstream steps find it normally
-            self.questions_path.parent.mkdir(parents=True, exist_ok=True)
-            self.questions_path.write_text(json.dumps(merged_questions, indent=2))
+            merged_questions = load_questions_payload(self.external_questions_path)
             print(f"✓ Loaded {len(merged_questions)} questions (from --questions-from, skipping generation)")
             results["steps"]["questions_generated"] = {
                 "count": len(merged_questions),
@@ -212,8 +217,7 @@ class EvaluationPipeline:
             }
         elif (not self.force_regen) and self.questions_path.exists():
             logger.info("Step 2-3/6: Loading cached questions (skipping generation)...")
-            cached = json.loads(self.questions_path.read_text())
-            merged_questions = cached.get("questions", cached) if isinstance(cached, dict) else cached
+            merged_questions = load_questions_payload(self.questions_path)
             print(f"✓ Loaded {len(merged_questions)} questions (cached — skipping generation)")
             results["steps"]["questions_generated"] = {"count": len(merged_questions), "cached": True}
             results["steps"]["questions_merged"] = {"total": len(merged_questions), "cached": True,
@@ -243,6 +247,7 @@ class EvaluationPipeline:
         # Compute and record question_set_hash for reproducibility
         question_set_hash = compute_question_set_hash(merged_questions)
         results["question_set_hash"] = question_set_hash
+        self._save_questions_artifact(merged_questions, question_set_hash)
         print(f"  question_set_hash: {question_set_hash}")
 
         # Step 4: Generate answers
@@ -417,25 +422,36 @@ class EvaluationPipeline:
             
             all_questions.extend(custom_questions)
             logger.info(f"Loaded {len(custom_questions)} custom questions")
-        
+
         # Deduplicate
         validator = QuestionValidator(similarity_threshold=0.85)
         unique_questions, _ = validator._deduplicate(all_questions)
-        
+
         # Save merged questions
+        self._save_questions_artifact(unique_questions)
+
+        return unique_questions
+
+    def _save_questions_artifact(
+        self,
+        questions: List[Dict[str, Any]],
+        question_set_hash: Optional[str] = None,
+    ) -> None:
+        """Persist normalized question artifacts with reproducibility metadata."""
         output = {
             "product": self.product,
-            "total_questions": len(unique_questions),
+            "total_questions": len(questions),
             "sources": {
-                "generated": sum(1 for q in unique_questions if q.get("source_type") == "generated"),
-                "manual": sum(1 for q in unique_questions if q.get("source_type") == "manual")
+                "generated": sum(1 for q in questions if q.get("source_type") == "generated"),
+                "manual": sum(1 for q in questions if q.get("source_type") == "manual")
             },
-            "questions": unique_questions
+            "questions": questions
         }
+        if question_set_hash:
+            output["question_set_hash"] = question_set_hash
+            output["question_set_id"] = question_set_hash
         
         self.questions_path.write_text(json.dumps(output, indent=2))
-        
-        return unique_questions
     
     def _generate_answers(self, questions: List[Dict[str, Any]], concurrency: int = 5,
                           question_set_hash: Optional[str] = None) -> List[Dict[str, Any]]:

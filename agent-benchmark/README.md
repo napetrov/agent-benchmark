@@ -11,11 +11,9 @@
 
 Current context layers include product documentation, local Markdown/URL sources, Context7-backed docs, curated golden question sets, skills, agent profiles, prompt packs, MCP/doc-source arms, and executable task environments.
 
-It supports three complementary workflows:
+It exposes one canonical benchmark flow: pick a registered target, preflight the resolved plan, run one fixed question/task set, then compare controlled arms (`without_docs` vs `with_docs` by default). Static docs checks, LLM-as-judge scoring, treatment arms, dashboards, and executable tasks are evidence layers over that same benchmark set, not separate first-time user journeys.
 
-1. **Static documentation quality checks** over Markdown/code examples: coverage, freshness, readability, example execution, gates, and regression detection.
-2. **LLM-assisted context evaluation**: persona and question generation, answer generation with/without context, LLM-as-judge scoring, multi-judge panels, RAGAS meta-evaluation, treatment arms, trust gates, baselines, dashboards, and reproducibility metadata.
-3. **Executable agent tasks**: Terminal-Bench/Harbor-style tasks that require an agent to edit code, compile, run, and pass correctness/performance verifiers.
+See [docs/user-flow.md](docs/user-flow.md) for the canonical path.
 
 The repository is currently focused on Intel library documentation quality experiments, especially oneTBB, oneDAL, and oneMKL.
 
@@ -28,7 +26,16 @@ pip install -r requirements.txt
 pip install -r requirements-test.txt
 ```
 
-Run the static documentation benchmark:
+Run the canonical context benchmark:
+
+```bash
+python cli.py benchmark preflight --target onetbb
+python cli.py benchmark run --target onetbb
+```
+
+Outputs go to `results/onetbb_final/` by default. The default comparison is one fixed semantic retrieval config (`top_k=3`) with `without_docs` vs `with_docs` arms.
+
+Optional static documentation gate for Markdown/code example quality:
 
 ```bash
 python cli.py run \
@@ -36,17 +43,6 @@ python cli.py run \
   --spec benchmarks/spec.v1.yaml \
   --out-json baselines/current.json \
   --out-md reports/current.md
-```
-
-Compare a candidate snapshot with a baseline:
-
-```bash
-python cli.py compare \
-  --base data/baselines/baseline.json \
-  --candidate baselines/current.json \
-  --spec benchmarks/spec.v1.yaml \
-  --out-json reports/compare.json \
-  --out-md reports/compare.md
 ```
 
 Run the test suite:
@@ -134,12 +130,8 @@ The LLM workflow is designed to answer a practical question: does documentation,
 A typical one-command benchmark flow is:
 
 ```bash
-python cli.py benchmark run \
-  --library onetbb \
-  --model gpt-4o-mini \
-  --judge-model claude-sonnet-4 \
-  --judge-provider anthropic \
-  --multi-run 3
+python cli.py benchmark preflight --target onetbb
+python cli.py benchmark run --target onetbb --multi-run 3
 ```
 
 The pipeline discovers or loads personas, generates or reuses questions, answers each question in context-arm and baseline conditions, scores both answers with an independent judge, and writes model metadata, token usage, `question_set_hash`, reports, and trust-gate signals. For compatibility, persisted answer/evaluation JSON still uses the legacy `with_docs` and `without_docs` keys for those two conditions.
@@ -147,9 +139,9 @@ The pipeline discovers or loads personas, generates or reuses questions, answers
 For fair multi-model comparisons, generate one question set and reuse it:
 
 ```bash
-python cli.py benchmark run --library onedal --output-dir results/onedal_seed
-python cli.py benchmark run --library onedal --questions-from results/onedal_seed --model gpt-4o
-python cli.py benchmark run --library onedal --questions-from results/onedal_seed --model claude-sonnet-4 --provider anthropic
+python cli.py benchmark run --target onedal --output-dir results/onedal_seed
+python cli.py benchmark run --target onedal --questions-from results/onedal_seed --model gpt-5.1
+python cli.py benchmark run --target onedal --questions-from results/onedal_seed --model claude-sonnet-4-5-20250929 --provider anthropic
 ```
 
 Generated artifacts go under `results/`, `reports/`, or `baselines/current.json` for temporary runs; those paths are git-ignored. Curated, version-controlled fixtures live under `data/` (`data/questions/`, `data/answers/`, `data/eval/`, `data/baselines/`, `data/skills/`, `data/agent_profiles/`) — see [`data/README.md`](data/README.md).
@@ -210,29 +202,13 @@ tests/                   Pytest suite
 
 ## CI
 
-GitHub Actions runs two workflows on pull requests.
+GitHub Actions runs three checks on pull requests:
 
-`ci.yml` — fast code checks:
+1. `test` — installs `requirements-test.txt` and runs pytest with coverage.
+2. `benchmark` — runs the static agent-quality benchmark and uploads artifacts.
+3. `Verify terminal-bench-tasks` — builds task containers and verifies oracle solutions.
 
-1. `lint` — `ruff check .`.
-2. `mypy` — type check.
-3. `schema` — validates `benchmarks/spec.v1.yaml` (`schema_check`) and checks
-   registry drift (`config_check`).
-4. `test` — pytest with coverage across Python 3.10–3.13.
-5. `package-smoke` — builds and installs the package, then runs the console
-   (`agent-benchmark`) and module (`python -m agent_benchmarks`) entry points.
-
-`agent-quality.yml` — heavier, task/benchmark checks:
-
-6. `terminal-bench-verify` / `terminal-bench-verify-oneapi` — build the task
-   containers listed in the workflow and verify their oracle solutions offline
-   (`--network none`). The list is an explicit allow-list in
-   `agent-quality.yml`, not every directory under `terminal-bench-tasks/`, so a
-   new task is only covered once it is added there.
-7. `benchmark` — runs the static agent-quality benchmark and uploads artifacts.
-
-Manual workflow dispatch on `agent-quality.yml` supports strict mode for
-blocking quality gates.
+Manual workflow dispatch supports strict mode for blocking quality gates.
 
 ## Repository hygiene
 

@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from agent_benchmarks.defaults import DEFAULT_CONCURRENCY, DEFAULT_JUDGE_MODEL, DEFAULT_JUDGE_PROVIDER
 from agent_benchmarks.utils import normalize_model_ref
 
 
@@ -37,8 +38,8 @@ def _run_ragas_eval(answers, output_path, args) -> None:
         print(f"\n⚠️  RAGAS not available ({e}). Skipping meta-evaluation.")
         return
 
-    ragas_model = getattr(args, "ragas_model", "gpt-4o-mini")
-    ragas_provider = getattr(args, "ragas_provider", "openai")
+    ragas_model = getattr(args, "ragas_model", DEFAULT_JUDGE_MODEL)
+    ragas_provider = getattr(args, "ragas_provider", DEFAULT_JUDGE_PROVIDER)
 
     print(f"\n🔍 Running RAGAS meta-evaluation ({ragas_provider}/{ragas_model})...")
     try:
@@ -252,18 +253,18 @@ def register(sub, positive_int) -> None:
     score_p.add_argument("--run-id", default=None, dest="run_id",
                          help="Run tag (e.g. gpt4o). Sets output to results/{product}_{run_id}/eval/{product}.json")
     score_p.add_argument("--output", default=None, help="Output file (default: eval/{product}.json)")
-    score_p.add_argument("--judge-model", default="gpt-4o-mini", help="LLM model for judging")
-    score_p.add_argument("--judge-provider", default="openai", choices=["openai", "anthropic", "azure", "bedrock", "google"])
-    score_p.add_argument("--concurrency", type=positive_int, default=5, help="Parallel judge calls (default: 5)")
+    score_p.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL, help="LLM model for judging")
+    score_p.add_argument("--judge-provider", default=DEFAULT_JUDGE_PROVIDER, choices=["openai", "anthropic", "azure", "bedrock", "google"])
+    score_p.add_argument("--concurrency", type=positive_int, default=DEFAULT_CONCURRENCY, help="Parallel judge calls (default: 5)")
     score_p.set_defaults(func=cmd_eval_score)
 
     # eval ragas
     ragas_p = eval_sub.add_parser("ragas", help="Run RAGAS meta-evaluation on answers")
     ragas_p.add_argument("--answers", required=True, help="Path to answers JSON file")
-    ragas_p.add_argument("--ragas-model", default="gpt-4o-mini",
-                         help="LLM for RAGAS judge (default: gpt-4o-mini)")
-    ragas_p.add_argument("--ragas-provider", default="openai", choices=["openai", "anthropic"],
-                         help="Provider for RAGAS judge LLM (default: openai)")
+    ragas_p.add_argument("--ragas-model", default=DEFAULT_JUDGE_MODEL,
+                         help=f"LLM for RAGAS judge (default: {DEFAULT_JUDGE_MODEL})")
+    ragas_p.add_argument("--ragas-provider", default=DEFAULT_JUDGE_PROVIDER, choices=["openai", "anthropic"],
+                         help=f"Provider for RAGAS judge LLM (default: {DEFAULT_JUDGE_PROVIDER})")
     ragas_p.set_defaults(func=cmd_eval_ragas)
 
     # eval grounding (reference-free, no LLM)
@@ -281,8 +282,8 @@ def register(sub, positive_int) -> None:
     panel_p.add_argument("--answers", required=True, help="Path to answers JSON file")
     panel_p.add_argument("--product", required=True, help="Product name (e.g., oneTBB)")
     panel_p.add_argument("--output", default=None, help="Output file (default: eval/{product}_panel.json)")
-    panel_p.add_argument("--model", default="gpt-4o-mini", help="Default LLM model for all judges")
-    panel_p.add_argument("--provider", default="openai", choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
+    panel_p.add_argument("--model", default=DEFAULT_JUDGE_MODEL, help="Default LLM model for all judges")
+    panel_p.add_argument("--provider", default=DEFAULT_JUDGE_PROVIDER, choices=["openai", "anthropic", "amazon-bedrock", "google-vertex", "openrouter", "openai-codex"])
     panel_p.add_argument("--roles", default=None,
                          help="Comma-separated judge roles (default: technical_expert,developer_advocate,doc_reviewer)")
     panel_p.add_argument(

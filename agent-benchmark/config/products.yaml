@@ -45,18 +45,18 @@ context7:
 llm:
   # Model for answering questions
   answerer:
-    default: "gpt-4o"
-    alternatives: ["claude-sonnet-4", "gpt-4o-mini"]
+    default: "gpt-5.5"
+    alternatives: ["gpt-5.1", "claude-sonnet-4-5-20250929"]
   
   # Model for judging answers (separate to avoid bias)
   judge:
-    default: "claude-sonnet-4"
-    alternatives: ["gpt-4o", "claude-opus-4"]
+    default: "claude-sonnet-4-5-20250929"
+    alternatives: ["gpt-5.5", "claude-opus-4-1-20250805"]
   
   # Model for persona/question generation
   generator:
-    default: "gpt-4o-mini"
-    alternatives: ["claude-haiku"]
+    default: "gpt-5.5"
+    alternatives: ["gpt-5.1-mini", "claude-haiku-4-5"]
 
 # Question generation settings
 questions:

@@ -68,20 +68,20 @@ For registered libraries, prefer the one-command wrapper:
 ```bash
 python cli.py benchmark run \
   --library onetbb \
-  --model gpt-4o-mini \
+  --model gpt-5.5 \
   --provider openai \
-  --judge-model claude-sonnet-4 \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
-  --output-dir results/onetbb_gpt4omini
+  --output-dir results/onetbb_gpt55
 ```
 
 The run writes:
 
-- `results/onetbb_gpt4omini/personas/oneTBB.json`
-- `results/onetbb_gpt4omini/questions/oneTBB.json`
-- `results/onetbb_gpt4omini/answers/oneTBB.json`
-- `results/onetbb_gpt4omini/eval/oneTBB.json`
-- `results/onetbb_gpt4omini/reports/oneTBB.md`
+- `results/onetbb_gpt55/personas/onetbb.json`
+- `results/onetbb_gpt55/questions/onetbb.json`
+- `results/onetbb_gpt55/answers/onetbb.json`
+- `results/onetbb_gpt55/eval/onetbb.json`
+- `results/onetbb_gpt55/reports/onetbb.md`
 
 The comparison inside one run is always:
 
@@ -98,11 +98,11 @@ For stability-sensitive claims, run the same configuration several times:
 ```bash
 python cli.py benchmark run \
   --library onetbb \
-  --model gpt-4o-mini \
-  --judge-model claude-sonnet-4 \
+  --model gpt-5.5 \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
   --multi-run 3 \
-  --output-dir results/onetbb_gpt4omini
+  --output-dir results/onetbb_gpt55
 ```
 
 Multi-run mode creates numbered run directories and prints the mean and
@@ -116,8 +116,8 @@ create or choose a seed run:
 ```bash
 python cli.py benchmark run \
   --library onedal \
-  --model gpt-4o-mini \
-  --judge-model claude-sonnet-4 \
+  --model gpt-5.5 \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
   --output-dir results/onedal_seed
 ```
@@ -128,18 +128,18 @@ Then reuse that question set for each model:
 python cli.py benchmark run \
   --library onedal \
   --questions-from results/onedal_seed \
-  --model gpt-4o \
+  --model gpt-5.1 \
   --provider openai \
-  --judge-model claude-sonnet-4 \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
-  --output-dir results/onedal_gpt4o
+  --output-dir results/onedal_gpt51
 
 python cli.py benchmark run \
   --library onedal \
   --questions-from results/onedal_seed \
   --model anthropic/claude-sonnet-4-6 \
   --provider openrouter \
-  --judge-model claude-sonnet-4 \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
   --output-dir results/onedal_sonnet46
 ```
@@ -171,21 +171,21 @@ Use the lower-level commands when you need explicit control over each artifact:
 python cli.py answers generate \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
-  --output results/onetbb_golden/answers/oneTBB.json \
-  --model gpt-4o-mini \
+  --output results/onetbb_golden/answers/onetbb.json \
+  --model gpt-5.5 \
   --provider openai \
   --debug-retrieval
 
 python cli.py eval score \
   --product oneTBB \
-  --answers results/onetbb_golden/answers/oneTBB.json \
-  --output results/onetbb_golden/eval/oneTBB.json \
-  --judge-model claude-sonnet-4 \
+  --answers results/onetbb_golden/answers/onetbb.json \
+  --output results/onetbb_golden/eval/onetbb.json \
+  --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic
 
 python cli.py report eval \
   --product oneTBB \
-  --eval results/onetbb_golden/eval/oneTBB.json \
+  --eval results/onetbb_golden/eval/onetbb.json \
   --out results/onetbb_golden/reports/oneTBB_full.md
 ```
 
@@ -195,7 +195,7 @@ file included in the report generator:
 ```bash
 python cli.py report generate \
   --product oneTBB \
-  --eval results/onetbb_golden/eval/oneTBB.json \
+  --eval results/onetbb_golden/eval/onetbb.json \
   --questions data/questions/onetbb_golden.json \
   --output results/onetbb_golden/reports/oneTBB.md \
   --format markdown
@@ -228,8 +228,6 @@ and/or golden questions. The report extracts the `baseline_arm` score as the
 baseline and the treatment arm as the context arm, then computes:
 
 - overall context-arm, baseline, and delta per run,
-- resource usage metrics (cost, tokens, latency, cache hit ratio) from the
-  baseline arm when available,
 - statistical significance of context-arm minus baseline (paired t-test,
   Wilcoxon, Cohen\u2019s d_z) when scipy is installed,
 - difficulty breakdown on common question IDs,
@@ -238,11 +236,6 @@ baseline and the treatment arm as the context arm, then computes:
 
 **All summary, significance, difficulty, and head-to-head metrics use only the
 common question set** (intersection of question IDs across all runs).
-
-**Note:** The report works with both single-arm (baseline-only) and multi-arm
-runs. Single-arm runs show absolute baseline scores and resource usage but
-cannot compute delta analysis or statistical significance. The report
-automatically detects the scenario and displays appropriate warnings.
 
 ```bash
 python cli.py report model-compare \
@@ -278,15 +271,6 @@ python cli.py report model-compare \
   --out compare.md
 ```
 
-The report includes a **Resource Usage** section when cost and telemetry data
-are available in the input JSON files. This section shows baseline-arm metrics
-for cost-per-run (in USD), token counts (prompt, completion, total), average
-latency per question, and cache hit ratio. Use this section to compare
-cost-effectiveness and performance characteristics across models. When a metric
-is unavailable for a particular run, the table displays a placeholder (—) rather
-than zero.
-
-
 Consistency is validated before the report is written:
 
 - Different `baseline_arm` values across runs in the same group abort with an
@@ -312,16 +296,16 @@ Save meaningful eval outputs as named baselines:
 
 ```bash
 python cli.py baseline save \
-  --from-eval results/onetbb_gpt4omini/eval/oneTBB.json \
-  --name onetbb-gpt4omini-docs
+  --from-eval results/onetbb_gpt55/eval/onetbb.json \
+  --name onetbb-gpt55-docs
 ```
 
 Compare a future eval against a saved baseline:
 
 ```bash
 python cli.py baseline compare \
-  --baseline onetbb-gpt4omini-docs \
-  --eval results/onetbb_candidate/eval/oneTBB.json
+  --baseline onetbb-gpt55-docs \
+  --eval results/onetbb_candidate/eval/onetbb.json
 ```
 
 Use baselines for release-to-release tracking. Use `--questions-from` for
