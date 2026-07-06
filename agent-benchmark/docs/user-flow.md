@@ -6,7 +6,7 @@ The benchmark is not split into separate user-facing benchmark types. Static che
 
 ## 1. Pick target
 
-A target can be a library, product, skill, MCP/doc source, agent profile, prompt pack, or executable task suite. Today the registry is named `products.yaml` and the compatibility flag is `--library`, but `--target` is accepted for the same key.
+A target is a registered product/library key from `products.yaml`. The compatibility flag is `--library`, but `--target` is accepted for the same key.
 
 ```bash
 python cli.py library list
@@ -28,7 +28,9 @@ It checks:
 - resolved doc/context source
 - writable output directory
 - judge/answer independence warning
-- fixed retrieval policy: semantic-only, `top_k=3`
+- optional `--questions-from` path and JSON shape
+
+It also reports the resolved fixed retrieval policy: semantic-only, `top_k=3`.
 
 ## 3. Run canonical benchmark
 
@@ -48,11 +50,11 @@ Artifacts:
 
 ```text
 results/<target>_final/
-  personas/<Target>.json
-  questions/<Target>.json
-  answers/<Target>.json
-  eval/<Target>.json
-  reports/<Target>.md
+  personas/<target>.json
+  questions/<target>.json
+  answers/<target>.json
+  eval/<target>.json
+  reports/<target>.md
 ```
 
 ## 4. Reuse same question set for fair comparison

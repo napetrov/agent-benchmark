@@ -12,6 +12,14 @@ from agent_benchmarks.mcp.factory import create_doc_source_client
 logger = logging.getLogger(__name__)
 
 
+def resolve_questions_from_path(questions_from: Path, product_slug: str) -> Path:
+    """Resolve a --questions-from file or run directory for a target slug."""
+    qf = Path(questions_from)
+    if qf.is_dir():
+        qf = qf / "questions" / f"{product_slug}.json"
+    return qf
+
+
 def compute_question_set_hash(questions: List[Dict[str, Any]]) -> str:
     """Return 12-char SHA-256 prefix over sorted question texts + ids."""
     fingerprints = sorted(
@@ -65,6 +73,7 @@ class EvaluationPipeline:
         max_tokens_per_question: int = 4000,
         force_regen: bool = False,
         questions_from: Optional[Path] = None,
+        product_key: Optional[str] = None,
     ):
         """
         Initialize pipeline.
@@ -101,6 +110,7 @@ class EvaluationPipeline:
             )
 
         self.product = product
+        self.product_key = product_key or product
         self.repo = repo
         self.description = description
         self.output_dir = Path(output_dir)
@@ -109,7 +119,7 @@ class EvaluationPipeline:
         # Convention: data/questions/<product_lower>_golden.json next to the project root (two levels
         # up from this file: agent_benchmarks/orchestrator/pipeline.py → agent_benchmarks/ → project root)
         _project_root = Path(__file__).resolve().parent.parent.parent
-        _auto_golden = _project_root / "data" / "questions" / f"{product.lower()}_golden.json"
+        _auto_golden = _project_root / "data" / "questions" / f"{self.product_key.lower()}_golden.json"
         if custom_questions_path:
             _custom_path = Path(custom_questions_path)
             if not _custom_path.exists():
@@ -140,10 +150,8 @@ class EvaluationPipeline:
 
         # External questions source (skip generation, load from this path/dir)
         if questions_from is not None:
-            qf = Path(questions_from)
-            # Accept either a directory (auto-find <product>.json) or a file path
-            if qf.is_dir():
-                qf = qf / "questions" / f"{product}.json"
+            # Accept either a directory (auto-find <target>.json) or a file path.
+            qf = resolve_questions_from_path(Path(questions_from), self.product_key)
             if not qf.exists():
                 raise FileNotFoundError(
                     f"--questions-from: questions file not found: {qf}"
@@ -154,11 +162,11 @@ class EvaluationPipeline:
             self.external_questions_path = None
 
         # Output paths
-        self.personas_path = self.output_dir / "personas" / f"{product}.json"
-        self.questions_path = self.output_dir / "questions" / f"{product}.json"
-        self.answers_path = self.output_dir / "answers" / f"{product}.json"
-        self.eval_path = self.output_dir / "eval" / f"{product}.json"
-        self.report_path = self.output_dir / "reports" / f"{product}.md"
+        self.personas_path = self.output_dir / "personas" / f"{self.product_key}.json"
+        self.questions_path = self.output_dir / "questions" / f"{self.product_key}.json"
+        self.answers_path = self.output_dir / "answers" / f"{self.product_key}.json"
+        self.eval_path = self.output_dir / "eval" / f"{self.product_key}.json"
+        self.report_path = self.output_dir / "reports" / f"{self.product_key}.md"
         
         # Create output dirs
         for path in [self.personas_path, self.questions_path, self.answers_path, self.eval_path, self.report_path]:

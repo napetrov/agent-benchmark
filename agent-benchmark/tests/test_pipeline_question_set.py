@@ -108,6 +108,44 @@ def test_questions_from_directory_is_reused_and_normalized(tmp_path, monkeypatch
     )
 
 
+def test_questions_from_directory_uses_product_key_when_provided(tmp_path, monkeypatch):
+    _stub_expensive_steps(monkeypatch)
+    questions = [
+        {"id": "q1", "question": "What does task_group do?", "source_type": "generated"}
+    ]
+    source_dir = tmp_path / "source"
+    output_dir = tmp_path / "target"
+    _write_json(source_dir / "questions" / "onetbb.json", questions)
+    _write_json(output_dir / "personas" / "onetbb.json", {"personas": []})
+
+    pipeline = EvaluationPipeline(
+        product="oneTBB",
+        product_key="onetbb",
+        output_dir=output_dir,
+        description="Threading Building Blocks",
+        questions_from=source_dir,
+    )
+    result = pipeline.run(concurrency=1)
+
+    saved = json.loads((output_dir / "questions" / "onetbb.json").read_text())
+    assert saved["questions"] == questions
+    assert result["steps"]["questions_generated"]["external_source"].endswith(
+        "source/questions/onetbb.json"
+    )
+
+
+def test_auto_golden_discovery_uses_product_key():
+    pipeline = EvaluationPipeline(
+        product="oneDAL",
+        product_key="onedal",
+        output_dir=Path("/tmp/unused"),
+        description="Data Analytics Library",
+    )
+
+    assert pipeline.custom_questions_path is not None
+    assert pipeline.custom_questions_path.name == "onedal_golden.json"
+
+
 def test_load_questions_payload_rejects_invalid_wrapped_payload(tmp_path):
     path = tmp_path / "questions.json"
     _write_json(path, {"questions": {"q1": "not a list"}})

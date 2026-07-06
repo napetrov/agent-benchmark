@@ -262,9 +262,9 @@ def register(sub, positive_int) -> None:
     ragas_p = eval_sub.add_parser("ragas", help="Run RAGAS meta-evaluation on answers")
     ragas_p.add_argument("--answers", required=True, help="Path to answers JSON file")
     ragas_p.add_argument("--ragas-model", default=DEFAULT_JUDGE_MODEL,
-                         help="LLM for RAGAS judge (default: gpt-4o-mini)")
+                         help=f"LLM for RAGAS judge (default: {DEFAULT_JUDGE_MODEL})")
     ragas_p.add_argument("--ragas-provider", default=DEFAULT_JUDGE_PROVIDER, choices=["openai", "anthropic"],
-                         help="Provider for RAGAS judge LLM (default: openai)")
+                         help=f"Provider for RAGAS judge LLM (default: {DEFAULT_JUDGE_PROVIDER})")
     ragas_p.set_defaults(func=cmd_eval_ragas)
 
     # eval grounding (reference-free, no LLM)

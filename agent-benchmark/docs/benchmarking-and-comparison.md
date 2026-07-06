@@ -72,16 +72,16 @@ python cli.py benchmark run \
   --provider openai \
   --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
-  --output-dir results/onetbb_gpt4omini
+  --output-dir results/onetbb_gpt55
 ```
 
 The run writes:
 
-- `results/onetbb_gpt4omini/personas/oneTBB.json`
-- `results/onetbb_gpt4omini/questions/oneTBB.json`
-- `results/onetbb_gpt4omini/answers/oneTBB.json`
-- `results/onetbb_gpt4omini/eval/oneTBB.json`
-- `results/onetbb_gpt4omini/reports/oneTBB.md`
+- `results/onetbb_gpt55/personas/onetbb.json`
+- `results/onetbb_gpt55/questions/onetbb.json`
+- `results/onetbb_gpt55/answers/onetbb.json`
+- `results/onetbb_gpt55/eval/onetbb.json`
+- `results/onetbb_gpt55/reports/onetbb.md`
 
 The comparison inside one run is always:
 
@@ -102,7 +102,7 @@ python cli.py benchmark run \
   --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
   --multi-run 3 \
-  --output-dir results/onetbb_gpt4omini
+  --output-dir results/onetbb_gpt55
 ```
 
 Multi-run mode creates numbered run directories and prints the mean and
@@ -132,7 +132,7 @@ python cli.py benchmark run \
   --provider openai \
   --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic \
-  --output-dir results/onedal_gpt4o
+  --output-dir results/onedal_gpt51
 
 python cli.py benchmark run \
   --library onedal \
@@ -171,21 +171,21 @@ Use the lower-level commands when you need explicit control over each artifact:
 python cli.py answers generate \
   --product oneTBB \
   --questions data/questions/onetbb_golden.json \
-  --output results/onetbb_golden/answers/oneTBB.json \
+  --output results/onetbb_golden/answers/onetbb.json \
   --model gpt-5.5 \
   --provider openai \
   --debug-retrieval
 
 python cli.py eval score \
   --product oneTBB \
-  --answers results/onetbb_golden/answers/oneTBB.json \
-  --output results/onetbb_golden/eval/oneTBB.json \
+  --answers results/onetbb_golden/answers/onetbb.json \
+  --output results/onetbb_golden/eval/onetbb.json \
   --judge-model claude-sonnet-4-5-20250929 \
   --judge-provider anthropic
 
 python cli.py report eval \
   --product oneTBB \
-  --eval results/onetbb_golden/eval/oneTBB.json \
+  --eval results/onetbb_golden/eval/onetbb.json \
   --out results/onetbb_golden/reports/oneTBB_full.md
 ```
 
@@ -195,7 +195,7 @@ file included in the report generator:
 ```bash
 python cli.py report generate \
   --product oneTBB \
-  --eval results/onetbb_golden/eval/oneTBB.json \
+  --eval results/onetbb_golden/eval/onetbb.json \
   --questions data/questions/onetbb_golden.json \
   --output results/onetbb_golden/reports/oneTBB.md \
   --format markdown
@@ -296,16 +296,16 @@ Save meaningful eval outputs as named baselines:
 
 ```bash
 python cli.py baseline save \
-  --from-eval results/onetbb_gpt4omini/eval/oneTBB.json \
-  --name onetbb-gpt4omini-docs
+  --from-eval results/onetbb_gpt55/eval/onetbb.json \
+  --name onetbb-gpt55-docs
 ```
 
 Compare a future eval against a saved baseline:
 
 ```bash
 python cli.py baseline compare \
-  --baseline onetbb-gpt4omini-docs \
-  --eval results/onetbb_candidate/eval/oneTBB.json
+  --baseline onetbb-gpt55-docs \
+  --eval results/onetbb_candidate/eval/onetbb.json
 ```
 
 Use baselines for release-to-release tracking. Use `--questions-from` for

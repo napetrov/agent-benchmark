@@ -15,6 +15,7 @@ from agent_benchmarks.defaults import (
     DEFAULT_JUDGE_MODEL,
     DEFAULT_JUDGE_PROVIDER,
     DEFAULT_MAX_TOKENS_PER_QUESTION,
+    DEFAULT_RETRIEVAL_TOP_K,
     DEFAULT_RESULTS_SUFFIX,
 )
 from agent_benchmarks.commands.library import _load_registry
@@ -56,6 +57,7 @@ def _run_single_library(entry, output_dir: str, model: str, provider: str, judge
         max_tokens_per_question=max_tokens_per_question,
         force_regen=force_regen,
         questions_from=questions_from,
+        product_key=entry.key,
     )
     result = pipeline.run(concurrency=concurrency)
     return {"library": entry.key, "name": entry.name, "status": "ok", "result": result}
@@ -66,7 +68,7 @@ def _api_key_name(provider: str) -> str:
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
         "openrouter": "OPENROUTER_API_KEY",
-        "amazon-bedrock": "AWS_ACCESS_KEY_ID",
+        "amazon-bedrock": "AWS_BEARER_TOKEN_BEDROCK",
         "google-vertex": "GEMINI_API_KEY",
         "openai-codex": "OPENAI_API_KEY",
     }.get(provider, "OPENAI_API_KEY")
@@ -85,7 +87,7 @@ def _resolved_benchmark_plan(entry, args: argparse.Namespace) -> dict:
         "answer": f"{args.provider}/{args.model}",
         "judge": f"{args.judge_provider}/{args.judge_model}",
         "questions_from": getattr(args, "questions_from", None),
-        "retrieval": "semantic-only, top_k=3",
+        "retrieval": f"semantic-only, top_k={DEFAULT_RETRIEVAL_TOP_K}",
         "arms": "without_docs vs with_docs",
         "max_tokens_per_question": getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
         "concurrency": getattr(args, "concurrency", DEFAULT_CONCURRENCY),
@@ -101,6 +103,7 @@ def _print_plan(plan: dict) -> None:
 
 def cmd_benchmark_preflight(args: argparse.Namespace) -> None:
     """Validate the resolved benchmark plan without running LLM calls."""
+    from agent_benchmarks.orchestrator.pipeline import load_questions_payload, resolve_questions_from_path
     from agent_benchmarks.mcp.factory import create_doc_source_client
 
     registry = _load_registry(args)
@@ -135,6 +138,17 @@ def cmd_benchmark_preflight(args: argparse.Namespace) -> None:
         _ = client
     except Exception as exc:  # pragma: no cover - defensive for plugin clients
         errors.append(f"doc source invalid: {plan['doc_source']} ({exc})")
+
+    if plan["questions_from"]:
+        qf = resolve_questions_from_path(Path(plan["questions_from"]), entry.key)
+        if not qf.exists():
+            errors.append(f"questions source not found: {qf}")
+        else:
+            try:
+                questions = load_questions_payload(qf)
+                print(f"  questions: {qf} ({len(questions)} items)")
+            except Exception as exc:
+                errors.append(f"questions source invalid: {qf} ({exc})")
 
     same = _warn_judge_independence(
         answer_provider=args.provider,
@@ -180,9 +194,9 @@ def cmd_benchmark_run(args: argparse.Namespace) -> None:
             model=args.model,
             provider=args.provider,
             judge_model=args.judge_model,
-            judge_provider=getattr(args, "judge_provider", "openai"),
+            judge_provider=getattr(args, "judge_provider", DEFAULT_JUDGE_PROVIDER),
             doc_source_override=getattr(args, "doc_source", None),
-            max_tokens_per_question=getattr(args, "max_tokens", 4000),
+            max_tokens_per_question=getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
             force_regen=getattr(args, "force_regen", False),
             concurrency=concurrency,
             questions_from=questions_from,
@@ -201,9 +215,9 @@ def cmd_benchmark_run(args: argparse.Namespace) -> None:
                 model=args.model,
                 provider=args.provider,
                 judge_model=args.judge_model,
-                judge_provider=getattr(args, "judge_provider", "openai"),
+                judge_provider=getattr(args, "judge_provider", DEFAULT_JUDGE_PROVIDER),
                 doc_source_override=getattr(args, "doc_source", None),
-                max_tokens_per_question=getattr(args, "max_tokens", 4000),
+                max_tokens_per_question=getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
                 force_regen=(getattr(args, "force_regen", False) and i == 1),
                 concurrency=concurrency,
                 questions_from=qfrom,
@@ -248,17 +262,18 @@ def cmd_benchmark_batch(args: argparse.Namespace) -> None:
     failed = []
 
     for entry in entries:
+        output_dir = str(Path(args.output_dir) / f"{entry.key}{DEFAULT_RESULTS_SUFFIX}")
         try:
             r = _run_single_library(
                 entry,
-                output_dir=(str(Path(args.output_dir) / f"{entry.key}{DEFAULT_RESULTS_SUFFIX}") if args.output_dir == "results" else args.output_dir),
+                output_dir=output_dir,
                 model=args.model,
                 provider=args.provider,
                 judge_model=args.judge_model,
-                judge_provider=getattr(args, "judge_provider", "openai"),
-                max_tokens_per_question=getattr(args, "max_tokens", 4000),
+                judge_provider=getattr(args, "judge_provider", DEFAULT_JUDGE_PROVIDER),
+                max_tokens_per_question=getattr(args, "max_tokens", DEFAULT_MAX_TOKENS_PER_QUESTION),
                 force_regen=getattr(args, "force_regen", False),
-                concurrency=getattr(args, "concurrency", 5),
+                concurrency=getattr(args, "concurrency", DEFAULT_CONCURRENCY),
             )
             results.append(r)
         except Exception as exc:
@@ -309,7 +324,7 @@ def register(sub, positive_int) -> None:
                              help="Reuse questions from another run's output directory or JSON file. "
                                   "Skips question generation entirely — essential for fair multi-model "
                                   "comparisons (all models evaluated on the same question set). "
-                                  "Example: --questions-from results/onedal_gpt4o")
+                                  "Example: --questions-from results/onedal_gpt51")
     bench_run_p.add_argument("--multi-run", type=positive_int, default=1, dest="multi_run",
                              metavar="N",
                              help="Run answer generation + evaluation N times (default: 1). "
