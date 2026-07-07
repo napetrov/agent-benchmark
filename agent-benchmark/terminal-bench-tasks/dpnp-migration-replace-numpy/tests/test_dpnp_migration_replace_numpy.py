@@ -23,10 +23,25 @@ def _run(script):
     return result.stdout
 
 
-def _sig(text):
-    m = re.search(r"sig=([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", text)
-    assert m, f"no sig=<value> found in {text!r}"
-    return float(m.group(1))
+def _parse_stats(text):
+    """Parse mean, std, min, max from output."""
+    pattern = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
+    mean_m = re.search(rf"mean={pattern}", text)
+    std_m = re.search(rf"std={pattern}", text)
+    min_m = re.search(rf"min={pattern}", text)
+    max_m = re.search(rf"max={pattern}", text)
+
+    assert mean_m, f"no mean=<value> found in {text!r}"
+    assert std_m, f"no std=<value> found in {text!r}"
+    assert min_m, f"no min=<value> found in {text!r}"
+    assert max_m, f"no max=<value> found in {text!r}"
+
+    return {
+        "mean": float(mean_m.group(1)),
+        "std": float(std_m.group(1)),
+        "min": float(min_m.group(1)),
+        "max": float(max_m.group(1)),
+    }
 
 
 def _uses_dpnp_calls(tree):
@@ -76,11 +91,16 @@ def test_solution_imports_dpnp():
 
 
 def test_signature_matches_reference():
-    ref_sig = _sig(_run(REFERENCE))
-    sol_sig = _sig(_run(SOLUTION))
-    denom = max(abs(ref_sig), 1e-15)
-    rel_err = abs(sol_sig - ref_sig) / denom
-    assert rel_err <= REL_TOL, (
-        f"dpnp sig {sol_sig} differs from reference {ref_sig} "
-        f"(relative error {rel_err:.2e} > {REL_TOL})"
-    )
+    ref_stats = _parse_stats(_run(REFERENCE))
+    sol_stats = _parse_stats(_run(SOLUTION))
+
+    # Verify each metric independently
+    for metric in ["mean", "std", "min", "max"]:
+        ref_val = ref_stats[metric]
+        sol_val = sol_stats[metric]
+        denom = max(abs(ref_val), 1e-15)
+        rel_err = abs(sol_val - ref_val) / denom
+        assert rel_err <= REL_TOL, (
+            f"{metric}: solution {sol_val:.9e} differs from reference {ref_val:.9e} "
+            f"(relative error {rel_err:.2e} > {REL_TOL})"
+        )

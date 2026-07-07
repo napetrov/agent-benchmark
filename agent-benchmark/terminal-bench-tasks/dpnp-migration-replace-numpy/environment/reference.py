@@ -13,9 +13,8 @@ def run():
     std_val = float(np.std(y))
     min_val = float(np.min(y))
     max_val = float(np.max(y))
-    # Balanced formula: all components contribute measurably
-    sig = abs(mean_val) * 1e12 + std_val * 1e11 + abs(min_val) * 1e10 + max_val * 1e9
-    print(f"VALID reference sig={sig:.6f}")
+    # Print each metric independently for verification
+    print(f"VALID mean={mean_val:.9e} std={std_val:.9e} min={min_val:.9e} max={max_val:.9e}")
 
 
 if __name__ == "__main__":
