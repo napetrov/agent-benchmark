@@ -43,10 +43,11 @@ def _uses_dpctl(tree):
 
 
 def _has_gpu_attempt(tree: ast.AST) -> bool:
-    """Return True if source attempts SyclDevice('gpu') inside a try block."""
+    """Return True if source attempts SyclDevice('gpu') inside a try block body (not handlers)."""
     for node in ast.walk(tree):
         if isinstance(node, ast.Try):
-            for stmt in ast.walk(node):
+            # Walk only the try body, not the handlers (except clauses)
+            for stmt in ast.walk(ast.Module(body=node.body, type_ignores=[])):
                 if (
                     isinstance(stmt, ast.Call)
                     and getattr(stmt.func, "attr", getattr(stmt.func, "id", "")) == "SyclDevice"

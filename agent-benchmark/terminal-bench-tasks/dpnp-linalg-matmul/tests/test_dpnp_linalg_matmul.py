@@ -32,26 +32,41 @@ def _sig(text):
 
 def _uses_dpnp_matmul(tree):
     """True if the AST contains dpnp.matmul/matmul call or @ on dpnp arrays and imports dpnp."""
-    has_dpnp_import = False
+    # Collect dpnp-bound names
+    dpnp_names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == "dpnp":
-                    has_dpnp_import = True
+                    dpnp_names.add(alias.asname or alias.name)
         if isinstance(node, ast.ImportFrom) and node.module == "dpnp":
-            has_dpnp_import = True
-    # Also look for matmul call or @ operator usage
-    has_matmul = False
+            for alias in node.names:
+                dpnp_names.add(alias.asname or alias.name)
+
+    if not dpnp_names:
+        return False
+
+    # Look for matmul/@ rooted on dpnp-bound names
     for node in ast.walk(tree):
+        # dpnp.matmul(A, B) or alias.matmul(A, B)
         if isinstance(node, ast.Call):
             func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "matmul":
-                has_matmul = True
-            if isinstance(func, ast.Name) and func.id == "matmul":
-                has_matmul = True
+            if (isinstance(func, ast.Attribute)
+                and func.attr == "matmul"
+                and isinstance(func.value, ast.Name)
+                and func.value.id in dpnp_names):
+                return True
+        # A @ B where A or B trace to dpnp arrays (conservatively accept any @)
+        # Full dataflow analysis is complex; accept @ if dpnp is used for array creation
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
-            has_matmul = True
-    return has_dpnp_import and has_matmul
+            # Check if any dpnp array creation exists (arange, array, zeros, etc.)
+            for n in ast.walk(tree):
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute):
+                    if (isinstance(n.func.value, ast.Name)
+                        and n.func.value.id in dpnp_names
+                        and n.func.attr in ("array", "arange", "zeros", "ones", "random")):
+                        return True
+    return False
 
 
 def test_files_exist():

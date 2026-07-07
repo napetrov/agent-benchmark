@@ -77,7 +77,7 @@ def test_solution_uses_dpnp_reductions():
 
 def test_solution_uses_axis_parameter():
     tree = ast.parse(SOLUTION.read_text(errors="replace"), filename=str(SOLUTION))
-    # Check that at least one reduction call has axis=0 as a keyword argument
+    # Check that at least one reduction call has axis=0 (keyword or positional)
     dpnp_names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -97,9 +97,13 @@ def test_solution_uses_axis_parameter():
                 and isinstance(func.value, ast.Name)
                 and func.value.id in dpnp_names
             ):
+                # Check keyword argument axis=0
                 for kw in node.keywords:
                     if kw.arg == "axis" and isinstance(kw.value, ast.Constant) and kw.value.value == 0:
                         found_axis = True
+                # Check positional argument (2nd position for sum/mean/std is axis)
+                if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) and node.args[1].value == 0:
+                    found_axis = True
     assert found_axis, (
         "solution.py must pass axis=0 to a dpnp reduction (sum/mean/std) for per-column computation"
     )

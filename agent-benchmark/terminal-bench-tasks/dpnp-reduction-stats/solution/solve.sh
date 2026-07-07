@@ -17,10 +17,11 @@ def run():
     col_mean = dpnp.mean(M, axis=0)
     col_std = dpnp.std(M, axis=0)
 
+    # Balanced formula: all components contribute measurably
     sig = (
-        float(dpnp.sum(col_sum))
-        + float(dpnp.sum(col_mean)) * 1e4
-        + float(dpnp.sum(col_std)) * 1e8
+        float(dpnp.sum(col_sum)) * 1e6
+        + float(dpnp.sum(col_mean)) * 1e9
+        + float(dpnp.sum(col_std)) * 1e11
     )
     print(f"VALID dpnp sig={sig:.6f}")
 
