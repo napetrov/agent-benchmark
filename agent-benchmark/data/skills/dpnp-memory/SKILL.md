@@ -25,11 +25,11 @@ for i in range(100):
 
 ## DPNP Memory Model
 
-DPNP arrays are allocated in SYCL unified shared memory (USM) on the device (GPU or CPU). This contrasts with NumPy arrays, which live in CPU heap memory. Memory is not automatically freed when a dpnp array goes out of scope; it persists until Python's garbage collector reclaims it, though reclamation timing depends on object lifetime and allocator behavior. In long-running scripts or Jupyter notebooks, this can cause memory accumulation. DPNP selects a default device at import time: CPU fallback if no GPU is available, otherwise the first detected GPU. Use `dpctl.select_default_device()` to override. Device memory limits are typically 8-64 GB for discrete GPUs, unlimited for CPU. Allocation overhead is 10-100× higher than CPU malloc, so pre-allocation is critical for performance in loops.
+DPNP arrays are allocated in SYCL unified shared memory (USM) on the device (GPU or CPU). This contrasts with NumPy arrays, which live in CPU heap memory. Memory is freed when Python's reference count drops to zero (typically immediate when a variable goes out of scope); cyclic references are handled by the garbage collector. In long-running scripts or Jupyter notebooks, implicit references (e.g., notebook output cells) can cause memory accumulation. DPNP selects a default device at import time: CPU fallback if no GPU is available, otherwise the first detected GPU. You can query the default with `dpctl.select_default_device()` (returns a SyclDevice object; does not change the default). To override device selection, pass `device=` or `sycl_queue=` to dpnp array constructors. Device memory limits are typically 8-64 GB for discrete GPUs, unlimited for CPU. Allocation overhead is 10-100× higher than CPU malloc, so pre-allocation is critical for performance in loops.
 
 ## Checking Array Location
 
-Every dpnp array has `array.sycl_device` and `array.sycl_queue` properties. Use these to verify which device holds the array. Check the default queue with `dpctl.get_current_queue()` and list available devices with `dpctl.get_devices()`. Device names follow the pattern `backend:device_type:index`, for example `opencl:gpu:0` for OpenCL GPU 0, `level_zero:gpu:0` for Level Zero GPU 0, or `opencl:cpu:0` for CPU fallback. Level Zero is the preferred backend for Intel GPUs (lower overhead than OpenCL). If multiple GPUs are present, arrays default to index 0 unless you create a custom queue.
+Every dpnp array has `array.sycl_device` and `array.sycl_queue` properties. Use these to verify which device holds the array. List available devices with `dpctl.get_devices()`. Device names follow the pattern `backend:device_type:index`, for example `opencl:gpu:0` for OpenCL GPU 0, `level_zero:gpu:0` for Level Zero GPU 0, or `opencl:cpu:0` for CPU fallback. Level Zero is the preferred backend for Intel GPUs (lower overhead than OpenCL). If multiple GPUs are present, arrays default to index 0 unless you specify a device explicitly.
 
 ```python
 import dpnp
@@ -37,30 +37,38 @@ import dpctl
 
 arr = dpnp.arange(1000)
 print(arr.sycl_device)  # Example: opencl:gpu:0
-print(arr.sycl_queue.device.name)  # Intel(R) UHD Graphics
+print(arr.sycl_queue.get_sycl_device().name)  # Intel(R) UHD Graphics
 
 # List all devices
 for dev in dpctl.get_devices():
     print(dev)
 
-# Force specific device
+# Force specific device (modern approach: pass device= or sycl_queue=)
 gpu = dpctl.SyclDevice("level_zero:gpu:0")
+arr_on_gpu = dpnp.arange(1000, device=gpu)
+
+# Alternative: create queue explicitly
 queue = dpctl.SyclQueue(gpu)
-with dpctl.device_context(queue):
-    arr_on_gpu = dpnp.arange(1000)
+arr_with_queue = dpnp.arange(1000, sycl_queue=queue)
 ```
 
 ## Querying Memory Usage
 
-DPNP has no built-in API for device memory stats. Use `dpctl.SyclQueue.get_device().max_mem_alloc_size` for the device's maximum single allocation size (typically 25-50% of total memory). For real-time memory usage on Intel GPUs, use `xpu-smi` (formerly `gpu_smi`): run `xpu-smi dump -m 1` for per-second updates. For OpenCL devices, use `clinfo` to query memory limits. For Level Zero, use `ze_info` (part of level-zero-tests package). Platform tools like `nvidia-smi` work for CUDA backend if dpnp is built with CUDA support. There is no equivalent to `torch.cuda.memory_summary()` in dpnp 0.21. To profile allocations, intercept SYCL allocation events with `SYCL_PI_TRACE=1` environment variable, but output is verbose.
+DPNP has no built-in API for device memory stats. Query device properties via `dpctl.SyclDevice`: `device.global_mem_size` returns total memory in bytes. For real-time memory usage on Intel data center GPUs (Flex, Arc Pro, Gaudi), use `xpu-smi dump -m 1` for per-second updates. For integrated/client GPUs (UHD, Arc), use `intel_gpu_top` (part of intel-gpu-tools). For OpenCL devices, use `clinfo` to query memory limits. For Level Zero, use `ze_info` (part of level-zero-tests package). There is no equivalent to `torch.cuda.memory_summary()` in dpnp 0.21. To profile allocations, intercept SYCL allocation events with `SYCL_UR_TRACE=1` environment variable (replaces deprecated `SYCL_PI_TRACE`), but output is verbose.
 
 ```python
 import dpctl
+import dpnp
 
-queue = dpctl.get_current_queue()
-device = queue.device
-print(f"Max allocation size: {device.max_mem_alloc_size / 1e9:.2f} GB")
+# Query device properties from an array
+arr = dpnp.arange(1000)
+device = arr.sycl_device
 print(f"Global memory size: {device.global_mem_size / 1e9:.2f} GB")
+
+# Or query default device directly
+device = dpctl.select_default_device()
+print(f"Device: {device.name}")
+print(f"Global memory: {device.global_mem_size / 1e9:.2f} GB")
 ```
 
 ## Pre-allocation Strategies

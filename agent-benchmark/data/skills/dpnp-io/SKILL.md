@@ -214,9 +214,11 @@ arr = dpnp.array(numpy.loadtxt('data.csv', delimiter=','))
 - If I/O time > compute time, dpnp provides no benefit
 - If compute time < 10× I/O time, profile before assuming speedup
 
-**Good pattern** (minimize conversions):
+**Good pattern** (minimize conversions) — *for small files only*:
 ```python
-# Load once
+# Load once (works well if total memory footprint fits in device RAM)
+# For 10 small files (<100MB each): this is efficient
+# For large files: this loads everything into memory at once — use chunked processing instead
 data = [dpnp.array(numpy.load(f'file_{i}.npy')) for i in range(10)]
 
 # Compute many operations
@@ -225,6 +227,16 @@ results = [dpnp.fft.fft2(dpnp.matmul(d, d.T)) for d in data]
 # Save once
 for i, r in enumerate(results):
     numpy.save(f'out_{i}.npy', dpnp.asnumpy(r))
+```
+
+**For large files** (chunked processing):
+```python
+# Process one file at a time to avoid memory overflow
+for i in range(10):
+    data = dpnp.array(numpy.load(f'file_{i}.npy'))
+    result = dpnp.fft.fft2(dpnp.matmul(data, data.T))
+    numpy.save(f'out_{i}.npy', dpnp.asnumpy(result))
+    del data, result  # Free memory before next iteration
 ```
 
 **Bad pattern** (conversion in loop):
