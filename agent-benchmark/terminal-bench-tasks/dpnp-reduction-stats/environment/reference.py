@@ -14,10 +14,11 @@ def run():
     col_mean = np.mean(M, axis=0)
     col_std = np.std(M, axis=0)
 
+    # Balanced formula: all components contribute measurably
     sig = (
-        float(np.sum(col_sum))
-        + float(np.sum(col_mean)) * 1e4
-        + float(np.sum(col_std)) * 1e8
+        float(np.sum(col_sum)) * 1e6
+        + float(np.sum(col_mean)) * 1e9
+        + float(np.sum(col_std)) * 1e11
     )
     print(f"VALID reference sig={sig:.6f}")
 

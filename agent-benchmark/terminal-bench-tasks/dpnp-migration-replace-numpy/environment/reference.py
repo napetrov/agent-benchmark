@@ -13,7 +13,8 @@ def run():
     std_val = float(np.std(y))
     min_val = float(np.min(y))
     max_val = float(np.max(y))
-    sig = mean_val + std_val * 1e4 + min_val * 1e8 + max_val * 1e12
+    # Balanced formula: all components contribute measurably
+    sig = abs(mean_val) * 1e12 + std_val * 1e11 + abs(min_val) * 1e10 + max_val * 1e9
     print(f"VALID reference sig={sig:.6f}")
 
 
