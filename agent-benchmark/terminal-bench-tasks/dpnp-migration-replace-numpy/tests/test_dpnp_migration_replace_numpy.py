@@ -31,17 +31,18 @@ def _sig(text):
 
 def _uses_dpnp_calls(tree):
     """True if solution uses dpnp API calls (not just imports it)."""
-    dpnp_names: set[str] = set()
+    module_aliases: set[str] = set()
+    direct_funcs: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == "dpnp":
-                    dpnp_names.add(alias.asname or alias.name)
+                    module_aliases.add(alias.asname or alias.name)
         if isinstance(node, ast.ImportFrom) and (node.module or "") == "dpnp":
             for alias in node.names:
-                dpnp_names.add(alias.asname or alias.name)
+                direct_funcs.add(alias.asname or alias.name)
 
-    if not dpnp_names:
+    if not module_aliases and not direct_funcs:
         return False
 
     DPNP_APIS = {"arange", "sin", "cos", "mean", "std", "min", "max", "asnumpy"}
@@ -53,9 +54,11 @@ def _uses_dpnp_calls(tree):
                 isinstance(func, ast.Attribute)
                 and func.attr in DPNP_APIS
                 and isinstance(func.value, ast.Name)
-                and func.value.id in dpnp_names
+                and func.value.id in module_aliases
             ):
                 found.add(func.attr)
+            elif isinstance(func, ast.Name) and func.id in direct_funcs & DPNP_APIS:
+                found.add(func.id)
     return len(found) >= 2
 
 
