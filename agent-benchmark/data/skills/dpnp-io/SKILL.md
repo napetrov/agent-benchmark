@@ -196,13 +196,14 @@ numpy.savetxt('output.csv', dpnp.asnumpy(arr), delimiter=',')
 # Or: pd.DataFrame(dpnp.asnumpy(arr)).to_csv('output.csv', index=False)
 ```
 
-**Numeric CSV with numpy.loadtxt**:
+**Numeric CSV with dpnp.loadtxt**:
 ```python
-import numpy
 import dpnp
 
-arr = dpnp.array(numpy.loadtxt('data.csv', delimiter=','))
+arr = dpnp.loadtxt('data.csv', delimiter=',')  # returns dpnp array directly
 ```
+
+*Note: `dpnp.loadtxt` delegates to `numpy.loadtxt` internally. Structured dtypes are not supported.*
 
 **Performance note**: CSV parsing is CPU-bound and slow. dpnp conversion overhead is negligible compared to parsing time. For large CSV files (>100MB), consider converting to .npy or HDF5 for faster repeated access.
 
@@ -268,4 +269,4 @@ Choose based on available memory and whether compute time >> conversion time.
 
 ## Summary
 
-dpnp has no native I/O functions. All file operations require NumPy conversion via `dpnp.array()` (load) and `dpnp.asnumpy()` (save). This pattern works well when compute time dominates I/O time (typical for FFT, linear algebra, large element-wise ops). For large files, use chunked processing to avoid memory overflow. Minimize conversion frequency by batching operations between I/O calls. Choose file format based on dataset size: .npy for <1GB, HDF5 for 1-10GB, Zarr for >10GB or cloud storage.
+dpnp has no native binary file I/O (`.npy`, HDF5, Zarr). For those formats, all operations require NumPy conversion via `dpnp.array()` (load) and `dpnp.asnumpy()` (save). For CSV/text files, use `dpnp.loadtxt()` directly — it delegates to `numpy.loadtxt` internally and returns a dpnp array. This pattern works well when compute time dominates I/O time (typical for FFT, linear algebra, large element-wise ops). For large files, use chunked processing to avoid memory overflow. Minimize conversion frequency by batching operations between I/O calls. Choose file format based on dataset size: .npy for <1GB, HDF5 for 1-10GB, Zarr for >10GB or cloud storage. Note: if dpnp adds native I/O for other formats in the future, those functions will most likely use NumPy as a backend internally (as `dpnp.loadtxt` already does).
