@@ -1,0 +1,8 @@
+id: dpnp-golden-rng-reproducibility
+product: dpnp
+query: >
+  Where in the dpnp golden question set is the RNG reproducibility issue
+  described — the scenario where dpnp.random.seed(42) produces different random
+  numbers than numpy.random.seed(42)?
+references:
+  - path: data/questions/dpnp_golden.json

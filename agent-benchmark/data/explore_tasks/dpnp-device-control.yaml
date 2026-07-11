@@ -1,0 +1,8 @@
+id: dpnp-device-control
+product: dpnp
+query: >
+  Where does the dpnp skill explain how to control which SYCL device
+  (CPU or GPU) dpnp uses, including the dpctl device_context API and how to
+  inspect the device of an existing array?
+references:
+  - path: data/skills/dpnp-quickstart/SKILL.md

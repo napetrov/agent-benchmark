@@ -1,0 +1,8 @@
+id: dpnp-golden-device-unavailable
+product: dpnp
+query: >
+  Where in the dpnp question set (golden or regular) is the cloud/CI
+  portability problem covered — the scenario where code works on a workstation
+  with GPU but crashes on a server with "Default device is unavailable"?
+references:
+  - path: data/questions/dpnp_golden.json

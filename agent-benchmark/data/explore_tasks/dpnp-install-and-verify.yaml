@@ -1,0 +1,7 @@
+id: dpnp-install-and-verify
+product: dpnp
+query: >
+  Where in the dpnp skill documentation does it explain how to install dpnp
+  (conda vs pip) and verify the installation works?
+references:
+  - path: data/skills/dpnp-quickstart/SKILL.md
