@@ -14,7 +14,7 @@ Create `/app/solution.py` that reproduces the **same** computation using **dpnp*
    - `col_mean = dpnp.mean(M, axis=0)`    — shape `(COLS,)`
    - `col_std  = dpnp.std(M, axis=0)`     — shape `(COLS,)`
 3. Combine into a validation signature:
-   `sig = float(dpnp.sum(col_sum)) + float(dpnp.sum(col_mean)) * 1e4 + float(dpnp.sum(col_std)) * 1e8`
+   `sig = float(dpnp.sum(col_sum)) * 1e6 + float(dpnp.sum(col_mean)) * 1e9 + float(dpnp.sum(col_std)) * 1e11`
 4. Print a line containing `VALID` and `sig=<value>` formatted to 6 decimal places.
 
 Requirements:

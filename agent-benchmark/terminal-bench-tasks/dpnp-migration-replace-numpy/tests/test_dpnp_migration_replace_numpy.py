@@ -8,6 +8,8 @@ from pathlib import Path
 SOLUTION = Path("/app/solution.py")
 REFERENCE = Path("/app/reference.py")
 TIMEOUT_SEC = 60.0
+# dpnp on CPU uses float64 via oneMKL; rel error vs NumPy is at ULP level (~1e-15).
+# 1e-9 is intentionally generous to tolerate any future backend differences.
 REL_TOL = 1e-9
 
 
@@ -95,7 +97,7 @@ def test_signature_matches_reference():
     sol_stats = _parse_stats(_run(SOLUTION))
 
     # Verify each metric independently
-    for metric in ["mean", "std", "min", "max"]:
+    for metric in ["mean", "std", "min", "max", "hist_sig"]:
         ref_val = ref_stats[metric]
         sol_val = sol_stats[metric]
         denom = max(abs(ref_val), 1e-15)

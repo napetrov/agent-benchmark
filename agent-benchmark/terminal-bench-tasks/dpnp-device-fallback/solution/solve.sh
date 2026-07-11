@@ -19,7 +19,7 @@ def run():
     print(f"INFO device={sycl_device.device_type.name.lower()}")
     x = dpnp.arange(500_000, dtype=dpnp.float64, device=sycl_device)
     y = dpnp.sqrt(dpnp.abs(dpnp.sin(x) * dpnp.cos(x) + 1.0))
-    sig = float(dpnp.sum(y))
+    sig = dpnp.sum(y)
     print(f"VALID dpnp sig={sig:.6f}")
 
 
