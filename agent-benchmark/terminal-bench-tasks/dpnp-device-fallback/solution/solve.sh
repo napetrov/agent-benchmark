@@ -8,6 +8,9 @@ import dpnp
 
 def get_device():
     try:
+        # Use generic "gpu" for portability across backends (Level Zero, OpenCL).
+        # If targeting Level Zero only, use "level_zero:gpu" instead.
+        # Note: iGPU may not support float64 — fall back to cpu for fp64 precision.
         device = dpctl.SyclDevice("gpu")
         return device
     except Exception:
@@ -20,7 +23,7 @@ def run():
     x = dpnp.arange(500_000, dtype=dpnp.float64, device=sycl_device)
     y = dpnp.sqrt(dpnp.abs(dpnp.sin(x) * dpnp.cos(x) + 1.0))
     sig = dpnp.sum(y)
-    print(f"VALID dpnp sig={sig:.6f}")
+    print(f"VALID dpnp sig={sig:.9e}")
 
 
 if __name__ == "__main__":
