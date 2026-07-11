@@ -26,23 +26,26 @@ def _run(script):
 
 
 def _parse_stats(text):
-    """Parse mean, std, min, max from output."""
+    """Parse mean, std, min, max, hist_sig from output."""
     pattern = r"([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
     mean_m = re.search(rf"mean={pattern}", text)
     std_m = re.search(rf"std={pattern}", text)
     min_m = re.search(rf"min={pattern}", text)
     max_m = re.search(rf"max={pattern}", text)
+    hist_m = re.search(rf"hist_sig={pattern}", text)
 
     assert mean_m, f"no mean=<value> found in {text!r}"
     assert std_m, f"no std=<value> found in {text!r}"
     assert min_m, f"no min=<value> found in {text!r}"
     assert max_m, f"no max=<value> found in {text!r}"
+    assert hist_m, f"no hist_sig=<value> found in {text!r}"
 
     return {
         "mean": float(mean_m.group(1)),
         "std": float(std_m.group(1)),
         "min": float(min_m.group(1)),
         "max": float(max_m.group(1)),
+        "hist_sig": float(hist_m.group(1)),
     }
 
 
