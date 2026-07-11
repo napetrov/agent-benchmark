@@ -25,11 +25,11 @@ for i in range(100):
 
 ## DPNP Memory Model
 
-DPNP arrays are allocated in SYCL unified shared memory (USM) on the device (GPU or CPU). This contrasts with NumPy arrays, which live in CPU heap memory. Memory is freed when Python's reference count drops to zero (typically immediate when a variable goes out of scope); cyclic references are handled by the garbage collector. In long-running scripts or Jupyter notebooks, implicit references (e.g., notebook output cells) can cause memory accumulation. DPNP selects a default device at import time: CPU fallback if no GPU is available, otherwise the first detected GPU. You can query the default with `dpctl.select_default_device()` (returns a SyclDevice object; does not change the default). To override device selection, pass `device=` or `sycl_queue=` to dpnp array constructors. Device memory limits are typically 8-64 GB for discrete GPUs, unlimited for CPU. Allocation overhead is 10-100× higher than CPU malloc, so pre-allocation is critical for performance in loops.
+DPNP arrays are allocated in SYCL unified shared memory (USM) on the device (GPU or CPU). This contrasts with NumPy arrays, which live in CPU heap memory. Memory is freed when Python's reference count drops to zero (typically immediate when a variable goes out of scope); cyclic references are handled by the garbage collector. In long-running scripts or Jupyter notebooks, implicit references (e.g., notebook output cells) can cause memory accumulation. DPNP selects a default device at import time using the SYCL default selector heuristic (`sycl::default_selector_v`), which scores available devices and picks the best one — not necessarily the first GPU. You can query the result with `dpctl.select_default_device()` (returns a SyclDevice object; does not change the default). To override device selection, pass `device=` or `sycl_queue=` to dpnp array constructors; use filter selector strings like `"level_zero:gpu:0"` for explicit targeting. Device memory capacity varies by hardware (integrated GPUs share host RAM; discrete GPUs have dedicated memory). Allocation overhead is higher than CPU malloc, so pre-allocation is important for performance in loops.
 
 ## Checking Array Location
 
-Every dpnp array has `array.sycl_device` and `array.sycl_queue` properties. Use these to verify which device holds the array. List available devices with `dpctl.get_devices()`. Device names follow the pattern `backend:device_type:index`, for example `opencl:gpu:0` for OpenCL GPU 0, `level_zero:gpu:0` for Level Zero GPU 0, or `opencl:cpu:0` for CPU fallback. Level Zero is the preferred backend for Intel GPUs (lower overhead than OpenCL). If multiple GPUs are present, arrays default to index 0 unless you specify a device explicitly.
+Every dpnp array has `array.sycl_device` and `array.sycl_queue` properties. Use these to verify which device holds the array. List available devices with `dpctl.get_devices()`. Device names follow the pattern `backend:device_type:index`, for example `opencl:gpu:0` for OpenCL GPU 0, `level_zero:gpu:0` for Level Zero GPU 0, or `opencl:cpu:0` for CPU fallback. Level Zero is the preferred backend for Intel GPUs (lower overhead than OpenCL). If multiple GPUs are present, the default selector picks based on its heuristic — use explicit filter strings like `"level_zero:gpu:0"` or `"opencl:gpu:1"` to target a specific device.
 
 ```python
 import dpnp
@@ -37,7 +37,8 @@ import dpctl
 
 arr = dpnp.arange(1000)
 print(arr.sycl_device)  # Example: opencl:gpu:0
-print(arr.sycl_queue.get_sycl_device().name)  # Intel(R) UHD Graphics
+print(arr.sycl_queue.get_sycl_device().name)         # Human-readable: Intel(R) UHD Graphics
+print(arr.sycl_queue.get_sycl_device().filter_string)  # Filter string: level_zero:gpu:0
 
 # List all devices
 for dev in dpctl.get_devices():
@@ -73,7 +74,7 @@ print(f"Global memory: {device.global_mem_size / 1e9:.2f} GB")
 
 ## Pre-allocation Strategies
 
-Pre-allocation avoids repeated USM allocation overhead in loops. Pattern 1: allocate output buffer once, reuse via `out=` parameter. Pattern 2: use `dpnp.empty()` instead of `dpnp.zeros()` when initial values do not matter (saves initialization cost). Pattern 3: pre-allocate workspace arrays for in-place operations. Universal functions (ufuncs) like `add`, `multiply`, `sin` support the `out=` parameter. Performance gain is 2-5× for small array operations (< 1 MB) in tight loops (> 100 iterations). For large arrays (> 100 MB), allocation overhead is amortized and pre-allocation provides < 10% speedup.
+Pre-allocation avoids repeated USM allocation overhead in loops. Pattern 1: allocate output buffer once, reuse via `out=` parameter. Pattern 2: use `dpnp.empty()` instead of `dpnp.zeros()` when initial values do not matter (saves initialization cost). Pattern 3: pre-allocate workspace arrays for in-place operations. Universal functions (ufuncs) like `add`, `multiply`, `sin` support the `out=` parameter. Pre-allocation typically helps most for small arrays in tight loops; for large arrays, allocation overhead is amortized over compute time and the benefit is usually modest.
 
 ```python
 import dpnp
