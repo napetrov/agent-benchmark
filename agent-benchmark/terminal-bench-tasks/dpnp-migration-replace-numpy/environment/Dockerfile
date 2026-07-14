@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # dependencies resolve via the RPATHs baked into the Intel wheels.
 RUN pip3 install --no-cache-dir --upgrade pip \
     && pip3 install --no-cache-dir dpnp==0.20.0 pytest \
-    && INTELOCL="$(find / -name 'libintelocl.so' -print -quit)" \
+    && INTELOCL="$(find /usr -name 'libintelocl.so' -print -quit)" \
     && test -n "$INTELOCL" \
     && mkdir -p /etc/OpenCL/vendors \
     && printf '%s\n' "$INTELOCL" > /etc/OpenCL/vendors/intel-cpu.icd \
