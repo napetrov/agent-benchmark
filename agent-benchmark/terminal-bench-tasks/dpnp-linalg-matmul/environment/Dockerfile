@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # system-wide location /etc/OpenCL/vendors. ldconfig refreshes the loader cache so
 # the driver's own runtime dependencies resolve.
 RUN pip3 install --no-cache-dir --upgrade pip \
-    && pip3 install --no-cache-dir dpnp pytest \
+    && pip3 install --no-cache-dir dpnp==0.20.0 pytest \
     && ldconfig \
     && INTELOCL="$(find / -name 'libintelocl.so' -print -quit)" \
     && test -n "$INTELOCL" \
