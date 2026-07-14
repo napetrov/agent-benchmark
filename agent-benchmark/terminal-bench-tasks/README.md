@@ -69,10 +69,10 @@ See [COVERAGE.md](./COVERAGE.md) for the broader oneTBB API/concept coverage mat
 > The oneTBB tasks build entirely from `ubuntu:22.04` + standard apt and are
 > verified in the `terminal-bench-verify` CI job. The oneMKL / oneDPL / IPP /
 > oneCCL / sklearnex / dpnp tasks pull the Intel oneAPI apt repo, header-only
-> oneDPL, the `intel/oneapi-basekit` image, or pip wheels at **build** time (the
-> verifier still runs offline with `--network none`) and are verified in a
-> separate `terminal-bench-verify-oneapi` CI job so a heavy-image build cannot
-> affect the core oneTBB job.
+> oneDPL, or Intel pip wheels at **build** time (the verifier still runs offline
+> with `--network none`) and are verified in a separate
+> `terminal-bench-verify-oneapi` CI job so a heavy build cannot affect the core
+> oneTBB job.
 
 ## Running a Task (Harbor)
 
