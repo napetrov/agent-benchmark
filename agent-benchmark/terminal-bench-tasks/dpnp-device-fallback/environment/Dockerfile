@@ -26,7 +26,8 @@ RUN pip3 install --no-cache-dir --upgrade pip \
     && INTELOCL="$(find / -name 'libintelocl.so' -print -quit)" \
     && test -n "$INTELOCL" \
     && mkdir -p /etc/OpenCL/vendors \
-    && printf '%s\n' "$INTELOCL" > /etc/OpenCL/vendors/intel-cpu.icd
+    && printf '%s\n' "$INTELOCL" > /etc/OpenCL/vendors/intel-cpu.icd \
+    && python3 -c "import dpctl; assert dpctl.SyclDevice('cpu'), 'no CPU SYCL device'"
 
 WORKDIR /app
 COPY reference.py /app/reference.py
