@@ -98,6 +98,11 @@ jobs:
           - onemkl-fft
           - onedpl-transform-reduce
           - ipp-dotprod
+          - dpnp-device-fallback
+          - dpnp-fft-pipeline
+          - dpnp-linalg-matmul
+          - dpnp-migration-replace-numpy
+          - dpnp-reduction-stats
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
