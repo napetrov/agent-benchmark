@@ -49,6 +49,11 @@ See [COVERAGE.md](./COVERAGE.md) for the broader oneTBB API/concept coverage mat
 | [onedpl-transform-reduce](./onedpl-transform-reduce/) | oneDPL | medium | Parallel `transform_reduce` (`par_unseq`) on the oneTBB backend |
 | [ipp-dotprod](./ipp-dotprod/) | IPP | easy | Vector dot product with `ippsDotProd_64f` vs serial reference |
 | [sklearnex-classification](./sklearnex-classification/) | sklearnex | easy | KNN classifier accelerated with `patch_sklearn()`, accuracy vs stock sklearn |
+| [dpnp-device-fallback](./dpnp-device-fallback/) | dpnp | medium | Portable dpnp computation with `dpctl` device selection: GPU-first attempt, graceful CPU fallback, signature vs NumPy reference |
+| [dpnp-reduction-stats](./dpnp-reduction-stats/) | dpnp | easy | Per-column (`axis=0`) sum/mean/std reductions with dpnp, combined signature vs NumPy reference |
+| [dpnp-migration-replace-numpy](./dpnp-migration-replace-numpy/) | dpnp | easy | Migrate a NumPy preprocessing pipeline to dpnp, preserving results with a NumPy fallback for unsupported `histogram(bins='auto')` |
+| [dpnp-linalg-matmul](./dpnp-linalg-matmul/) | dpnp | medium | Matrix multiply with `dpnp.matmul` / `@`, absolute-value-sum signature vs serial NumPy reference |
+| [dpnp-fft-pipeline](./dpnp-fft-pipeline/) | dpnp | medium | Power spectrum via `dpnp.fft.fft`, signature vs NumPy reference; validates power-of-2 length CLI argument |
 | [intel-perf-serial-accumulator](./intel-perf-serial-accumulator/) | Intel performance skills | medium | Diagnose low-IPC serial accumulator and rewrite with independent partial accumulators |
 | [intel-perf-false-sharing](./intel-perf-false-sharing/) | Intel performance skills | medium | Diagnose c2c/HITM false sharing and separate per-thread counters by cache line |
 | [intel-perf-shared-counter](./intel-perf-shared-counter/) | Intel performance skills | medium | Replace a hot global atomic statistics counter with local aggregation |
@@ -63,10 +68,11 @@ See [COVERAGE.md](./COVERAGE.md) for the broader oneTBB API/concept coverage mat
 
 > The oneTBB tasks build entirely from `ubuntu:22.04` + standard apt and are
 > verified in the `terminal-bench-verify` CI job. The oneMKL / oneDPL / IPP /
-> oneCCL / sklearnex tasks pull the Intel oneAPI apt repo, header-only oneDPL,
-> or pip wheels at **build** time (the verifier still runs offline with
-> `--network none`) and are verified in a separate `terminal-bench-verify-oneapi`
-> CI job so a heavy-image build cannot affect the core oneTBB job.
+> oneCCL / sklearnex / dpnp tasks pull the Intel oneAPI apt repo, header-only
+> oneDPL, the `intel/oneapi-basekit` image, or pip wheels at **build** time (the
+> verifier still runs offline with `--network none`) and are verified in a
+> separate `terminal-bench-verify-oneapi` CI job so a heavy-image build cannot
+> affect the core oneTBB job.
 
 ## Running a Task (Harbor)
 
