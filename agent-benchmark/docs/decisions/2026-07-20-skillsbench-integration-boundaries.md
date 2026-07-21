@@ -133,9 +133,16 @@ Introduce a provider-neutral dataset boundary conceptually equivalent to:
 class TaskDatasetAdapter(Protocol):
     def resolve(self, dataset_ref: DatasetRef) -> ResolvedDataset: ...
     def list_tasks(self, resolved: ResolvedDataset) -> list[TaskRef]: ...
-    def materialize(self, task: TaskRef, cache_dir: Path) -> Path: ...
-    def verify(self, task: TaskRef, path: Path) -> VerificationResult: ...
+    def materialize_verified(
+        self, task: TaskRef, cache_dir: Path
+    ) -> VerifiedTaskPackage: ...
 ```
+
+`VerifiedTaskPackage` is an immutable, content-addressed handle, not a writable
+path. Materialization, digest verification, and publication into the cache are
+one atomic operation. Execution providers accept only this handle. The cache
+uses per-digest locking and read-only snapshots so content cannot change
+between verification and execution.
 
 A `TaskRef` contains at minimum:
 
@@ -145,54 +152,100 @@ A `TaskRef` contains at minimum:
   "dataset_version": "1.1",
   "task_id": "3d-scan-calc",
   "source_url": "https://github.com/benchflow-ai/skillsbench.git",
-  "source_commit": "<registry commit>",
+  "registry_commit": "<registry commit>",
+  "task_source_commit": "<task source commit>",
   "source_path": "tasks/3d-scan-calc",
   "task_digest": "sha256:...",
-  "license": "Apache-2.0"
+  "license_expression": "Apache-2.0",
+  "asset_inventory": []
 }
 ```
+
+Each asset-inventory entry records source, checksum, SPDX expression or terms,
+redistribution status, and an explanation when status is unknown. Submodules,
+LFS objects, downloaded build inputs, and external registries contribute to the
+resolved identity rather than inheriting the repository license implicitly.
 
 Adapter responsibilities:
 
 1. Resolve an explicit dataset version; never default silently to a moving
    branch.
-2. Cache content by digest, not only by task name.
-3. Verify every materialized task before execution.
+2. Resolve the release tag to a commit, verify the registry byte digest, and
+   cache content by digest rather than task name.
+3. Atomically verify every materialized task and expose only an immutable
+   verified handle to execution providers.
 4. Preserve upstream license, notices, and source attribution.
 5. Inventory task-level external data/assets and flag unknown or incompatible
    terms.
 6. Expose upstream metadata without translating away unknown fields.
-7. Fail closed on digest mismatch.
+7. Fail closed on digest mismatch or an unpinned transitive input.
 
 ### 3.4 Execution-provider layer
 
 Task resolution and task execution are separate interfaces. The initial
-SkillsBench provider invokes the BenchFlow version range declared by the
-resolved dataset. It passes native package paths and explicit skill mode:
+SkillsBench provider resolves the BenchFlow compatibility range declared by the
+dataset to one exact executable version and image digest before scheduling a
+run. Every arm in a pair uses that same resolved runner. The provider boundary
+is conceptually equivalent to:
+
+```python
+class TaskExecutionProvider(Protocol):
+    def capabilities(self) -> ProviderCapabilities: ...
+    def execute(
+        self, request: ExecutionRequest, task: VerifiedTaskPackage
+    ) -> ProviderResult: ...
+```
+
+The typed request includes provider and harness identity, exact versions,
+timeout/cancellation, treatment view, network/tool policy, and output-schema
+version. The result includes raw-schema version, evidence-backed failure
+classification, and immutable artifact references.
+
+The provider creates separate trusted-runner and untrusted-agent views. The
+agent view contains task inputs and the permitted environment but never oracle
+or verifier files. The trusted runner alone mounts oracle/verifier content.
+Skill mode controls a declarative execution view:
 
 ```text
-with-skill: task environment + declared task skills
-no-skill:   identical task/environment, no task-skill injection
+with-skill: declared task skills visible through the specified delivery path
+no-skill:   task skills absent from every agent-visible path and discovery API
 oracle:     held-out oracle sanity run, never a benchmark model result
 ```
 
+The benchmark views have identical base image digest, inputs, prompt template
+except for declared skill delivery, tool permissions, timeout, network policy,
+and writable-cache state. Skill files, prompts, environment variables,
+discovery/nudge APIs, inherited caches, and tool-mediated paths are part of the
+treatment boundary. A conformance test must prove that a no-skill agent cannot
+enumerate or read task skills and that neither arm can access the oracle.
+
 The provider returns raw run metadata, verifier reward, logs, trajectories, and
-artifact locations. It does not compute cross-run deltas.
+artifact references. It does not compute cross-run deltas.
 
 Existing `agent-benchmark` Harbor aliases continue to execute compatible local
-or external tasks. A run must record its actual provider and provider version;
-results produced by BenchFlow and Harbor are different harness cells unless
-compatibility has been demonstrated.
+or external tasks. A run records execution provider/version/image digest
+separately from agent harness/version. BenchFlow and Harbor results are
+different provider cells unless compatibility is demonstrated by a conformance
+suite covering prompts, tools, timeout accounting, skill delivery, output
+normalization, and verifier inputs.
 
 ### 3.5 Experiment-control layer
 
-The experiment controller expands an explicit matrix. For SkillsBench the
-minimum cell key is:
+The experiment controller expands an explicit matrix. A canonical `cell_id` is
+the digest of all resolved outcome-relevant fields:
 
 ```text
-dataset_version × task_digest × model × harness × harness_version
-× skill_mode × plugin_set × generation_config × repetition
+dataset_provider/name/version × registry_digest × task_digest
+× execution_provider/version/image_digest × harness/version
+× model_provider/snapshot × skill_mode × skill_artifact_digest
+× canonical_plugin_set_id × generation_config × prompt_template_digest
+× tool/timeout/network/retry/discovery_policy_digests × repetition_seed
 ```
+
+Human-readable aliases are labels only. Mutable model, plugin, skill, image, or
+policy names are resolved to versions or content digests before scheduling.
+Randomization order and every attempt are recorded, but attempt number is not a
+new estimand.
 
 Example descriptor:
 
@@ -206,20 +259,26 @@ suite:
 matrix:
   cells:
     - id: codex-without-skills
-      model: <model-id>
-      harness: benchflow:codex
+      model: <model-snapshot>
+      execution_provider: benchflow@<exact-version>
+      harness: codex@<exact-version>
       skill_mode: no-skill
       plugins: []
     - id: codex-with-skills
-      model: <model-id>
-      harness: benchflow:codex
+      model: <model-snapshot>
+      execution_provider: benchflow@<exact-version>
+      harness: codex@<exact-version>
       skill_mode: with-skill
       plugins: []
 
 run:
   repetitions: 3
+  seed: <seed>
   order: randomized-pairs
-  retry_policy: infrastructure-only
+  retry_policy:
+    class: infrastructure-only
+    max_attempts: 2
+    backoff_sec: 30
 ```
 
 Pairing rules:
@@ -227,20 +286,35 @@ Pairing rules:
 - `skill_delta` changes only `skill_mode`.
 - `plugin_delta` changes only `plugin_set`.
 - `harness_delta` changes only `harness`, and is labelled observational unless
-  harness semantics are known to be equivalent.
+  the compatibility conformance suite passes.
 - No delta is valid across dataset versions or task digests.
 - Temperature, tool policy, timeout, network policy, retry policy, and skill
   discovery/nudge behavior must match inside a pair.
-- Pairs should be interleaved or randomized to reduce provider-time and cache
-  bias.
+- Pair order is randomized from a recorded seed and interleaved to reduce
+  provider-time and cache bias.
 
-Retries are only for classified infrastructure failures. Retrying verifier or
-agent failures until success would bias pass rates.
+For skill analysis, define a matched block by the complete canonical key with
+`skill_mode` removed; the two skill modes are arms within that block, not one
+cell. `skill_artifact_digest` identifies the assigned treatment package in both
+arms and does not imply that it is visible in the no-skill arm. The pairing unit
+is `task_digest × repetition_seed`. Repetitions share a task and are never
+analysed as independent tasks. The primary estimand is the equal-weighted mean
+task effect over the fixed released task set; inference to a broader task
+population is a separate exploratory estimand.
+
+Retries are only for failures classified as infrastructure failures from
+provider evidence. The policy fixes maximum attempts and backoff before the
+run, retains every attempt, and reruns both arms when a pair-level outage could
+affect either arm. Agent/verifier failures are never retried to obtain success.
+One-arm exclusions are reported by arm and receive complete-case sensitivity
+bounds; they are not silently treated as missing at random.
 
 ### 3.6 Normalized-result layer
 
-Extend the executable-task artifact model rather than storing a second
-SkillsBench-only report shape. Each normalized row should include:
+Introduce `task_runs.v2` rather than a SkillsBench-only report or a structurally
+incompatible extension of `task_runs.v1`. Provide a deterministic v1-to-v2
+upgrader and retain a v1 compatibility reader. V2 readers preserve unknown
+fields. Each normalized row includes at minimum:
 
 ```json
 {
@@ -252,15 +326,22 @@ SkillsBench-only report shape. Each normalized row should include:
   "task": {
     "id": "3d-scan-calc",
     "digest": "sha256:...",
-    "source_commit": "..."
+    "registry_commit": "...",
+    "task_source_commit": "..."
   },
   "cell": {
-    "model": "...",
-    "harness": "benchflow:codex",
+    "cell_id": "sha256:...",
+    "model_provider": "...",
+    "model_snapshot": "...",
+    "execution_provider": "benchflow",
+    "execution_provider_version": "...",
+    "execution_image_digest": "sha256:...",
+    "harness": "codex",
     "harness_version": "...",
     "skill_mode": "with-skill",
-    "plugin_set": "none",
-    "repetition": 1
+    "skill_artifact_digest": "sha256:...",
+    "plugin_set_id": "sha256:...",
+    "repetition_seed": "..."
   },
   "outcome": {
     "reward": 1.0,
@@ -273,17 +354,17 @@ SkillsBench-only report shape. Each normalized row should include:
     "cost_usd": null,
     "tool_calls": null
   },
-  "artifacts": {
-    "trajectory": "...",
-    "verifier_log": "...",
-    "output_manifest": "..."
-  },
+  "artifacts": [],
   "failure": null
 }
 ```
 
-Raw upstream results remain attached or referenced for audit. Normalization is
-lossless: unknown provider fields go into a namespaced extension block.
+Every artifact reference records content digest, media type, byte size, storage
+URI, retention/access class, encryption state, redaction status, and
+public-export eligibility. Raw upstream results remain attached or referenced
+for audit. Normalization preserves the raw artifact byte-for-byte and maps
+known fields without claiming semantic losslessness; unknown provider fields
+go into a versioned namespaced extension block.
 
 Use a failure taxonomy that does not convert infrastructure faults into model
 failures:
@@ -295,33 +376,71 @@ failures:
 | `infrastructure_failure` | image pull outage, provider unavailable | no; report separately |
 | `dataset_failure` | digest mismatch, broken oracle/package | no; block dataset cell |
 | `configuration_failure` | unsupported model/harness/skill mode | no; fail before run |
+| `unknown_failure` | insufficient evidence or conflicting signals | no; quarantine for adjudication |
+
+The classifier has deterministic precedence, stores diagnostic evidence and
+classifier version, and never guesses between agent and infrastructure causes.
+Timeouts, OOMs, lost connections, and verifier crashes are classified from
+runner evidence rather than exception text alone.
 
 ### 3.7 Analysis layer
 
-The primary SkillsBench analysis is paired skill lift:
+The primary endpoint is absolute reward lift from enabling task skills under
+one fixed model/harness/provider configuration. For binary verifiers this is
+percentage-point pass-rate lift. Define matched block `b` as the canonical
+cell key with `skill_mode` removed:
 
 ```text
-skill_lift(task, repetition, cell)
+skill_lift(task, repetition_seed, block)
   = reward(with-skill) - reward(no-skill)
 ```
 
-Reports should include:
+First average valid repetitions within each task, then macro-average tasks so
+tasks with more completed attempts do not receive greater weight. The primary
+report targets the fixed released task set and reports the point estimate
+regardless of significance. Conditional uncertainty from generation/runtime
+randomness uses a paired bootstrap of repetition seeds within each fixed task;
+with only three repetitions it is descriptive and cannot support a confirmatory
+claim. A pre-run power/simulation plan sets the required repetition count.
+Exploratory generalization beyond the released tasks may use a task-cluster
+bootstrap but is labelled as a different estimand.
+
+A confirmatory claim that a skill helped requires positive lift, a two-sided
+95% confidence interval excluding zero, the predeclared missingness gate, the
+predeclared minimum effect, and the planned repetition count. The run manifest
+fixes the minimum effect, repetition policy, and maximum tolerated one-arm
+missingness before execution.
+
+Reports include:
 
 - with-skill and no-skill pass rates;
-- absolute and normalized skill lift;
-- paired confidence interval and matched-pair test appropriate for binary
-  outcomes;
-- run count, complete-pair count, and missing-pair reasons;
-- slices by SkillsBench taxonomy, model, harness, and skill type;
+- absolute skill lift as the primary measure; any normalized lift only with a
+  declared formula and zero/one-baseline behavior;
+- paired confidence interval and matched-pair test appropriate for the declared
+  analysis unit;
+- scheduled pairs, attempts, completed arms, complete pairs, one-arm and
+  two-arm failures, retries, and missingness by arm/stage/task;
+- best/worst-case sensitivity bounds for excluded one-arm outcomes;
+- slices by SkillsBench taxonomy, model, harness, and skill type, labelled
+  exploratory with sample size unless multiplicity correction was predeclared;
 - task-level wins, losses, and unchanged outcomes;
 - infrastructure-failure rate separately from pass rate;
 - plugin/skill interaction only when a fully paired factorial design exists;
-- graded reward summaries when a verifier emits continuous reward.
+- graded reward summaries only when score direction, range, threshold, and
+  cross-task comparability are defined by the verifier contract.
 
-For binary paired outcomes, McNemar's test or a paired bootstrap over tasks is
-more appropriate than applying an unpaired proportion test. Existing paired
-`t`/Wilcoxon/Cohen's-d reporting remains useful for continuous judge scores but
-must not be reused mechanically for binary task outcomes.
+McNemar's test may describe one predeclared binary summary per task; repeated
+task trials must not be entered as independent observations. For the fixed-task
+estimand, repeated trials use paired within-task resampling. A task-cluster
+bootstrap applies only to the separately labelled task-population estimand.
+Continuous-outcome tests operate on task-level paired differences and declare
+their assumptions and exact effect size; paired `t`, Wilcoxon, and Cohen's d
+are not interchangeable defaults.
+
+For graded wins/losses, predeclare an unchanged tolerance. Pass thresholds come
+from the verifier, never from observed results. A plugin/skill interaction uses
+the difference of differences across all four matched arms and is reported only
+when all four share seed, task, policies, and missingness rules.
 
 ### 3.8 Publication layer
 
@@ -379,20 +498,44 @@ upstream commit, local patches, and synchronization status.
 
 ## 6. Security, licensing, and data handling
 
-- Treat task packages, Dockerfiles, skills, scripts, and verifier code as
-  untrusted third-party code.
-- Build and run in isolated sandboxes with least privilege, bounded CPU/memory,
-  explicit network policy, and no ambient Intel credentials.
-- `no-skill` must remove only the treatment under test; it must not change the
-  base image, input files, timeout, or tool permissions.
-- Keep oracle content hidden from the evaluated agent.
-- Preserve the SkillsBench Apache-2.0 license and notices in cached or vendored
-  copies.
-- Audit licenses and terms for bundled third-party datasets, models, fonts,
-  media, and other task assets; the repository-level license does not
-  automatically cure incompatible upstream asset terms.
-- Scrub trajectories and artifacts before public export; they may contain
-  secrets, personal data, provider identifiers, or proprietary code.
+- Treat task packages, Dockerfiles, skills, scripts, dependencies, build inputs,
+  oracle code, and verifier code as untrusted third-party code.
+- Build and run in disposable rootless sandboxes with dropped Linux
+  capabilities, `no-new-privileges`, read-only host and cache mounts, bounded
+  CPU/memory/PIDs/disk/time, and no Docker socket or privileged device access.
+- Deny network by default during build and run. Any allowlist is declared per
+  task, resolved before execution, logged, and identical inside a pair. Builds
+  use pinned base-image digests and locked dependencies; generated images are
+  scanned and recorded by digest before execution.
+- Run with a minimal allowlisted environment and short-lived scoped secrets
+  only when a task explicitly requires them. Never expose ambient Intel, cloud,
+  source-control, model-provider, SSH-agent, or host credentials.
+- `no-skill` removes the treatment from all agent-visible channels while
+  preserving the declared base environment and policies. Negative conformance
+  tests cover filesystem, prompts, discovery APIs, environment variables,
+  caches, and tool-mediated access.
+- Keep oracle and verifier material in a trusted-runner-only mount or service.
+  The evaluated agent cannot infer their paths, read them directly, or receive
+  verifier diagnostics during the attempt. Oracle preflight uses a separately
+  labelled trusted execution mode.
+- Verify the release tag's resolved commit, registry bytes, task bytes,
+  container images, dependencies, submodules/LFS objects, and downloaded assets
+  against pinned digests. Cache publication is atomic; cache entries are
+  immutable and reverified at execution handoff.
+- Preserve the SkillsBench Apache-2.0 license, copyright, attribution, and any
+  upstream `NOTICE` material in cached or vendored copies. Generate an SPDX
+  expression and per-asset inventory rather than assigning repository-level
+  Apache-2.0 to every bundled asset.
+- Unknown, non-redistributable, or incompatible asset terms block public cache
+  distribution and public artifact export. Internal execution requires a
+  recorded policy decision and access classification.
+- Store artifacts with digest, owner, access class, encryption, retention, and
+  deletion policy. Private Intel registries, caches, encryption keys, object
+  namespaces, and IAM are separate from public SkillsBench resources.
+- Public export is allowlist-based, not merely scrub-based. Automated secret,
+  PII, path, provider-ID, and proprietary-code scanning precedes human approval;
+  derived reports inherit the most restrictive source classification. Raw
+  public URLs are emitted only for artifacts explicitly marked exportable.
 
 ## 7. Proposed implementation phases
 
@@ -406,8 +549,10 @@ upstream commit, local patches, and synchronization status.
    mode, failure classification, trajectory/verifier references, and graded
    reward.
 
-**Exit:** written agreement on the first interchange boundary, or documented
-reason to proceed adapter-only.
+**Exit:** an upstream issue records the proposed boundary and an explicit
+response, or a time-boxed no-response/rejection decision records assumptions,
+owner, review date, and adapter-only fallback. Phase 0 does not block the local
+read-only prototype, but official-eligibility claims remain disabled.
 
 ### Phase 1 — read-only dataset adapter
 
@@ -416,30 +561,44 @@ reason to proceed adapter-only.
 3. Add list/inspect/preflight commands; no model execution yet.
 4. Generate a license/provenance inventory.
 
-**Exit:** the 87 active v1.1 tasks resolve reproducibly and digest mismatches
-fail closed.
+**Exit:** all expected active v1.1 registry entries resolve from a fresh cache;
+each release tag resolves to a recorded commit; registry, task, transitive
+input, image, and asset digests verify; unknown/unpinned inputs fail closed; the
+license inventory is complete or explicitly blocks redistribution.
 
 ### Phase 2 — execution and normalization
 
-1. Add a BenchFlow execution provider pinned to the dataset-supported version.
-2. Run oracle preflight on a small representative subset.
-3. Run one model/harness with explicit `with-skill` and `no-skill` cells.
-4. Normalize outputs into an additive successor to `task_runs.v1` while
-   retaining raw provider artifacts.
-5. Add failure classification and retry guards.
+1. Resolve the dataset-supported BenchFlow range to one exact runner version
+   and image digest; pin both for the run.
+2. Implement the typed provider contract and trusted-runner/agent-view split.
+3. Run oracle preflight on a representative subset spanning package patterns.
+4. Run one model/harness with explicit `with-skill` and `no-skill` arms.
+5. Implement `task_runs.v2`, a v1-to-v2 upgrader, and a v1 compatibility reader
+   while retaining immutable raw provider artifacts.
+6. Add evidence-backed failure classification, bounded pair-level retries, and
+   artifact access/export controls.
 
-**Exit:** repeated local runs produce complete, auditable pairs.
+**Exit:** repeated local runs produce complete, auditable pairs; no-skill and
+oracle negative-access tests pass; execution uses only verified immutable task
+handles; v1/v2 fixtures round-trip under the documented compatibility policy.
 
 ### Phase 3 — paired analysis
 
-1. Add skill-lift aggregation, confidence intervals, paired binary tests, and
-   taxonomy slices.
-2. Reject invalid cross-version, cross-digest, or cross-harness deltas.
-3. Surface missing pairs and infrastructure failures.
-4. Integrate executable results into subject scorecards.
+1. Predeclare the fixed-benchmark estimand, primary endpoint, minimum effect,
+   missingness gate, randomization seed, and multiplicity policy.
+2. Add task-macro skill lift, fixed-task paired uncertainty, separately labelled
+   task-population intervals, appropriate binary/graded analyses, and
+   exploratory taxonomy slices.
+3. Reject invalid cross-version, cross-digest, policy, or provider/harness
+   deltas unless the compatibility conformance suite passes.
+4. Surface arm-specific missingness, every retry, infrastructure failures, and
+   complete-case sensitivity bounds.
+5. Integrate executable results into subject scorecards.
 
-**Exit:** a report can support or reject a claim that a skill helped under one
-fixed model/harness configuration.
+**Exit:** synthetic and fault-injected fixtures validate clustering, weighting,
+missingness bounds, and retry accounting; a report applies the predeclared rule
+to support, reject, or mark inconclusive a skill-help claim under one fixed
+model/harness/provider configuration.
 
 ### Phase 4 — upstream interchange
 
@@ -454,20 +613,31 @@ fixed model/harness configuration.
 
 The integration is not complete until these gates pass:
 
-- **Provenance:** dataset version, registry digest, task digest, source commit,
-  runner version, model, harness, skill mode, and plugin set are present.
-- **Package integrity:** modified cache content is detected before execution.
-- **Oracle:** selected official tasks pass oracle preflight in the chosen
-  provider.
-- **Isolation:** evaluated agents cannot read oracle files or host credentials.
-- **Pairing:** changing any held-constant field invalidates the skill delta.
-- **Failure accounting:** injected infrastructure failures are excluded and
-  reported, not scored as model failures.
-- **Round trip:** normalized rows retain links to raw trajectory, verifier log,
-  and outputs.
-- **Statistics:** synthetic paired outcomes produce expected lift, confidence
-  interval, and matched-pair test results.
-- **License:** every cached task has source and license inventory records.
+- **Provenance:** release tag/commit, registry digest, task and transitive-input
+  digests, exact runner/image, model snapshot, harness, skill artifact,
+  canonical plugin set, policy digests, and repetition seed are present.
+- **Package integrity:** concurrent materialization cannot expose partial
+  content; mutation after verification is detected; providers reject raw paths
+  and accept only immutable verified handles.
+- **Supply chain:** base images and dependencies are pinned/scanned; network and
+  credential policies are deny-by-default and evidenced in run metadata.
+- **Oracle:** representative official tasks pass trusted oracle preflight;
+  evaluated agents cannot read oracle/verifier files or diagnostics.
+- **Treatment isolation:** no-skill agents cannot discover skills through files,
+  prompts, APIs, environment, caches, or tools; all non-treatment fields match.
+- **Pairing:** canonical block construction rejects a changed held-constant
+  field, mutable alias, cross-digest pair, or unapproved provider/harness pair.
+- **Failure accounting:** injected infrastructure, agent, verifier, ambiguous,
+  and one-arm failures follow deterministic precedence, retry, reporting, and
+  sensitivity rules.
+- **Schema compatibility:** v1 fixtures upgrade deterministically to v2; v1
+  readers remain supported as declared; unknown v2 fields survive a round trip.
+- **Artifact controls:** raw artifacts have integrity and access metadata;
+  secret/PII/proprietary fixtures are blocked from public export.
+- **Statistics:** synthetic clustered pairs produce expected task-macro lift,
+  confidence intervals, missingness bounds, and factorial interaction.
+- **License:** every task and external asset has source, checksum, SPDX/terms,
+  redistribution status, and required attribution/NOTICE records.
 
 ## 9. Upstream contribution sequence
 
@@ -498,16 +668,16 @@ Authorship, review, and task-quality policy remain SkillsBench decisions.
 
 1. Which SkillsBench result schema and submission API are considered stable for
    v1.1 consumers?
-2. Should `task_runs.v1` be extended additively or replaced by `task_runs.v2`
-   for dataset and artifact provenance?
-3. Which exact BenchFlow version is resolved from each registry entry when the
-   registry and release documentation differ?
-4. How should partial verifier rewards be aggregated across tasks with
-   different reward granularity?
-5. Which trajectory fields may be redistributed under model-provider and task
-   asset terms?
-6. Can one official run be accepted when orchestrated externally but executed
-   through the upstream-approved BenchFlow provider?
+2. When registry and release documentation differ, which source defines the
+   supported BenchFlow compatibility range? `agent-benchmark` will still resolve
+   that range to one exact version and image digest per run.
+3. Which verifier contracts define cross-task comparability for partial rewards?
+   Until defined, graded rewards remain task-level or within a common scale.
+4. Which trajectory fields may be redistributed under model-provider and task
+   asset terms? Local export remains deny-by-default until answered.
+5. Can one official run be accepted when orchestrated externally but executed
+   through the upstream-approved BenchFlow provider? Until answered, reports
+   are labelled unofficial and official submission is disabled.
 
 ## 12. Source basis
 
