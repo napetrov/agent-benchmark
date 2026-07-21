@@ -118,6 +118,14 @@ See [contributing-terminal-bench-task.md](contributing-terminal-bench-task.md)
 to add a task and [coding-harnesses.md](coding-harnesses.md) to run harness
 comparisons.
 
+External executable-task datasets stay outside this repository. The proposed
+SkillsBench integration resolves a pinned release, verifies registry/task
+digests, delegates native task execution to BenchFlow, and normalizes raw runs
+into the existing experiment/scorecard plane. SkillsBench remains authoritative
+for its public task catalog and leaderboard; `agent-benchmark` owns matrix
+control, paired analysis, and private Intel suites. See the
+[SkillsBench integration ADR](decisions/2026-07-20-skillsbench-integration-boundaries.md).
+
 ## Shared building blocks
 
 - `agent_benchmarks/llm.py` — provider-neutral LLM call wrapper (LiteLLM-based)

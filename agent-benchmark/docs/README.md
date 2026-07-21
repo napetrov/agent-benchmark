@@ -186,6 +186,11 @@ current status.
     — add exploration quality (citation localization F1, pre-edit cost,
     main-vs-subagent token accounting) as a measurable layer; FastContext skill
     arm + standalone ExploreBench track. *(Item #60.)*
+- [decisions/2026-07-20-skillsbench-integration-boundaries.md](decisions/2026-07-20-skillsbench-integration-boundaries.md)
+  — integrate SkillsBench as a digest-pinned external task dataset while
+  keeping experiment control, paired analysis, private suites, and scorecards
+  in `agent-benchmark`; defines layers, ownership, artifacts, rollout, and the
+  upstream-first contribution policy.
 - [decisions/benchmark-methodology.md](decisions/benchmark-methodology.md)
   — current operational methodology for model roles, question types,
   difficulty levels, answer generation, judging, trust checks, and executable
