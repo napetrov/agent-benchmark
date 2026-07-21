@@ -129,7 +129,7 @@ not be reported as official `skillsbench@<version>` results.
 
 Introduce a provider-neutral dataset boundary conceptually equivalent to:
 
-```python
+```text
 class TaskDatasetAdapter(Protocol):
     def resolve(self, dataset_ref: DatasetRef) -> ResolvedDataset: ...
     def list_tasks(self, resolved: ResolvedDataset) -> list[TaskRef]: ...
@@ -182,13 +182,15 @@ Adapter responsibilities:
 
 ### 3.4 Execution-provider layer
 
-Task resolution and task execution are separate interfaces. The initial
-SkillsBench provider resolves the BenchFlow compatibility range declared by the
-dataset to one exact executable version and image digest before scheduling a
-run. Every arm in a pair uses that same resolved runner. The provider boundary
-is conceptually equivalent to:
+Task resolution and task execution are separate interfaces. A versioned
+integration lock maps each dataset registry digest to one exact BenchFlow
+version and image digest. Resolution loads that lock entry and validates that
+the exact version satisfies the dataset-declared compatibility range; there is
+no runtime "latest compatible" selection. The resolved version and image digest
+are recorded in the run descriptor, and every arm in a pair uses that same
+runner. The provider boundary is conceptually equivalent to:
 
-```python
+```text
 class TaskExecutionProvider(Protocol):
     def capabilities(self) -> ProviderCapabilities: ...
     def execute(
@@ -212,9 +214,9 @@ no-skill:   task skills absent from every agent-visible path and discovery API
 oracle:     held-out oracle sanity run, never a benchmark model result
 ```
 
-The benchmark views have identical base image digest, inputs, prompt template
-except for declared skill delivery, tool permissions, timeout, network policy,
-and writable-cache state. Skill files, prompts, environment variables,
+The benchmark views have identical base image digest, inputs, prompt template,
+tool permissions, timeout, network policy, and writable-cache state. Only the
+declared skill delivery differs. Skill files, prompts, environment variables,
 discovery/nudge APIs, inherited caches, and tool-mediated paths are part of the
 treatment boundary. A conformance test must prove that a no-skill agent cannot
 enumerate or read task skills and that neither arm can access the oracle.
@@ -355,7 +357,10 @@ fields. Each normalized row includes at minimum:
     "tool_calls": null
   },
   "artifacts": [],
-  "failure": null
+  "failure": null,
+  "extensions": {
+    "org.benchflow.task-run/v1": {}
+  }
 }
 ```
 
@@ -363,8 +368,13 @@ Every artifact reference records content digest, media type, byte size, storage
 URI, retention/access class, encryption state, redaction status, and
 public-export eligibility. Raw upstream results remain attached or referenced
 for audit. Normalization preserves the raw artifact byte-for-byte and maps
-known fields without claiming semantic losslessness; unknown provider fields
-go into a versioned namespaced extension block.
+known fields without claiming semantic losslessness. Unknown provider fields
+go under the fixed top-level `extensions` object. Keys use a reverse-DNS owner
+plus schema name/version (`<owner>.<project>.<schema>/v<integer>`), and values
+are provider-native JSON objects. Extension keys cannot shadow core fields;
+duplicate keys are invalid; incompatible changes require a new versioned key.
+Adapters preserve unrecognized extension entries byte-for-byte in the attached
+raw artifact and structurally unchanged when reading and rewriting V2 JSON.
 
 Use a failure taxonomy that does not convert infrastructure faults into model
 failures:
@@ -372,16 +382,29 @@ failures:
 | Class | Examples | Included in task pass rate? |
 | --- | --- | --- |
 | `agent_failure` | timeout after valid start, invalid output | yes |
-| `verifier_failure` | completed output fails checks | yes |
+| `verifier_failure` | valid verifier rejects completed output | yes |
+| `verifier_error` | trusted verifier crashes or emits an invalid result | no; block affected cell |
 | `infrastructure_failure` | image pull outage, provider unavailable | no; report separately |
 | `dataset_failure` | digest mismatch, broken oracle/package | no; block dataset cell |
 | `configuration_failure` | unsupported model/harness/skill mode | no; fail before run |
 | `unknown_failure` | insufficient evidence or conflicting signals | no; quarantine for adjudication |
 
-The classifier has deterministic precedence, stores diagnostic evidence and
-classifier version, and never guesses between agent and infrastructure causes.
-Timeouts, OOMs, lost connections, and verifier crashes are classified from
-runner evidence rather than exception text alone.
+Classification uses authoritative typed runner signals with this precedence:
+`configuration_failure` -> `dataset_failure` -> `verifier_error` ->
+`infrastructure_failure` -> `agent_failure` -> `verifier_failure`. A task
+output that the verifier validly rejects remains `verifier_failure`, even if the
+agent also emitted an error. Conflicting signals at the same precedence or
+untyped signals become `unknown_failure`; exception text alone never overrides
+a typed signal. The normalized row stores the classifier version, selected
+signal, all conflicting signals, and diagnostic evidence.
+
+Only `infrastructure_failure` is retry-eligible, and only under the bounded
+pair-level retry policy. `agent_failure` and `verifier_failure` count in task
+pass-rate denominators and are never retried for success. `configuration_failure`,
+`dataset_failure`, `verifier_error`, and `unknown_failure` are excluded from pass
+rates and block or quarantine the affected cell. This mapping and precedence
+are shared by execution, retry accounting, normalization, and validation
+fixtures.
 
 ### 3.7 Analysis layer
 
